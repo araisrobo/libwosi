@@ -1,0 +1,16 @@
+=============================
+library for wishbone over usb
+=============================
+
+
+FTD2XX (Required Library)
+=========================
+get the D2XX drivers from FTDI.
+    * http://www.ftdichip.com/Drivers/D2XX.htm (FTDI FTD2XX library)
+Cygwin:
+    * unzip FTDI D2XX device driver
+    * copy ftd2xx.h to /usr/local/include
+    * copy i386/ftd2xx.lib to /usr/local/lib/libftd2xx.a
+    * ./configure       # --with-ftd2xx=<...> is not required
+Linux:
+    ... TODO ...

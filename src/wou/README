@@ -1,0 +1,4 @@
+board.c - fpga board information and functions
+    * it's derived from bfload.c of EMC2 project
+
+m7i43u - Mesa 7i43 USB Anything I/O Board
