@@ -633,6 +633,7 @@ static int wbou_send (board_t* b)
         // DP ("FT_GetStatus: dwRxBytes(%lu) dwTxBytes(%lu) dwEventDWord(%lu)\n",
         //      r, t, e);
         
+        // when (RX_BUF >= 4 bytes), read and process it
         while (r>=4) {
           DWORD recvd = 0;
           ftStatus = FT_Read(b->io.usb.ftHandle, b->wbou->buf_recv, 4, &recvd );
@@ -647,10 +648,11 @@ static int wbou_send (board_t* b)
             DPS ("<%.2X>", b->wbou->buf_recv[i]);
           }
           DPS ("\n");
-          // TODO: check for SYNC
+          // check for SYNC
           if ((b->wbou->buf_recv[0] != 0xFF) || 
               (b->wbou->buf_recv[1] != 0x00)) 
           {
+            // ERROR Handeling:
             ERRP("Unexpected TID, check it out! ... \n"); getchar();
             
             ftStatus = FT_GetStatus(b->io.usb.ftHandle, &r, &t, &e);
@@ -677,10 +679,6 @@ static int wbou_send (board_t* b)
           } 
           r-=4;
         } 
-        // else if (r < 4) {
-        //   DP ("WARNING: no response for SYNC\n");
-        //   // exit (1);
-        // }
         
         return (0);
     }
