@@ -82,7 +82,8 @@ typedef struct pkt_struct {
 
 /**
  * wou_t - circular buffer to keep track of wou packets
- * @n_pkts:       // nu of pending wou packets
+ * @frame_id:     // frame_id (appeared at 1st WOU packet: FF00<frame_id>00)
+ *                   refer to board.c::wou_eof() and board_init()
  * @pkts[256]:    // array of wou pckets 
  * @clock:        // clock pointer for next available wou
  * @head_pend:    // head of pending wou packets to be send
@@ -90,7 +91,7 @@ typedef struct pkt_struct {
  * @psize:        // size in bytes for pending wou packets
  **/
 typedef struct wou_struct {
-  uint16_t    n_pkts;       
+  uint8_t     frame_id;       
   pkt_t       pkts[TID_LIMIT];    
   uint8_t     buf_send[BURST_LIMIT];
   uint8_t     buf_recv[BURST_LIMIT];

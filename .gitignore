@@ -41,3 +41,7 @@ autom4te.cache/*
 m4/*
 *.deps*
 *.libs*
+tests/wou-unit-test-axis
+tests/wou-unit-test-gpio
+tests/wou-unit-test-jcmd
+

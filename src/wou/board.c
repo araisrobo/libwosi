@@ -69,6 +69,7 @@ information, go to www.linuxcnc.org.
 
 // to disable DP(): #define TRACE 0
 // to dump more info: #define TRACE 2
+#define TRACE 2
 #include "dptrace.h"
 #if (TRACE!=0)
 FILE *dptrace; // dptrace = fopen("dptrace.log","w");
@@ -247,7 +248,7 @@ int board_init (board_t* board, const char* device_type, const int device_id,
     DP ("chip_type(%s)\n", board->chip_type);
    
     board->wou = (wou_t *) malloc (sizeof(wou_t));
-    // board->wou->n_pkts = 0;
+    board->wou->frame_id = 0;
     board->wou->clock = 0;
     board->wou->head_pend = 0;
     board->wou->head_wait = 0;
@@ -369,6 +370,7 @@ int board_close (board_t* board)
 int board_reset (struct board *b)
 {
   FT_STATUS s;
+  int i;
 
   if (!FT_SUCCESS(s = FT_ResetDevice(b->io.usb.ftHandle))) {
     ERRP("FT_ResetDevice ... \n");
@@ -382,14 +384,25 @@ int board_reset (struct board *b)
   // }
   // DP ("FT_ResetDevice ... pass\n");
   // 
-  // /* Write an imcomplete HEADER to reset proto */
-  // char cBufWrite[2];
-  // DWORD	dwBytesWritten/*, dwBytesRead*/;
-  // cBufWrite[0] = 0xA5;
-  // if(!FT_SUCCESS(s = FT_Write(b->io.usb.ftHandle, cBufWrite, 1, 
-  //                           &dwBytesWritten))) {
-  //   printf("Error FT_Write(%lu)\n", s);
-  // }
+
+  // give a SOFT_RST to reset fpga
+  // WOU_SYNC packet: <FF><00><00><00>
+  // SOFT_RST packet: <00><C0><00><01><01>
+  char cBufWrite[9];
+  DWORD	dwBytesWritten/*, dwBytesRead*/;
+  cBufWrite[0] = 0xFF;
+  cBufWrite[1] = 0x00;
+  cBufWrite[2] = 0x00;
+  cBufWrite[3] = 0x00;
+  cBufWrite[4] = 0x00;
+  cBufWrite[5] = 0xC0;
+  cBufWrite[6] = 0x00;
+  cBufWrite[7] = 0x01;
+  cBufWrite[8] = 0x01;
+  if(!FT_SUCCESS(s = FT_Write(b->io.usb.ftHandle, cBufWrite, 9, 
+                            &dwBytesWritten))) {
+    ERRP("Error FT_Write(%lu)\n", s);
+  }
   
   // // debug:
   // struct timespec time;
@@ -399,12 +412,19 @@ int board_reset (struct board *b)
   // nanosleep(&time, NULL);
   // board_status (b);
   // DP ("wait for response ... press key ...\n"); getchar();
-         
-  // b->wou->n_pkts = 0;
+
+
+  
+  // the first WOU_PACKET after RST would be <FF><00><00><00>
+  b->wou->frame_id = 0;
   b->wou->clock = 0;
   b->wou->head_pend = 0;
   b->wou->head_wait = 0;
   b->wou->psize = 0;
+  for (i = 0; i < TID_LIMIT; i++) {
+    b->wou->pkts[i].size = 0;
+  }
+         
   return 0;
 }
 
@@ -846,17 +866,14 @@ static int wou_send (board_t* b)
 // TODO: replace wou_eof as wou_sync
 int wou_eof (board_t* b)
 {
-    static uint8_t clock = 0;
+    // static uint8_t clock = 0;
     b->wou->pkts[255].size = REQ_H_SIZE;  // header
     b->wou->pkts[255].buf[0] = 0xFF;      // tid for SYNC
-    b->wou->pkts[255].buf[1] = WB_RD_CMD; // ACK with clock id
-    // b->wou->pkts[255].buf[1] = WB_WR_CMD; // will not ACK
-    b->wou->pkts[255].buf[2] = clock;     // 0
+    b->wou->pkts[255].buf[1] = WB_RD_CMD; // ACK with frame_id
+    b->wou->pkts[255].buf[2] = b->wou->frame_id; // reset as 0 at board_init()
     b->wou->pkts[255].buf[3] = 0;         // 0
-    // b->wou->n_pkts += 1; // ? need this?
-    // b->wou->clock += 1;
     b->wou->psize += REQ_H_SIZE;
-    clock += 1;
+    b->wou->frame_id += 1;
     // flush pending [wou] packets
     wou_send(b);
     return 0;

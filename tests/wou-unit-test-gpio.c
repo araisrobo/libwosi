@@ -62,6 +62,7 @@ int main(void)
                          GPIO_LEDS,
                          1,
                          &value);
+          // wou_flush(&w_param);
         }
         
         value = (uint8_t) 0xAA;

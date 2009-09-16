@@ -36,16 +36,17 @@ int main(void)
 
   printf ("debug: for BOOST... getchar ...\n"); getchar();
   
-  // reset fpga
-  value = GPIO_SOFT_RST;
-  ret = wou_cmd (&w_param,
-                 (WB_WR_CMD | WB_AI_MODE),
-                 GPIO_SYSTEM,
-                 1,
-                 &value);
-  //debug: check if the first packet is correct?
-  wou_flush(&w_param);
-  printf("send a wou-frame ... press key ...\n"); getchar();
+  //bug: can not give SOFT_RST w/o resetting b->wou->frame_id as 0
+  //bug: // reset fpga
+  //bug: value = GPIO_SOFT_RST;
+  //bug: ret = wou_cmd (&w_param,
+  //bug:                (WB_WR_CMD | WB_AI_MODE),
+  //bug:                GPIO_SYSTEM,
+  //bug:                1,
+  //bug:                &value);
+  //bug: //debug: check if the first packet is correct?
+  //bug: wou_flush(&w_param);
+  //bug: printf("send a wou-frame ... press key ...\n"); getchar();
  
   // switch LEDs to display servo pulse commands
   value = 1;
