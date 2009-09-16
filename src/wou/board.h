@@ -72,8 +72,8 @@ static const _Ftstat Ftstat[] = {
 
 /**
  * pkt_t -  packet for wishbone over usb protocol
- * @buf:    buffer to hold this [wbou], buf[0] is tid
- * @size:   size in bytes for this [wbou] 
+ * @buf:    buffer to hold this [wou], buf[0] is tid
+ * @size:   size in bytes for this [wou] 
  **/
 typedef struct pkt_struct {
   uint8_t     buf[REQ_H_SIZE+DSIZE_LIMIT];   
@@ -81,15 +81,15 @@ typedef struct pkt_struct {
 } pkt_t;
 
 /**
- * wbou_t - circular buffer to keep track of wbou packets
- * @n_pkts:       // nu of pending wbou packets
- * @pkts[256]:    // array of wbou pckets 
- * @clock:        // clock pointer for next available wbou
- * @head_pend:    // head of pending wbou packets to be send
- * @head_wait:    // head of wbou packets which is waiting for ACK
- * @psize:        // size in bytes for pending wbou packets
+ * wou_t - circular buffer to keep track of wou packets
+ * @n_pkts:       // nu of pending wou packets
+ * @pkts[256]:    // array of wou pckets 
+ * @clock:        // clock pointer for next available wou
+ * @head_pend:    // head of pending wou packets to be send
+ * @head_wait:    // head of wou packets which is waiting for ACK
+ * @psize:        // size in bytes for pending wou packets
  **/
-typedef struct wbou_struct {
+typedef struct wou_struct {
   uint16_t    n_pkts;       
   pkt_t       pkts[TID_LIMIT];    
   uint8_t     buf_send[BURST_LIMIT];
@@ -98,7 +98,7 @@ typedef struct wbou_struct {
   uint8_t     head_pend;    
   uint8_t     head_wait;    
   uint32_t    psize;
-} wbou_t;
+} wou_t;
 
 //
 // this data structure describes a board we know how to program
@@ -131,8 +131,11 @@ typedef struct board {
     } io;
     
     // Wishbone Over USB protocol
-    wbou_t*       wbou;   // circular buffer to keep track of wbou packets
+    wou_t*       wou;   // circular buffer to keep track of wou packets
 
+    // wisbone register map for this board
+    uint8_t wb_reg_map[WB_REG_SIZE];
+    
     int (*program_funct) (struct board *bd, struct bitfile_chunk *ch);
 } board_t;
 
@@ -144,8 +147,8 @@ int board_status (board_t* board);
 int board_reset (board_t* board);
 // int board_prog (board_t* board, char* filename);
 
-int wbou_append (board_t* b, uint8_t cmd, uint16_t addr, uint8_t size,
+int wou_append (board_t* b, uint8_t cmd, uint16_t addr, uint8_t size,
                  uint8_t* buf);
-int wbou_eof (board_t* b);
+int wou_eof (board_t* b);
 
 #endif  // __MESA_H__

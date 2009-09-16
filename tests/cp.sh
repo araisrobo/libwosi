@@ -1,1 +1,1 @@
-cp ~/proj/act/proto/fpga/ise/fpga_top.bit .
+cp ${PROJECT_HOME}/fpga/ise/fpga_top.bit .

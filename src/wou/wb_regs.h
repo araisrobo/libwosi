@@ -59,7 +59,7 @@
  *obsolete:  TODO: CUR_VELO    [15: 8]   
  *******************************************************************************
  *******************************************************************************
- * @registers for JCMD (Joint Command Processor))
+ * @registers for JCMD (Joint Command Processor)
  *******************************************************************************
  * JCMD_BASE            0x0020
  * JCMD_MASK            0x000F
@@ -83,6 +83,17 @@
  *    MODE     [    0]  0x0005        W       (1)PLAY mode (0) REC mode
  *    SIF_EN   [    1]  0x0005        W       Servo Interface Enable
  *    RST      [    2]  0x0005        W       Reset JCMD
+ *******************************************************************************
+ *******************************************************************************
+ * @registers for SIFS (Servo Interface Status)
+ *******************************************************************************
+ * SIFS_BASE            0x0040
+ * SIFS_MASK            0x002F  (0x40 ~ 0x6F)
+ *******************************************************************************
+ * REG_NAME             ADDR_OFFSET   ACCESS  DESCRIPTION
+ * SIFS_SIF_CMD         0x0000        R       (0x00 ~ 0x0F) AXIS_0 ~ AXIS_3, sif-command from jcmd FIFO
+ * SIFS_PULSE_CMD       0x0010        R       (0x10 ~ 0x1F) AXIS_0 ~ AXIS_3, pulse-command to jcmd FIFO
+ * SIFS_ENC_POS         0x0020        R       (0x20 ~ 0x2F) AXIS_0 ~ AXIS_3, encoder-position from servo driver
  *******************************************************************************
  **/
 
@@ -110,7 +121,9 @@
 // #error "Unsupported C Compiler"
 // #endif
 
-// for U2WB protocol (usb to wb)
+// for WOU protocol (wishbone over usb)
+#define WB_REG_SIZE     16384   // addressable wishbone register size (2^14)
+#define WOU_HDR_SIZE    4       // header sizea of WOU_HEADER
 #define MAX_DSIZE       256     // Maximum data size
 #define WB_RD_CMD       0x00
 #define WB_WR_CMD       0x80
@@ -213,4 +226,12 @@
 #define JCMD_POS_R      0x0002  // {DIR_R, POS_R} in FIFO mode
 #define JCMD_TBASE      0x0004  // [3:0]
 #define JCMD_CTRL       0x0005  // {RST, REC, PLAY}
+
+// registers for SIFS (Servo Interface Status)
+#define SIFS_BASE       0x0040
+#define SIFS_MASK       0x006F  // (0x40 ~ 0x7F)
+#define SIFS_SIF_CMD    0x0000  // (0x00 ~ 0x0F) AXIS_0 ~ AXIS_3, sif-command from jcmd FIFO
+#define SIFS_PULSE_CMD  0x0010  // (0x10 ~ 0x1F) AXIS_0 ~ AXIS_3, pulse-command to jcmd FIFO
+#define SIFS_ENC_POS    0x0020  // (0x20 ~ 0x2F) AXIS_0 ~ AXIS_3, encoder-position from servo driver
+
 #endif // __wb_regs_h__

@@ -51,8 +51,8 @@ int wou_cmd (wou_param_t *w_param, uint8_t type, int start_addr,
                 return INVALID_DATA;
         }
 
-        // wbou_append (w_param->board, (WB_WR_CMD | WB_AI_MODE), 
-        wbou_append (w_param->board, type, 
+        // wou_append (w_param->board, (WB_WR_CMD | WB_AI_MODE), 
+        wou_append (w_param->board, type, 
                      (uint16_t) start_addr, (uint8_t) nb, data);
 
         return 0;
@@ -60,8 +60,8 @@ int wou_cmd (wou_param_t *w_param, uint8_t type, int start_addr,
 
 int wou_flush (wou_param_t *w_param)
 {
-        if (w_param->board->wbou->psize != 0) {
-                wbou_eof (w_param->board);
+        if (w_param->board->wou->psize != 0) {
+                wou_eof (w_param->board);
         }
         return 0;
 }

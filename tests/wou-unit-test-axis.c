@@ -10,63 +10,56 @@
 
 int main(void)
 {
-  wou_param_t w_param;
-  uint8_t value;
-  int ret;
-  int i, j;
-  uint8_t data[MAX_DSIZE];
+        wou_param_t w_param;
+        uint8_t value;
+        int ret;
+        int i, j;
+        uint8_t data[MAX_DSIZE];
+      
+        
+        // do not load fpga bitfile:
+        // wou_init_usb(&w_param, "7i43u", 0, NULL);
+        wou_init(&w_param, "7i43u", 0, "./fpga_top.bit");
+        // wou_set_debug(&w_param, TRUE);
+        // printf ("debug: about to wou_connect()\n"); 
+        // getchar();
+        if (wou_connect(&w_param) == -1) {  
+                printf("ERROR Connection failed\n");
+                exit(1);
+        }
+
+        printf("** UNIT TESTING **\n");
+
+        printf("\nTEST JCMD WRITE/READ:\n");
+
+        /** WISHBONE REGISTERS **/
+      
+        printf ("debug: for BOOST... getchar ...\n"); getchar();
 
   
-  // do not load fpga bitfile:
-  // wou_init_usb(&w_param, "7i43u", 0, NULL);
-  wou_init(&w_param, "7i43u", 0, "./fpga_top.bit");
-  // wou_set_debug(&w_param, TRUE);
-  // printf ("debug: about to wou_connect()\n"); 
-  // getchar();
-  if (wou_connect(&w_param) == -1) {  
-          printf("ERROR Connection failed\n");
-          exit(1);
-  }
-
-  printf("** UNIT TESTING **\n");
-
-  printf("\nTEST JCMD WRITE/READ:\n");
-
-  /** WISHBONE REGISTERS **/
-
-  printf ("debug: for BOOST... getchar ...\n"); getchar();
-  
-  // reset fpga
-  value = GPIO_SOFT_RST;
-  ret = wou_cmd (&w_param,
-                 (WB_WR_CMD | WB_AI_MODE),
-                 GPIO_SYSTEM,
-                 1,
-                 &value);
-  //debug: check if the first packet is correct?
-  wou_flush(&w_param);
-  printf("send a wou-frame ... press key ...\n"); getchar();
- 
-  // switch LEDs to display servo pulse commands
-  value = 1;
-  ret = wou_cmd (&w_param,
-                 (WB_WR_CMD | WB_AI_MODE),
-                 GPIO_LEDS_SEL,
-                 1,
-                 &value);
-  //debug: check if the first packet is correct?
-  wou_flush(&w_param);
-  printf("send a wou-frame ... press key ...\n"); getchar();
- 
-  // JCMD_TBASE: 0: servo period is "32768" ticks
-  // data[0] = 0; 
-  // wr_usb (WR_AI, (uint16_t) (JCMD_BASE | JCMD_TBASE), (uint8_t) 1, data);
-  value = 0;
-  ret = wou_cmd (&w_param,
-                 (WB_WR_CMD | WB_AI_MODE),
-                 (JCMD_BASE | JCMD_TBASE),
-                 1,
-                 &value);
+        // sync_usb();  // reset generator_agent::tid_ to 0 after SOFT_RST
+        // data[ 0]  = 0; // GPIO_SYSTEM = 0x00 (do nothing)
+        // wr_usb (WR_AI, (uint16_t) (GPIO_BASE | GPIO_SYSTEM), (uint8_t) 1, data);
+        // data[ 0]  = 1; // GPIO_LEDS_SEL = 0x01 (connect SERVO_IF pulse to LEDS)
+        // wr_usb (WR_AI, (uint16_t) (GPIO_BASE | GPIO_LEDS_SEL), (uint8_t) 1, data);
+        value = 1;
+        // printf ("debug: value(%.2X)\n", value); 
+        // getchar();
+        ret = wou_cmd (&w_param,
+                       (WB_WR_CMD | WB_AI_MODE),
+                       GPIO_LEDS_SEL,
+                       1,
+                       &value);
+       
+        // JCMD_TBASE: 0: servo period is "32768" ticks
+        // data[0] = 0; 
+        // wr_usb (WR_AI, (uint16_t) (JCMD_BASE | JCMD_TBASE), (uint8_t) 1, data);
+        value = 0;
+        ret = wou_cmd (&w_param,
+                       (WB_WR_CMD | WB_AI_MODE),
+                       (JCMD_BASE | JCMD_TBASE),
+                       1,
+                       &value);
 
 //ysli:        // JCMD_CTRL: 
 //ysli:        //  [bit-0]: (1)JCMD in PLAY mode, forward JCMD_POS_W to JCMD_FIFO
@@ -94,58 +87,45 @@ int main(void)
 //ysli:                         2,
 //ysli:                         data);
 //ysli:        }
-  
-   // JCMD_CTRL: 
-   //  [bit-0]: (1)JCMD in PLAY mode, forward JCMD_POS_W to JCMD_FIFO
-   //  [bit-1]: SIF_EN, servo interface enable
-   //  [bit-2]: RST, reset JCMD_FIFO and JCMD_FSMs
-   data[0] = 3;
-   // wr_usb (WR_AI, (uint16_t) (JCMD_BASE | JCMD_CTRL), (uint8_t) 1, data);
-   ret = wou_cmd (&w_param,
-                  (WB_WR_CMD | WB_AI_MODE),
-                  (JCMD_BASE | JCMD_CTRL),
-                  1,
-                  data);
-   
-  for (i=0; i<160; i++) {
-    // JCMD_POS and JCMD_DIR (big-endian, byte-0 is MSB)
-
-    // prepare servo command for 4 axes
-    for (j=0; j<4; j++) {
-      // data[13]: Direction, (positive(1), negative(0))
-      // data[12:0]: Relative Angle Distance (0 ~ 8191)
-      data[j*2]     = (1 << 5);
-      // data[1]  = 0xFA; // 0xFA: 250
-      data[j*2 + 1] = 0x01 + j;
-    }
-
-    // wr_usb (WR_FIFO, (uint16_t) (JCMD_BASE | JCMD_POS_W), (uint8_t) 2, data);
-    ret = wou_cmd (&w_param,
-                   (WB_WR_CMD | WB_FIFO_MODE),
-                   (JCMD_BASE | JCMD_POS_W),
-                   2*4, // 4 axes
-                   data);
-    ret = wou_cmd (&w_param,
-                   (WB_RD_CMD | WB_AI_MODE),
-                   (SIFS_BASE | SIFS_SIF_CMD),
-                   16,
-                   data);
-     // debug:
-     wou_flush(&w_param);
-     printf("send a wou-frame ... press key ...\n"); getchar();
-  }
-  
-   // JCMD_TBASE: 0: servo period is "32768" ticks
-   // data[0] = 0; 
-   // wr_usb (WR_AI, (uint16_t) (JCMD_BASE | JCMD_TBASE), (uint8_t) 1, data);
-   value = 0;
-   ret = wou_cmd (&w_param,
-                  (WB_WR_CMD | WB_AI_MODE),
-                  (JCMD_BASE | JCMD_TBASE),
-                  1,
-                  &value);
-
-   wou_flush(&w_param);
+        
+         // JCMD_CTRL: 
+         //  [bit-0]: (1)JCMD in PLAY mode, forward JCMD_POS_W to JCMD_FIFO
+         //  [bit-1]: SIF_EN, servo interface enable
+         //  [bit-2]: RST, reset JCMD_FIFO and JCMD_FSMs
+         data[0] = 3;
+         // wr_usb (WR_AI, (uint16_t) (JCMD_BASE | JCMD_CTRL), (uint8_t) 1, data);
+         ret = wou_cmd (&w_param,
+                        (WB_WR_CMD | WB_AI_MODE),
+                        (JCMD_BASE | JCMD_CTRL),
+                        1,
+                        data);
+          
+          // to generate 10,000 pulses for each axis
+         for (i=0; i<160; i++) {
+           // JCMD_POS and JCMD_DIR (big-endian, byte-0 is MSB)
+           data[0]  = (0 << 5);  // Direction, (positive(1), negative(0))
+           data[0]  = 0;      // Relative Angle Distance (0 ~ 8191)
+           data[1]  = 0xFA;
+           // wr_usb (WR_FIFO, (uint16_t) (JCMD_BASE | JCMD_POS_W), (uint8_t) 2, data);
+           ret = wou_cmd (&w_param,
+                          (WB_WR_CMD | WB_FIFO_MODE),
+                          (JCMD_BASE | JCMD_POS_W),
+                          2,
+                          data);
+         }
+        
+ 
+         // JCMD_TBASE: 0: servo period is "32768" ticks
+         // data[0] = 0; 
+         // wr_usb (WR_AI, (uint16_t) (JCMD_BASE | JCMD_TBASE), (uint8_t) 1, data);
+         value = 0;
+         ret = wou_cmd (&w_param,
+                        (WB_WR_CMD | WB_AI_MODE),
+                        (JCMD_BASE | JCMD_TBASE),
+                        1,
+                        &value);
+ 
+         wou_flush(&w_param);
 //ysli: 
 //ysli:        
 //ysli:         // try to make JCMD_FIFO full
@@ -204,8 +184,8 @@ int main(void)
 //ysli:           // debug: assert (ret==0);
 //ysli:         }
 
-  /* Close the connection */
-  wou_close(&w_param);
+        /* Close the connection */
+        wou_close(&w_param);
 
-  return 0;
+        return 0;
 }
