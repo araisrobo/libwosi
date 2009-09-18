@@ -69,7 +69,7 @@ information, go to www.linuxcnc.org.
 
 // to disable DP(): #define TRACE 0
 // to dump more info: #define TRACE 2
-#define TRACE 2
+#define TRACE 0
 #include "dptrace.h"
 #if (TRACE!=0)
 FILE *dptrace; // dptrace = fopen("dptrace.log","w");
