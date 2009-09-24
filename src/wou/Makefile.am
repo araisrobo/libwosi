@@ -29,6 +29,8 @@ libwou_la_SOURCES = \
 	board.h \
 	board.c
 
+INCLUDES = -I../
+
 # if ENABLE_LOWLEVEL_FTDI
 # libmou_a_SOURCES += \
 # 	usbconn/libftdi.c
