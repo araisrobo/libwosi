@@ -742,123 +742,6 @@ static int wou_send (board_t* b)
              8.0*dwBytesWritten/(1000000.0*dt.tv_sec+dt.tv_nsec/1000.0));
         b->wou->psize = 0; // reset pending wou buf size
     
-        // to wou_recv(): // debug:
-        // to wou_recv(): // debug: struct timespec time;
-        // to wou_recv(): // debug: board_status (b);
-        // to wou_recv(): // debug: time.tv_sec = 0;
-        // to wou_recv(): // debug: time.tv_nsec = 500000000;   // 500ms
-        // to wou_recv(): // debug: nanosleep(&time, NULL);
-        // to wou_recv(): // debug: DP ("wait 500ms for response\n");
-        // to wou_recv(): // debug: board_status (b);
-        // to wou_recv(): // debug: DP ("press key ...\n"); getchar();
-        // to wou_recv():  
-        // to wou_recv(): // TODO: define API
-        // to wou_recv(): /**
-        // to wou_recv():  * check FTDI Rx Buffer
-        // to wou_recv():  **/
-        // to wou_recv(): FT_STATUS s;
-        // to wou_recv(): DWORD r, t, e;
-        // to wou_recv(): ftStatus = FT_GetStatus(b->io.usb.ftHandle, &r, &t, &e);
-        // to wou_recv(): if (ftStatus != FT_OK) {
-        // to wou_recv():     ERRP("FT_GetStatus()\n");
-        // to wou_recv():     return -1;
-        // to wou_recv(): }
-        // to wou_recv(): // DP ("FT_GetStatus: dwRxBytes(%lu) dwTxBytes(%lu) dwEventDWord(%lu)\n",
-        // to wou_recv(): //      r, t, e);
-        // to wou_recv(): 
-        // to wou_recv(): // when (RX_BUF >= 4 bytes), read and process it
-        // to wou_recv(): while (r>=4) {
-        // to wou_recv():   int wb_addr;
-        // to wou_recv():   int dsize;
-        // to wou_recv():   DWORD recvd = 0;
-        // to wou_recv():   // read 4 bytes of header back
-        // to wou_recv():   ftStatus = FT_Read(b->io.usb.ftHandle, b->wou->buf_recv, 4, &recvd );
-        // to wou_recv():   if (ftStatus != FT_OK) 
-        // to wou_recv():   {
-        // to wou_recv():     DP ("FT_Read(): ftStatus(%d)\n", (int)ftStatus);
-        // to wou_recv():     return -1;
-        // to wou_recv():   }
-        // to wou_recv():   DP ("FT_Read(): ");
-        // to wou_recv():   for (i=0; i < recvd; i++) 
-        // to wou_recv():   {
-        // to wou_recv():     DPS ("<%.2X>", b->wou->buf_recv[i]);
-        // to wou_recv():   }
-        // to wou_recv():   DPS ("\n");
-        // to wou_recv():   
-        // to wou_recv():   wb_addr = ((b->wou->buf_recv[1] & 0x3F) << 8) | b->wou->buf_recv[2];
-        // to wou_recv():   dsize = b->wou->buf_recv[3];
-        // to wou_recv():   r-=4;
-
-        // to wou_recv():   if (b->wou->buf_recv[1] & WB_WR_CMD) {
-        // to wou_recv():     // WB_WR_CMD should never ACK; if we get it, that means we've
-        // to wou_recv():     // got error
-        // to wou_recv():     ERRP("NAK, check it out! ... \n"); getchar();
-        // to wou_recv():   } else if (dsize) {
-        // to wou_recv():     // WB_RD_CMD
-        // to wou_recv():     while (r < dsize) {
-        // to wou_recv():       // block until receiving enough data
-        // to wou_recv():       struct timespec time;
-        // to wou_recv():       time.tv_sec = 0;
-        // to wou_recv():       time.tv_nsec = 500000000;   // 500ms
-        // to wou_recv():       nanosleep(&time, NULL);
-        // to wou_recv():       // DP ("wait 500ms for response\n");
-        // to wou_recv():       // DP ("press key ...\n"); getchar();
-        // to wou_recv():       ftStatus = FT_GetStatus(b->io.usb.ftHandle, &r, &t, &e);
-        // to wou_recv():       if (ftStatus != FT_OK) 
-        // to wou_recv():       {
-        // to wou_recv():           ERRP("FT_GetStatus()\n");
-        // to wou_recv():           return -1;
-        // to wou_recv():       }
-        // to wou_recv():       DP ("FT_GetStatus: dwRxBytes(%lu) dwTxBytes(%lu) dwEventDWord(%lu)\n",
-        // to wou_recv():            r, t, e);
-        // to wou_recv():     }
-        // to wou_recv():     // if (b->wou->buf_recv[1] & WB_AI_MODE)
-        // to wou_recv():     ftStatus = FT_Read(b->io.usb.ftHandle, b->wou->buf_recv, dsize, &recvd);
-        // to wou_recv():     if (ftStatus != FT_OK) 
-        // to wou_recv():     {
-        // to wou_recv():       DP ("FT_Read(): ftStatus(%d)\n", (int)ftStatus);
-        // to wou_recv():       return -1;
-        // to wou_recv():     }
-        // to wou_recv():     r -= recvd;
-        // to wou_recv():     DP ("WB_RD_DATA:\n");
-        // to wou_recv():     for (i=0; i < recvd; i++) 
-        // to wou_recv():     {
-        // to wou_recv():       DPS ("<%.2X>", b->wou->buf_recv[i]);
-        // to wou_recv():     }
-        // to wou_recv():     DPS ("\n");
-        // to wou_recv():     
-        // to wou_recv():   }
-        // to wou_recv():   // // check for SYNC
-        // to wou_recv():   // if ((b->wou->buf_recv[0] != 0xFF) || 
-        // to wou_recv():   //     (b->wou->buf_recv[1] != 0x00)) 
-        // to wou_recv():   // {
-        // to wou_recv():   //   // ERROR Handeling:
-        // to wou_recv():   //   ERRP("Unexpected TID, check it out! ... \n"); getchar();
-        // to wou_recv():   //   
-        // to wou_recv():   //   //junk: ftStatus = FT_GetStatus(b->io.usb.ftHandle, &r, &t, &e);
-        // to wou_recv():   //   //junk: if (ftStatus != FT_OK) 
-        // to wou_recv():   //   //junk: {
-        // to wou_recv():   //   //junk:     ERRP("FT_GetStatus()\n");
-        // to wou_recv():   //   //junk:     return -1;
-        // to wou_recv():   //   //junk: }
-        // to wou_recv():   //   //junk: DP ("FT_GetStatus: dwRxBytes(%lu) dwTxBytes(%lu) dwEventDWord(%lu)\n",
-        // to wou_recv():   //   //junk:      r, t, e);
-        // to wou_recv():   //   //junk: ftStatus = FT_Read(b->io.usb.ftHandle, b->wou->buf_recv, r, &recvd);
-        // to wou_recv():   //   //junk: if (ftStatus != FT_OK) 
-        // to wou_recv():   //   //junk: {
-        // to wou_recv():   //   //junk:   DP ("FT_Read(): ftStatus(%d)\n", (int)ftStatus);
-        // to wou_recv():   //   //junk:   return -1;
-        // to wou_recv():   //   //junk: }
-        // to wou_recv():   //   //junk: DP ("FT_Read():\n");
-        // to wou_recv():   //   //junk: for (i=0; i < recvd; i++) 
-        // to wou_recv():   //   //junk: {
-        // to wou_recv():   //   //junk:   DPS ("<%.2X>", b->wou->buf_recv[i]);
-        // to wou_recv():   //   //junk: }
-        // to wou_recv():   //   //junk: DPS ("\n");
-        // to wou_recv():   //   //junk: ERRP("Unexpected Response, check it out! ... \n"); getchar();
-        // to wou_recv():   // } 
-        // to wou_recv(): } 
-        
         return (0);
     } // if FT_Write() successful
 }
@@ -878,21 +761,6 @@ int wou_eof (board_t* b)
     wou_send(b);
     return 0;
 }
-
-// int wou_eof (board_t* b)
-// {
-//     b->wou->pkts[b->wou->clock].size = REQ_H_SIZE;  // header
-//     b->wou->pkts[b->wou->clock].buf[0] = 0xFF;      // tif for EOF
-//     b->wou->pkts[b->wou->clock].buf[1] = WB_RD_CMD; // 0
-//     b->wou->pkts[b->wou->clock].buf[2] = 0;         // 0
-//     b->wou->pkts[b->wou->clock].buf[3] = 0;         // 0
-//     b->wou->n_pkts += 1; // ? need this?
-//     b->wou->clock += 1;
-//     b->wou->psize += REQ_H_SIZE;
-//     // flush pending [wou] packets
-//     wou_send(b);
-//     return 0;
-// }
 
 int wou_append (board_t* b, uint8_t cmd, uint16_t addr, uint8_t size,
                  uint8_t* buf)
@@ -936,54 +804,6 @@ int wou_append (board_t* b, uint8_t cmd, uint16_t addr, uint8_t size,
 }
 
 
-//replaced by wou_recv(): int usb_recv (FT_HANDLE fth, void* buf, int length)
-//replaced by wou_recv(): {
-//replaced by wou_recv():     DWORD       dwBytesRead;
-//replaced by wou_recv():     DWORD	dwRxSize;
-//replaced by wou_recv():     FT_STATUS   ftStatus;
-//replaced by wou_recv():     int         i;
-//replaced by wou_recv():     struct timespec time1, time2, dt;
-//replaced by wou_recv(): 
-//replaced by wou_recv():     clock_gettime(CLOCK_REALTIME, &time1);
-//replaced by wou_recv():     // read the data back from usb
-//replaced by wou_recv():     dwRxSize = 0;			
-//replaced by wou_recv():     i = 0;
-//replaced by wou_recv():     ftStatus = FT_GetQueueStatus(fth, &dwRxSize);
-//replaced by wou_recv():     // TODO: implement non-blocking mode
-//replaced by wou_recv():     while ((dwRxSize < (DWORD) length) && (ftStatus == FT_OK)) {
-//replaced by wou_recv():         // nanosleep(&time, NULL);
-//replaced by wou_recv():         // i+=1;                     // sleep for 1 more ms
-//replaced by wou_recv():         ftStatus = FT_GetQueueStatus(fth, &dwRxSize);
-//replaced by wou_recv():         // printf("ftStatus(%lu), dwRxSize(%lu)\n", ftStatus, dwRxSize);
-//replaced by wou_recv():     };
-//replaced by wou_recv():     clock_gettime(CLOCK_REALTIME, &time2);
-//replaced by wou_recv():     dt = diff(time1,time2); 
-//replaced by wou_recv(): 
-//replaced by wou_recv():     DP ("ftStatus(%lu), dwRxSize(%lu), latency(%d ms)\n", 
-//replaced by wou_recv():          ftStatus, dwRxSize, dt.tv_sec*1000 + dt.tv_nsec/1000000);
-//replaced by wou_recv():     
-//replaced by wou_recv():     if(ftStatus == FT_OK) {
-//replaced by wou_recv():         if (dwRxSize >= length) {
-//replaced by wou_recv():             if((ftStatus = FT_Read(fth, buf, length, &dwBytesRead)) 
-//replaced by wou_recv():                != FT_OK) {
-//replaced by wou_recv():                 ERRP ("FT_Read: ftStatus(%lu:%s)\n", 
-//replaced by wou_recv():                        ftStatus, Ftstat[ftStatus]);
-//replaced by wou_recv():                 return (-1);
-//replaced by wou_recv():             } else {
-//replaced by wou_recv():                DP ("FT_Read %lu bytes\n", dwBytesRead);
-//replaced by wou_recv():             }
-//replaced by wou_recv():         } else {
-//replaced by wou_recv():             // TODO: implement non-blocking mode
-//replaced by wou_recv():             ERRP("no enough data in Rx queue: request(%d) cur(%lu)\n",
-//replaced by wou_recv():                  length, dwRxSize);
-//replaced by wou_recv():             return (-1);
-//replaced by wou_recv():         }
-//replaced by wou_recv():     } else {
-//replaced by wou_recv():       printf("Error FT_GetQueueStatus(%lu)\n", ftStatus);	
-//replaced by wou_recv():       return (-1);
-//replaced by wou_recv():     }
-//replaced by wou_recv():     return (0);
-//replaced by wou_recv(): }
 
 static int m7i43u_reconfig (board_t* board)
 {

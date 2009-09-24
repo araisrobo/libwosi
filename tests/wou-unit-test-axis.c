@@ -61,39 +61,11 @@ int main(void)
                        1,
                        &value);
 
-//ysli:        // JCMD_CTRL: 
-//ysli:        //  [bit-0]: (1)JCMD in PLAY mode, forward JCMD_POS_W to JCMD_FIFO
-//ysli:        //  [bit-1]: SIF_EN, servo interface enable
-//ysli:        //  [bit-2]: RST, reset JCMD_FIFO and JCMD_FSMs
-//ysli:        // data[0] = 1;
-//ysli:        // wr_usb (WR_AI, (uint16_t) (JCMD_BASE | JCMD_CTRL), (uint8_t) 1, data);
-//ysli:        value = 1;
-//ysli:        ret = wou_cmd (&w_param,
-//ysli:                       (WB_WR_CMD | WB_AI_MODE),
-//ysli:                       (JCMD_BASE | JCMD_CTRL),
-//ysli:                       1,
-//ysli:                       &value);
-//ysli:
-//ysli:
-//ysli:        for (i=0; i<8; i++) {
-//ysli:          // JCMD_POS and JCMD_DIR (big-eADDRESS INCREMENT ndian, byte-0 is MSB)
-//ysli:          data[0]  = (1 << 5);  // Direction, (positive(1), negative(0))
-//ysli:          data[0]  = 0;      // Relative Angle Distance (0 ~ 8191)
-//ysli:          data[1]  = 0xFF;
-//ysli:          // wr_usb (WR_FIFO, (uint16_t) (JCMD_BASE | JCMD_POS_W), (uint8_t) 2, data);
-//ysli:          ret = wou_cmd (&w_param,
-//ysli:                         (WB_WR_CMD | WB_FIFO_MODE),
-//ysli:                         (JCMD_BASE | JCMD_POS_W),
-//ysli:                         2,
-//ysli:                         data);
-//ysli:        }
-        
          // JCMD_CTRL: 
-         //  [bit-0]: (1)JCMD in PLAY mode, forward JCMD_POS_W to JCMD_FIFO
+         //  [bit-0]: BasePeriod WOU Registers Update (1)enable (0)disable
          //  [bit-1]: SIF_EN, servo interface enable
          //  [bit-2]: RST, reset JCMD_FIFO and JCMD_FSMs
-         data[0] = 3;
-         // wr_usb (WR_AI, (uint16_t) (JCMD_BASE | JCMD_CTRL), (uint8_t) 1, data);
+         data[0] = 2;
          ret = wou_cmd (&w_param,
                         (WB_WR_CMD | WB_AI_MODE),
                         (JCMD_BASE | JCMD_CTRL),

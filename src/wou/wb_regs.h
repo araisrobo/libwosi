@@ -80,7 +80,8 @@
  *                                            1: timebase is 2^14 ticks
  *                                            2: timebase is 2^15 ticks ... 
  * CTRL        [ 7: 0]  0x0005
- *    MODE     [    0]  0x0005        W       (1)PLAY mode (0) REC mode
+ *    BPRU_EN  [    0]  0x0005        W       BasePeriod WOU Registers Update
+ *                                            (1)enable (0)disable
  *    SIF_EN   [    1]  0x0005        W       Servo Interface Enable
  *    RST      [    2]  0x0005        W       Reset JCMD
  *******************************************************************************
@@ -225,7 +226,7 @@
 // #define JCMD_DIR_R      0x0003  // [5]
 #define JCMD_POS_R      0x0002  // {DIR_R, POS_R} in FIFO mode
 #define JCMD_TBASE      0x0004  // [3:0]
-#define JCMD_CTRL       0x0005  // {RST, REC, PLAY}
+#define JCMD_CTRL       0x0005  // {RST, REC, BPRU_EN}
 
 // registers for SIFS (Servo Interface Status)
 #define SIFS_BASE       0x0040
