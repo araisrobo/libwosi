@@ -58,6 +58,26 @@ int wou_cmd (wou_param_t *w_param, uint8_t type, int start_addr,
         return 0;
 }
 
+/**
+ * wou_update - update wou registers if it's appeared in USB RX BUF
+ **/
+int wou_update (wou_param_t *w_param)
+{
+  return (wou_recv (w_param->board));
+}
+
+/**
+ * wou_reg_ptr - return the pointer for given wou register
+ **/
+const void *wou_reg_ptr (wou_param_t *w_param, uint32_t wou_addr)
+{
+  const void *ptr;
+
+  ptr = &(w_param->board->wb_reg_map[wou_addr]);
+
+  return (ptr);
+}
+
 int wou_flush (wou_param_t *w_param)
 {
         if (w_param->board->wou->psize != 0) {

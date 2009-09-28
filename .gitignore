@@ -44,4 +44,4 @@ m4/*
 tests/wou-unit-test-axis
 tests/wou-unit-test-gpio
 tests/wou-unit-test-jcmd
-
+tests/wou-unit-test-bp_reg_update

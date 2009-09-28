@@ -47,6 +47,17 @@ typedef struct {
 int wou_cmd (wou_param_t *w_param, uint8_t type, int start_addr, 
              int nb, const uint8_t *data_src);
 
+/**
+ * wou_update - update wou registers if it's appeared in USB RX BUF
+ **/
+int wou_update (wou_param_t *w_param);
+
+/**
+ * wou_reg_ptr - return the pointer for given wou register
+ **/
+const void *wou_reg_ptr (wou_param_t *w_param, uint32_t wou_addr);
+
+
 int wou_flush (wou_param_t *w_param);
 
 /* Initializes the wou_param_t structure for USB

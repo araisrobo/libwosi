@@ -3,7 +3,8 @@ EXTRA_DIST = README
 noinst_PROGRAMS = \
 	wou-unit-test-gpio \
 	wou-unit-test-jcmd \
-	wou-unit-test-axis
+	wou-unit-test-axis \
+	wou-unit-test-bp_reg_update
 
 common_ldflags = \
 	$(top_builddir)/src/libwou.la \
@@ -21,6 +22,9 @@ wou_unit_test_jcmd_LDADD = $(common_ldflags)
 
 wou_unit_test_axis_SOURCES = wou-unit-test-axis.c
 wou_unit_test_axis_LDADD = $(common_ldflags)
+
+wou_unit_test_bp_reg_update_SOURCES = wou-unit-test-bp_reg_update.c
+wou_unit_test_bp_reg_update_LDADD = $(common_ldflags)
 
 INCLUDES = -I$(top_srcdir) -I$(top_srcdir)/src
 CLEANFILES = *~

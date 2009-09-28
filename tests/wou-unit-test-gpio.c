@@ -20,6 +20,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <assert.h>
 
 #include "wou.h"
 #include "wou/wb_regs.h"
@@ -62,6 +63,7 @@ int main(void)
                          GPIO_LEDS,
                          1,
                          &value);
+          assert(wou_update(&w_param) == 0);
           // wou_flush(&w_param);
         }
         

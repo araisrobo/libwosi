@@ -67,7 +67,7 @@ static const _Ftstat Ftstat[] = {
 // #define BURST_LIMIT   128  // FT_Write delay: 0.6 ~ 1.1ms
 // #define BURST_LIMIT   256 // FT_Write delay: 0.8 ~ 5.6ms
 #define BURST_LIMIT   512 // FT_Write delay: 0.8 ~ 5.6ms (best bandwidth utilization for 1ms time slot)
-#define MAX_SEQ       255
+#define MAX_SEQ       250 // reserve TID: FF(SYNC) and FE(BPRU, base period reg update) 
 // #define MAX_SEQ       4
 
 /**
@@ -150,6 +150,7 @@ int board_reset (board_t* board);
 
 int wou_append (board_t* b, uint8_t cmd, uint16_t addr, uint8_t size,
                  uint8_t* buf);
+int wou_recv (board_t* b);
 int wou_eof (board_t* b);
 
 #endif  // __MESA_H__

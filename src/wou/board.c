@@ -572,7 +572,7 @@ static int wb_reg_update (board_t* b, int wb_addr, int dsize)
 }      
 
 // receive data from USB and update corresponding WB registers
-static int wou_recv (board_t* b)
+int wou_recv (board_t* b)
 {
   FT_STATUS   ftStatus;
   DWORD       recvd;
@@ -628,6 +628,12 @@ static int wou_recv (board_t* b)
     if (b->wou->buf_recv[1] & WB_WR_CMD) {
       // WB_WR_CMD should never ACK; if we get it, that means we've
       // got error
+      ERRPS ("WOU_HEADER: ");
+      for (i=0; i < recvd; i++) 
+      {
+        ERRPS ("<%.2X>", b->wou->buf_recv[i]);
+      }
+      ERRPS ("\n");
       ERRP("NAK, check it out! ... \n"); getchar();
     } else if (dsize) {
       // WB_RD_CMD
@@ -635,7 +641,7 @@ static int wou_recv (board_t* b)
         // block until receiving enough data
         return (0); 
       }
-       
+      // (r >= dsize) means we got enough data to be fetched from USB Rx BUF
       if (wb_reg_update (b, wb_addr, dsize)) {
         return (-1);
       }
@@ -768,7 +774,7 @@ int wou_append (board_t* b, uint8_t cmd, uint16_t addr, uint8_t size,
     int cur_clock;
 
     // flush USB Rx buf and update WB regs if any
-    assert (wou_recv(b) == 0);
+    // assert (wou_recv(b) == 0);
       
 
     // chcek this [wou] will not overflow the BURST_LIMIT

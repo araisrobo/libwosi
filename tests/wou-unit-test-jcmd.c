@@ -80,16 +80,22 @@ int main(void)
                   1,
                   data);
    
-  for (i=0; i<160; i++) {
+  for (i=0; ; i++) {
     // JCMD_POS and JCMD_DIR (big-endian, byte-0 is MSB)
 
     // prepare servo command for 4 axes
     for (j=0; j<4; j++) {
+      int k;
+      if ((i%2048) < (768 + j*256)) {
+        k = 0;
+      } else {
+        k = 1;
+      }
       // data[13]: Direction, (positive(1), negative(0))
       // data[12:0]: Relative Angle Distance (0 ~ 8191)
       data[j*2]     = (1 << 5);
       // data[1]  = 0xFA; // 0xFA: 250
-      data[j*2 + 1] = 0x01 + j;
+      data[j*2 + 1] = k;
     }
 
     // wr_usb (WR_FIFO, (uint16_t) (JCMD_BASE | JCMD_POS_W), (uint8_t) 2, data);
@@ -103,9 +109,12 @@ int main(void)
                    (SIFS_BASE | SIFS_SIF_CMD),
                    16,
                    data);
-     // debug:
-     wou_flush(&w_param);
-     printf("send a wou-frame ... press key ...\n"); getchar();
+    // debug:
+    if ((i%16) == 0) {
+      assert(wou_update(&w_param) == 0);
+      wou_flush(&w_param);
+    }
+     // printf("send a wou-frame ... press key ...\n"); getchar();
   }
   
    // JCMD_TBASE: 0: servo period is "32768" ticks

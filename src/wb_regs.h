@@ -16,6 +16,7 @@
  * RESERVED       [ 7: 2]   0x0000
  * GPIO_LEDS      [ 7: 0]   0x0001        W       drive the 7i43 LEDS
  * GPIO_LEDS_SEL  [ 1: 0]   0x0002        W       LED source selection
+ * GPIO_OUT       [ 7: 0]   0x0003        W       drive the 7i37 out ports
  *******************************************************************************
  *obsolete:  @registers for SERVO_IF (Servo Interface)
  *obsolete: ******************************************************************************
@@ -89,12 +90,13 @@
  * @registers for SIFS (Servo Interface Status)
  *******************************************************************************
  * SIFS_BASE            0x0040
- * SIFS_MASK            0x002F  (0x40 ~ 0x6F)
+ * SIFS_MASK            0x003F  (0x40 ~ 0x7F)
  *******************************************************************************
  * REG_NAME             ADDR_OFFSET   ACCESS  DESCRIPTION
  * SIFS_SIF_CMD         0x0000        R       (0x00 ~ 0x0F) AXIS_0 ~ AXIS_3, sif-command from jcmd FIFO
  * SIFS_PULSE_CMD       0x0010        R       (0x10 ~ 0x1F) AXIS_0 ~ AXIS_3, pulse-command to jcmd FIFO
  * SIFS_ENC_POS         0x0020        R       (0x20 ~ 0x2F) AXIS_0 ~ AXIS_3, encoder-position from servo driver
+ * SIFS_SWITCHES        0x0030        R       (0x30 ~ 0x31) 16 input switches for HOME, CCWL, and CWL
  *******************************************************************************
  **/
 
@@ -140,6 +142,7 @@
 #define GPIO_RECONFIG   0x02    // GPIO_SYSTEM.[1]
 #define GPIO_LEDS       0x0001  // GPIO_LEDS.[7:0]
 #define GPIO_LEDS_SEL   0x0002  // GPIO_LEDS_SEL.[1:0]
+#define GPIO_OUT        0x0003  // GPIO_OUT.[7:0]
 
 //obsolete: // SIF register space:
 //obsolete: #define SIF_0_BASE      0x0020
@@ -234,5 +237,6 @@
 #define SIFS_SIF_CMD    0x0000  // (0x00 ~ 0x0F) AXIS_0 ~ AXIS_3, sif-command from jcmd FIFO
 #define SIFS_PULSE_CMD  0x0010  // (0x10 ~ 0x1F) AXIS_0 ~ AXIS_3, pulse-command to jcmd FIFO
 #define SIFS_ENC_POS    0x0020  // (0x20 ~ 0x2F) AXIS_0 ~ AXIS_3, encoder-position from servo driver
+#define SIFS_SWITCH_IN  0x0030  // (0x30 ~ 0x31) 16 input switches for HOME, CCWL, and CWL
 
 #endif // __wb_regs_h__
