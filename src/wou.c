@@ -33,7 +33,7 @@
 #include <windows.h>
 #endif
 #include <ftd2xx.h>     // from FTDI
-#include "wou/wb_regs.h"
+#include "wb_regs.h"
 #include "wou/board.h"
 
 /* read/write multiple wishbone registers */

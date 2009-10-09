@@ -6,7 +6,7 @@
 #include <stdint.h>
 
 #include "wou.h"
-#include "wou/wb_regs.h"
+#include "wb_regs.h"
 
 int main(void)
 {
