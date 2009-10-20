@@ -141,7 +141,10 @@
 #define GPIO_SOFT_RST   0x01    // GPIO_SYSTEM.[0]
 #define GPIO_RECONFIG   0x02    // GPIO_SYSTEM.[1]
 #define GPIO_LEDS       0x0001  // GPIO_LEDS.[7:0]
-#define GPIO_LEDS_SEL   0x0002  // GPIO_LEDS_SEL.[1:0]
+#define GPIO_LEDS_SEL   0x0002  // GPIO_LEDS_SEL.[1:0] :
+                                //  2'b00: select gpio_leds[7:0]
+                                //  2'b01: select servo_if pulse output
+                                //  2'b10: select debug_port_0
 #define GPIO_OUT        0x0003  // GPIO_OUT.[7:0]
 
 //obsolete: // SIF register space:
