@@ -18,6 +18,7 @@ int main(void)
 
   int32_t pulse_cmd[4];
   int32_t enc_pos[4];
+  int32_t home_pos[4];
   uint16_t switch_in;
 
   
@@ -34,14 +35,24 @@ int main(void)
 
   printf("** UNIT TESTING **\n");
 
-  printf("\nTEST JCMD WRITE/READ:\n");
+  printf("\nTEST HOME_POS READ and JCMD WRITE\n");
 
   /** WISHBONE REGISTERS **/
 
-  printf ("debug: for BOOST... getchar ...\n"); getchar();
+  // printf ("debug: for BOOST... getchar ...\n"); getchar();
   
-  // switch LEDs to display servo pulse commands
-  value = 1;
+  // value = 1; //switch LEDs to display servo pulse commands
+  // value = 2; // switch LEDs to display debug_port_0
+  //            assign debug_port_0[0] = ext_pad_out[0];  // SVO-ON
+  //            assign debug_port_0[1] = ext_pad_out[1];  // SVO-RST
+  //            assign debug_port_0[2] = ~bits_i[0];      // SVO-ALM
+  //            assign debug_port_0[3] = ~bits_i[1];      // SVO-RDY
+  //            assign debug_port_0[4] = ~bits_i[2];      // home_j0
+  //            assign debug_port_0[5] = ~bits_i[3];      // home_j1
+  //            assign debug_port_0[6] = ~bits_i[4];      // home_j2
+  //            assign debug_port_0[7] = ~bits_i[5];      // home_j3
+  printf("switch LEDs to display debug_port_0\n");
+  value = 2;
   ret = wou_cmd (&w_param,
                  (WB_WR_CMD | WB_AI_MODE),
                  GPIO_LEDS_SEL,
@@ -65,13 +76,12 @@ int main(void)
    //  [bit-0]: BasePeriod WOU Registers Update (1)enable (0)disable
    //  [bit-1]: SIF_EN, servo interface enable
    //  [bit-2]: RST, reset JCMD_FIFO and JCMD_FSMs
-   data[0] = 3;
+   data[0] = 2;
    ret = wou_cmd (&w_param,
                   (WB_WR_CMD | WB_AI_MODE),
                   (JCMD_BASE | JCMD_CTRL),
                   1,
                   data);
-   wou_flush(&w_param);
    
   // for (i=0; i<160; i++) {
   for (i=0; ; i++) {
@@ -79,17 +89,33 @@ int main(void)
 
     // prepare servo command for 4 axes
     for (j=0; j<4; j++) {
-      int k;
-      if ((i%2048) < (768 + j*256)) {
-        k = 0;
-      } else {
-        k = 1;
-      }
+      ret;
+      // if ((i%2048) < (768 + j*256)) {
+      //   k = 0;
+      // } else {
+      //   k = 1;
+      // }
       // data[13]: Direction, (positive(1), negative(0))
       // data[12:0]: Relative Angle Distance (0 ~ 8191)
-      data[j*2]     = (1 << 5);
-      // data[1]  = 0xFA; // 0xFA: 250
-      data[j*2 + 1] = k;
+      
+      if (j == 2) {
+        printf("move axis-2 forward(f) or backward(b)? \n"); 
+        ret = getchar();
+        putchar(ret);
+        if (ret == 'f') {
+          data[j*2]     = (1 << 5); // positive
+          data[j*2 + 1] = 0xFA;     // move 250 pulses
+        } else if (ret == 'b') {
+          data[j*2]     = (0 << 5); // negative
+          data[j*2 + 1] = 0xFA;     // move 250 pulses
+        } else {
+          data[j*2]     = (0 << 5);
+          data[j*2 + 1] = 0;    // don't move 
+        }
+      } else {
+        data[j*2]     = 0;
+        data[j*2 + 1] = 0x0;
+      }
     }
 
     // wr_usb (WR_FIFO, (uint16_t) (JCMD_BASE | JCMD_POS_W), (uint8_t) 2, data);
@@ -99,12 +125,32 @@ int main(void)
                    2*4, // 4 axes
                    data);
 
-    //replaced by bp_update: // send WB_RD_CMD to read 16 bytes back
-    //replaced by bp_update: ret = wou_cmd (&w_param,
-    //replaced by bp_update:                (WB_RD_CMD | WB_AI_MODE),
-    //replaced by bp_update:                (SIFS_BASE | SIFS_SIF_CMD),
-    //replaced by bp_update:                16,
-    //replaced by bp_update:                data);
+    ret = wou_cmd (&w_param,
+                   (WB_RD_CMD | WB_AI_MODE),
+                   (SIFS_BASE | SIFS_PULSE_CMD),
+                   16,
+                   data);
+    
+    ret = wou_cmd (&w_param,
+                   (WB_RD_CMD | WB_AI_MODE),
+                   (SIFS_BASE | SIFS_ENC_POS),
+                   16,
+                   data);
+    
+    ret = wou_cmd (&w_param,
+                   (WB_RD_CMD | WB_AI_MODE),
+                   (SIFS_BASE | SIFS_SWITCH_IN),
+                   2,
+                   data);
+    
+    ret = wou_cmd (&w_param,
+                   (WB_RD_CMD | WB_AI_MODE),
+                   (SIFS_BASE | SIFS_HOME_POS),
+                   16,
+                   data);
+    
+    // flush pending wou commands
+    wou_flush(&w_param);
     
     // obtain base_period updated wou registers (18 bytes)
     assert (wou_update(&w_param) == 0);
@@ -112,17 +158,13 @@ int main(void)
     for (j=0; j<4; j++) {
       memcpy ((pulse_cmd + j), wou_reg_ptr(&w_param, SIFS_BASE + SIFS_PULSE_CMD + j*4), 4);
       memcpy ((enc_pos + j), wou_reg_ptr(&w_param, SIFS_BASE + SIFS_ENC_POS + j*4), 4);
+      memcpy ((home_pos + j), wou_reg_ptr(&w_param, SIFS_BASE + SIFS_HOME_POS + j*4), 4);
     }
     memcpy (&switch_in, wou_reg_ptr(&w_param, SIFS_BASE + SIFS_SWITCH_IN), 2);
-    printf("\rpulse_cmd: %12d%12d%12d%12d 0x%04X", 
+    printf("pulse_cmd: %12d%12d%12d%12d gpio.in(0x%04X)\n", 
             pulse_cmd[0], pulse_cmd[1], pulse_cmd[2], pulse_cmd[3],
             switch_in);
-
-    if ((i%16) == 0) {
-      wou_flush(&w_param);
-      // debug:
-      // printf("send a wou-frame ... press key ...\n"); getchar();
-    }
+    // getchar();
   }
   
    // JCMD_TBASE: 0: servo period is "32768" ticks

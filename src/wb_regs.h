@@ -234,12 +234,20 @@
 #define JCMD_TBASE      0x0004  // [3:0]
 #define JCMD_CTRL       0x0005  // {RST, REC, BPRU_EN}
 
+// (0x30 ~ 0x3F) RESERVED
+// (0x40 ~ 0x7F) RESERVED
+
 // registers for SIFS (Servo Interface Status)
-#define SIFS_BASE       0x0040
-#define SIFS_MASK       0x006F  // (0x40 ~ 0x7F)
+// BASE_PERIOD_REGS: SIFS_PULSE_CMD, SIFS_ENC_POS, SIFS_SWITCHES_IN
+// NB: update bp_update wou_addr[] at usb_if.v
+#define SIFS_BASE       0x0080  
+#define SIFS_MASK       0x007F  // (0x80 ~ 0xFF)
+//      REGISTERS       OFFSET  // DESCRIPTION
 #define SIFS_SIF_CMD    0x0000  // (0x00 ~ 0x0F) AXIS_0 ~ AXIS_3, sif-command from jcmd FIFO
 #define SIFS_PULSE_CMD  0x0010  // (0x10 ~ 0x1F) AXIS_0 ~ AXIS_3, pulse-command to jcmd FIFO
 #define SIFS_ENC_POS    0x0020  // (0x20 ~ 0x2F) AXIS_0 ~ AXIS_3, encoder-position from servo driver
 #define SIFS_SWITCH_IN  0x0030  // (0x30 ~ 0x31) 16 input switches for HOME, CCWL, and CWL
+                                // (0x32 ~ 0x3F) RESERVED
+#define SIFS_HOME_POS   0x0040  // (0x40 ~ 0x4F) AXIS_0 ~ AXIS_3, home-position from servo driver
 
 #endif // __wb_regs_h__
