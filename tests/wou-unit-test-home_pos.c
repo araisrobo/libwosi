@@ -61,6 +61,16 @@ int main(void)
   //debug: check if the first packet is correct?
   wou_flush(&w_param);
   printf("send a wou-frame ... press key ...\n"); getchar();
+  
+  value = 1;
+  ret = wou_cmd (&w_param,
+                 (WB_WR_CMD | WB_AI_MODE),
+                 GPIO_OUT,
+                 1,
+                 &value);
+  //debug: check if the first packet is correct?
+  printf("about to switch SON on ... press enter ...\n"); getchar();
+  wou_flush(&w_param);
  
   // JCMD_TBASE: 0: servo period is "32768" ticks
   // data[0] = 0; 
