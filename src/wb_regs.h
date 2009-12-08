@@ -17,6 +17,9 @@
  * GPIO_LEDS      [ 7: 0]   0x0001        W       drive the 7i43 LEDS
  * GPIO_LEDS_SEL  [ 1: 0]   0x0002        W       LED source selection
  * GPIO_OUT       [ 7: 0]   0x0003        W       drive the 7i37 out ports
+ * GPIO_MASK_IN0  [ 7: 0]   0x0004        W       mask for input bits [7:0]
+ * GPIO_MASK_IN1  [ 7: 0]   0x0005        W       mask for input bits [15:8]
+ *                                                inport = mask & bits_i
  *******************************************************************************
  *obsolete:  @registers for SERVO_IF (Servo Interface)
  *obsolete: ******************************************************************************
@@ -83,6 +86,7 @@
  * CTRL        [ 7: 0]  0x0005
  *    BPRU_EN  [    0]  0x0005        W       BasePeriod WOU Registers Update
  *                                            (1)enable (0)disable
+ *                                            periodically and automatically transmit WOU registers to HOST
  *    SIF_EN   [    1]  0x0005        W       Servo Interface Enable
  *    RST      [    2]  0x0005        W       Reset JCMD
  *******************************************************************************

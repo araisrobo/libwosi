@@ -21,6 +21,19 @@ int main(void)
   int32_t home_pos[4];
   uint16_t switch_in;
 
+  int     rev;      // revolutions which have been rotated
+  int     cur_pos;  // current position within one revolution
+  int     cur_dir;  // current direction
+  int     cur_cmd;
+  int32_t ppr;      // pulse per rev
+  int     tjoint;   // target joint
+ 
+  // TODO: ppr and tjoint are external parameters
+  ppr = 8192;
+  tjoint = 3;
+  
+  rev = 0;
+  cur_pos = 0;
   
   // do not load fpga bitfile:
   // wou_init_usb(&w_param, "7i43u", 0, NULL);
@@ -51,8 +64,10 @@ int main(void)
   //            assign debug_port_0[5] = ~bits_i[3];      // home_j1
   //            assign debug_port_0[6] = ~bits_i[4];      // home_j2
   //            assign debug_port_0[7] = ~bits_i[5];      // home_j3
-  printf("switch LEDs to display debug_port_0\n");
-  value = 2;
+  // printf("switch LEDs to display debug_port_0\n");
+  // value = 2;
+  printf("switch LEDs to display servo pulse commands\n");
+  value = 1;
   ret = wou_cmd (&w_param,
                  (WB_WR_CMD | WB_AI_MODE),
                  GPIO_LEDS_SEL,
@@ -99,7 +114,6 @@ int main(void)
 
     // prepare servo command for 4 axes
     for (j=0; j<4; j++) {
-      ret;
       // if ((i%2048) < (768 + j*256)) {
       //   k = 0;
       // } else {
@@ -108,19 +122,33 @@ int main(void)
       // data[13]: Direction, (positive(1), negative(0))
       // data[12:0]: Relative Angle Distance (0 ~ 8191)
       
-      if (j == 2) {
-        printf("move axis-2 forward(f) or backward(b)? \n"); 
-        ret = getchar();
-        putchar(ret);
-        if (ret == 'f') {
-          data[j*2]     = (1 << 5); // positive
-          data[j*2 + 1] = 0xFA;     // move 250 pulses
-        } else if (ret == 'b') {
-          data[j*2]     = (0 << 5); // negative
-          data[j*2 + 1] = 0xFA;     // move 250 pulses
+      if (j == tjoint) {
+        if (cur_pos == 0) {
+          printf("move axis-%d forward(f) or backward(b)? \n", j); 
+          cur_dir = getchar();
+          putchar(cur_dir);
+        }
+        if (cur_pos + 250 >= ppr) {
+          cur_cmd = ppr - cur_pos;
+          cur_pos = 0;
+          if (cur_dir == 'f') {
+            rev += 1;
+          } else if (cur_dir == 'b') {
+            rev -= 1;
+          } 
+        } else {
+          cur_pos += 250;
+          cur_cmd =  250;
+        }
+        if (cur_dir == 'f') {
+          data[j*2]     = (1 << 5);     // positive
+          data[j*2 + 1] = cur_cmd;      // move 250 pulses
+        } else if (cur_dir == 'b') {
+          data[j*2]     = (0 << 5);     // negative
+          data[j*2 + 1] = cur_cmd;      // move 250 pulses
         } else {
           data[j*2]     = (0 << 5);
-          data[j*2 + 1] = 0;    // don't move 
+          data[j*2 + 1] = 0;            // don't move 
         }
       } else {
         data[j*2]     = 0;
@@ -171,10 +199,12 @@ int main(void)
       memcpy ((home_pos + j), wou_reg_ptr(&w_param, SIFS_BASE + SIFS_HOME_POS + j*4), 4);
     }
     memcpy (&switch_in, wou_reg_ptr(&w_param, SIFS_BASE + SIFS_SWITCH_IN), 2);
-    printf("pulse_cmd: %12d%12d%12d%12d gpio.in(0x%04X)\n", 
-            pulse_cmd[0], pulse_cmd[1], pulse_cmd[2], pulse_cmd[3],
-            switch_in);
-    // getchar();
+    printf("rev(%d) cur_pos(%4d) gpio.in(0x%04X)\n", 
+            rev, cur_pos, switch_in);
+    printf("pulse_cmd: %12d%12d%12d%12d\n", 
+            pulse_cmd[0], pulse_cmd[1], pulse_cmd[2], pulse_cmd[3]);
+    printf("enc_pos:   %12d%12d%12d%12d\n", 
+            enc_pos[0], enc_pos[1], enc_pos[2], enc_pos[3]);
   }
   
    // JCMD_TBASE: 0: servo period is "32768" ticks
