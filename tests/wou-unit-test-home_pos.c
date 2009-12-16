@@ -30,7 +30,7 @@ int main(void)
  
   // TODO: ppr and tjoint are external parameters
   ppr = 8192;
-  tjoint = 3;
+  tjoint = 0;
   
   rev = 0;
   cur_pos = 0;
