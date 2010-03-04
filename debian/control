@@ -1,0 +1,21 @@
+Source: libwou
+Priority: extra
+Maintainer: Yi-Shin Li <ysli@araisrobo.com>
+Build-Depends: debhelper (>= 7), autotools-dev, ftdi-dev
+Standards-Version: 3.8.1
+Section: libs
+Homepage: http://www.araisrobo.com/
+
+Package: libwou-dev
+Section: libdevel
+Architecture: any
+Depends: libwou (= ${binary:Version}), ftdi-dev
+Description: Development files for libwou
+ To pack WOU(Wishbone Over USB) packets into WOU frames
+
+Package: libwou
+Section: libs
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, ftdi
+Description: Library to pack WOU(Wishbone Over USB) packets
+ To pack WOU(Wishbone Over USB) packets into WOU frames

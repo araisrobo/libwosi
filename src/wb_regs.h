@@ -150,6 +150,9 @@
                                 //  2'b01: select servo_if pulse output
                                 //  2'b10: select debug_port_0
 #define GPIO_OUT        0x0003  // GPIO_OUT.[7:0]
+#define GPIO_MASK_IN0   0x0004  // mask for input bits [7:0], reset to 0x00
+#define GPIO_MASK_IN1   0x0005  // mask for input bits [15:8], reset to 0x00
+                                // inport = mask & bits_i
 
 //obsolete: // SIF register space:
 //obsolete: #define SIF_0_BASE      0x0020

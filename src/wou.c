@@ -67,6 +67,16 @@ int wou_update (wou_param_t *w_param)
 }
 
 /**
+ * wou_dsize - update TX and RX data size
+ **/
+void wou_dsize (wou_param_t *w_param, uint64_t *tx_dsize, uint64_t *rx_dsize)
+{
+    *tx_dsize = w_param->board->wr_dsize;
+    *rx_dsize = w_param->board->rd_dsize;
+    return;
+}
+
+/**
  * wou_reg_ptr - return the pointer for given wou register
  **/
 const void *wou_reg_ptr (wou_param_t *w_param, uint32_t wou_addr)

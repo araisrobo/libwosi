@@ -132,7 +132,10 @@ typedef struct board {
     } io;
     
     // Wishbone Over USB protocol
-    wou_t*       wou;   // circular buffer to keep track of wou packets
+    wou_t*      wou;   // circular buffer to keep track of wou packets
+
+    uint64_t    rd_dsize; // data size in bytes Received from USB
+    uint64_t    wr_dsize; // data size in bytes written to USB
 
     // wisbone register map for this board
     uint8_t wb_reg_map[WB_REG_SIZE];
@@ -149,7 +152,7 @@ int board_reset (board_t* board);
 // int board_prog (board_t* board, char* filename);
 
 int wou_append (board_t* b, uint8_t cmd, uint16_t addr, uint8_t size,
-                 uint8_t* buf);
+                const uint8_t* buf);
 int wou_recv (board_t* b);
 int wou_eof (board_t* b);
 

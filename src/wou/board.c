@@ -256,6 +256,8 @@ int board_init (board_t* board, const char* device_type, const int device_id,
     for (i = 0; i < TID_LIMIT; i++) {
       board->wou->pkts[i].size = 0;
     }
+    board->rd_dsize = 0;
+    board->wr_dsize = 0;
 
     return 0;
 }
@@ -558,6 +560,7 @@ static int wb_reg_update (board_t* b, int wb_addr, int dsize)
     ERRP ("FT_Read(): ftStatus(%d)\n", (int)ftStatus);
     return -1;
   }
+  b->rd_dsize += recvd;
 
 #if (TRACE!=0)
   DP ("WB_ADDR(0x%04X), DSIZE(%d), WB_RD_DATA:\n", wb_addr, dsize);
@@ -611,6 +614,7 @@ int wou_recv (board_t* b)
       DP ("FT_Read(): ftStatus(%d)\n", (int)ftStatus);
       return -1;
     }
+    b->rd_dsize += recvd;
 
 #if (TRACE!=0)
     DP ("WOU_HEADER: ");
@@ -747,6 +751,7 @@ static int wou_send (board_t* b)
         DP ("bitrate(%f Mbps)\n", 
              8.0*dwBytesWritten/(1000000.0*dt.tv_sec+dt.tv_nsec/1000.0));
         b->wou->psize = 0; // reset pending wou buf size
+        b->wr_dsize += dwBytesWritten;
     
         return (0);
     } // if FT_Write() successful
@@ -769,7 +774,7 @@ int wou_eof (board_t* b)
 }
 
 int wou_append (board_t* b, uint8_t cmd, uint16_t addr, uint8_t size,
-                 uint8_t* buf)
+                const uint8_t* buf)
 {
     int cur_clock;
 

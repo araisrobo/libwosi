@@ -53,6 +53,11 @@ int wou_cmd (wou_param_t *w_param, uint8_t type, int start_addr,
 int wou_update (wou_param_t *w_param);
 
 /**
+ * wou_dsize - update TX and RX data size
+ **/
+void wou_dsize (wou_param_t *w_param, uint64_t *tx_dsize, uint64_t *rx_dsize);
+
+/**
  * wou_reg_ptr - return the pointer for given wou register
  **/
 const void *wou_reg_ptr (wou_param_t *w_param, uint32_t wou_addr);
