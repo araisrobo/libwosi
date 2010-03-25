@@ -21,47 +21,6 @@
  * GPIO_MASK_IN1  [ 7: 0]   0x0005        W       mask for input bits [15:8]
  *                                                inport = mask & bits_i
  *******************************************************************************
- *obsolete:  @registers for SERVO_IF (Servo Interface)
- *obsolete: ******************************************************************************
- *obsolete:  SIF_0_BASE           0x0020
- *obsolete:  SIF_MASK             0x001F
- *obsolete: ******************************************************************************
- *obsolete:  REG_NAME             ADDR_OFFSET   ACCESS  DESCRIPTION
- *obsolete:  REL_POS_A   [17: 0]  0x0000        R/W     (B) Relative Angle Distance
- *obsolete:  RESERVED    [ 7: 2]  0x0002
- *obsolete:  REL_POS_R   [15: 0]  0x0003        R/W     (B) Relative Revolution Distance
- *obsolete:  VELO_M      [15: 0]  0x0005        W       (E) Velocity limit, value of the max angle velocity (dt/pulse)
- *obsolete:  ACCEL       [ 7: 0]  0x0007        W       (E) numerator, Acceleration, value of the acceleration
- *obsolete:  DECEL       [ 7: 0]  0x0008        W       (E) numerator, Deceleration, value of the deceleration
- *obsolete:  SVELO       [ 3: 0]  0x0009        W       (E) scaled velocity factor: 1, 2, 3, 4 ... 16(0)
- *obsolete:                                                 real_velo = cur_velo / SVELO
- *obsolete:                                                 real_velo_max = VELO_M / SVELO
- *obsolete:                                                 value '0' stands for 16
- *obsolete:  TODO: implement SACCEL
- *obsolete:  SACCEL      [ 6: 4]  0x0009        W       (E) (not implemented yet) scaled acceleration factor: 0 ~ 7
- *obsolete:                                                 real_accel = ACCEL << SACCEL
- *obsolete:  RESERVED    [    7]  0x0009        
- *obsolete:  ANCHOR_V    [ 7: 0]  0x000A        W       (E) Anchor Velocity while approaching target position
- *obsolete:  
- *obsolete:  SIF_EXE_STB [    0]  0x000B        W       (B) Execute, start the motion at rising edge
- *obsolete:  SIF_DIR_T   [    1]  0x000B        W       (E) Direction, (positive(1), negative(0))
- *obsolete:  SIF_BUF_T   [ 4: 2]  0x000B        W       (E) BufferMode, (Aborting, Buffered, Blending)
- *obsolete:  RESERVED    [ 7: 5]  0x000B
- *obsolete:  REG_EXE_ACK [    0]  0x000C        R       (V) ack to EXE_STB, finish a motion command
- *obsolete:  RESERVED    [ 7: 1]  0x000C
- *obsolete:  ABS_POS_A   [17: 0]  0x000D        R/W     (V) Absolute Angle Position
- *obsolete:  RESERVED    [ 7: 2]  0x000F
- *obsolete:  ABS_POS_R   [15: 0]  0x0010        R/W     (V) Absolute Revolution Position
- *obsolete:  TODO: move to GPIO port
- *obsolete:  SON         (OUT)    0x000C.0      W       (B) servo-on
- *obsolete:  RES         (OUT)    0x000C.1      W       (B) assert RES for more than 50ms to reset the alarm
- *obsolete:  CR          (OUT)    0x000C.2      W       (E) to clear the position control counter droop pulses (hold +10ms)
- *obsolete:  ALM         (IN)     0x000D.0      R       (B) alarm from servo drive
- *obsolete:  RD          (IN)     0x000D.1      R       (B) servo is ready
- *obsolete:  INP         (IN)     0x000D.2      R       (E) in-position
- *obsolete:  TODO: CUR_VELO    [ 7: 0]   
- *obsolete:  TODO: CUR_VELO    [15: 8]   
- *******************************************************************************
  *******************************************************************************
  * @registers for JCMD (Joint Command Processor)
  *******************************************************************************
@@ -79,28 +38,44 @@
  *          Read addr[3] will fetch {DIR_R,POS_R} from JCMD_FIFO. 
  *          The WB_READ got stalled if JCMD_FIFO is empty. 
  * RESERVED    [ 7: 0]  0x0003
- * TBASE       [ 3: 0]  0x0004        W       time base of pulse generator
- *                                            0: timebase is 2^13 ticks
- *                                            1: timebase is 2^14 ticks
- *                                            2: timebase is 2^15 ticks ... 
- * CTRL        [ 7: 0]  0x0005
+ * 
+ * //OBSOLETE: TBASE       [ 3: 0]  0x0004        W       time base of pulse generator
+ * //OBSOLETE:                                            0: timebase is 2^15 ticks 
+ * //OBSOLETE:                                               1.31ms = 2^15 * 1/25000
+ * //OBSOLETE:                                            1: timebase is 2^14 ticks
+ * //OBSOLETE:                                               0.66ms = 2^14 * 1/25000
+ * RESERVED    [ 7: 0]  0x0004
+ *
+ * JCMD_CTRL   [ 7: 0]  0x0005
  *    BPRU_EN  [    0]  0x0005        W       BasePeriod WOU Registers Update
  *                                            (1)enable (0)disable
  *                                            periodically and automatically transmit WOU registers to HOST
- *    SIF_EN   [    1]  0x0005        W       Servo Interface Enable
+ *    SSIF_EN  [    1]  0x0005        W       Servo/Stepper Interface Enable
  *    RST      [    2]  0x0005        W       Reset JCMD
  *******************************************************************************
+ * RESERVED             0x0030 ~ 0x007F
  *******************************************************************************
- * @registers for SIFS (Servo Interface Status)
+ * @REGISTERS FOR SSIF (Servo/Stepper InterFace)
  *******************************************************************************
- * SIFS_BASE            0x0040
- * SIFS_MASK            0x003F  (0x40 ~ 0x7F)
+ * SSIF_BASE            0X0080
+ * SSIF_MASK            0X007F  (0X80 ~ 0XFF)
+ * BP: Base Period register updating
  *******************************************************************************
  * REG_NAME             ADDR_OFFSET   ACCESS  DESCRIPTION
- * SIFS_SIF_CMD         0x0000        R       (0x00 ~ 0x0F) AXIS_0 ~ AXIS_3, sif-command from jcmd FIFO
- * SIFS_PULSE_CMD       0x0010        R       (0x10 ~ 0x1F) AXIS_0 ~ AXIS_3, pulse-command to jcmd FIFO
- * SIFS_ENC_POS         0x0020        R       (0x20 ~ 0x2F) AXIS_0 ~ AXIS_3, encoder-position from servo driver
- * SIFS_SWITCHES        0x0030        R       (0x30 ~ 0x31) 16 input switches for HOME, CCWL, and CWL
+ * SSIF_SIF_CMD         0X0000        R       (0X00 ~ 0X0F) JNT_0 ~ JNT_3, SIF-COMMAND FROM JCMD FIFO
+ * SSIF_PULSE_POS       0X0010        R(BP)   (0X10 ~ 0X1F) JNT_0 ~ JNT_3, PULSE-Position to Driver
+ * SSIF_ENC_POS         0X0020        R(BP)   (0X20 ~ 0X2F) JNT_0 ~ JNT_3, ENCODER-POSITION FROM SERVO DRIVER
+ * SSIF_SWITCHES        0X0030        R(BP)   (0X30 ~ 0X31) 16 INPUT SWITCHES FOR HOME, CCWL, AND CWL
+ * RESERVED             0x0032~0x3F
+ * SSIF_HOME_POS        0x0040        R       (0x40 ~ 0x4F) JNT_0 ~ JNT_3, home-position from servo driver
+ * RESERVED             0x0050~0x007B
+ * SSIF_MAX_PWM         0x007C~0x007F W       (0x7C ~ 0x7F) JNT_0 ~ JNT_3, 8-bits, Max PWM Ratio (Stepper Current Limit)
+ *******************************************************************************
+ * for 華谷：
+ * JNT_0 ~ JNT_2: current limit: 2.12A/phase (DST56EX43A)
+ *                set SSIF_MAX_PWM as 180
+ * JNT_3:         current limit: 3.0A/phase (DST86EM82A)
+ *                set SSIF_MAX_PWM as 255
  *******************************************************************************
  **/
 
@@ -230,31 +205,28 @@
 #define JCMD_BASE       0x0020
 #define JCMD_MASK       0x000F
 // offset to JCMD registers
-// #define JCMD_POS_W0     0x0000
-// #define JCMD_POS_W1     0x0001  // [4:0]
-// #define JCMD_DIR_W      0x0001  // [5]
-#define JCMD_POS_W      0x0000  // {DIR_W, POS_W} in FIFO mode
-// #define JCMD_POS_R0     0x0002  
-// #define JCMD_POS_R1     0x0003  // [4:0]
-// #define JCMD_DIR_R      0x0003  // [5]
-#define JCMD_POS_R      0x0002  // {DIR_R, POS_R} in FIFO mode
-#define JCMD_TBASE      0x0004  // [3:0]
-#define JCMD_CTRL       0x0005  // {RST, REC, BPRU_EN}
+#define JCMD_POS_W      0x0000  // 2-bytes: {DIR_W, POS_W} in FIFO mode
+// #define RESERVED     0x0002  
+// #define RESERVED     0x0003  
+//OBSOLETE: #define JCMD_TBASE      0x0004  // [3:0]
+// #define RESERVED     0x0004  
+#define JCMD_CTRL       0x0005  // [2:0]: {RST, SSIF_EN, BPRU_EN}
 
 // (0x30 ~ 0x3F) RESERVED
 // (0x40 ~ 0x7F) RESERVED
 
-// registers for SIFS (Servo Interface Status)
-// BASE_PERIOD_REGS: SIFS_PULSE_CMD, SIFS_ENC_POS, SIFS_SWITCHES_IN
+// registers for SSIF (Servo/Stepper InterFace)
+// BASE_PERIOD_REGS: SSIF_PULSE_POS, SSIF_ENC_POS, SSIF_SWITCHES_IN
 // NB: update bp_update wou_addr[] at usb_if.v
-#define SIFS_BASE       0x0080  
-#define SIFS_MASK       0x007F  // (0x80 ~ 0xFF)
+#define SSIF_BASE       0x0080  
+#define SSIF_MASK       0x007F  // (0x80 ~ 0xFF)
 //      REGISTERS       OFFSET  // DESCRIPTION
-#define SIFS_SIF_CMD    0x0000  // (0x00 ~ 0x0F) AXIS_0 ~ AXIS_3, sif-command from jcmd FIFO
-#define SIFS_PULSE_CMD  0x0010  // (0x10 ~ 0x1F) AXIS_0 ~ AXIS_3, pulse-command to jcmd FIFO
-#define SIFS_ENC_POS    0x0020  // (0x20 ~ 0x2F) AXIS_0 ~ AXIS_3, encoder-position from servo driver
-#define SIFS_SWITCH_IN  0x0030  // (0x30 ~ 0x31) 16 input switches for HOME, CCWL, and CWL
+#define SSIF_SIF_CMD    0x0000  // (0x00 ~ 0x0F) JNT_0 ~ JNT_3, sif-command from jcmd FIFO
+#define SSIF_PULSE_POS  0x0010  // (0x10 ~ 0x1F) JNT_0 ~ JNT_3, pulse-position to driver
+#define SSIF_ENC_POS    0x0020  // (0x20 ~ 0x2F) JNT_0 ~ JNT_3, encoder-position from servo driver
+#define SSIF_SWITCH_IN  0x0030  // (0x30 ~ 0x31) 16 input switches for HOME, CCWL, and CWL
                                 // (0x32 ~ 0x3F) RESERVED
-#define SIFS_HOME_POS   0x0040  // (0x40 ~ 0x4F) AXIS_0 ~ AXIS_3, home-position from servo driver
+#define SSIF_HOME_POS   0x0040  // (0x40 ~ 0x4F) JNT_0 ~ JNT_3, home-position from servo driver
+#define SSIF_MAX_PWM    0x007C  // (0x7C ~ 0x7F) JNT_0 ~ JNT_3, 8-bits, Max PWM Ratio (Stepper Current Limit)
 
 #endif // __wb_regs_h__

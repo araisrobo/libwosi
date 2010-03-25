@@ -54,6 +54,12 @@ int main(void)
     int ret;
     int i, j;
     uint8_t data[MAX_DSIZE];
+    int sif_cmd[4];
+    int rev[4];             // revolution for each joints
+    double acc_usteps[4];   // accumulated micro steps
+    double speed[4];        // target speed for each joints (unit: pps)
+    double accel[4];        // acceleration for each joints (unit: p/s^2)
+    double cur_speed[4];    // current speed for each joints (unit: p/bp)
 
     int32_t pulse_cmd[4];
     int32_t enc_pos[4];
@@ -62,8 +68,8 @@ int main(void)
     int ss, mm, hh, prev_ss;
 
     // do not load fpga bitfile:
-    // wou_init_usb(&w_param, "7i43u", 0, NULL);
-    wou_init(&w_param, "7i43u", 0, "./fpga_top.bit");
+    wou_init(&w_param, "7i43u", 0, "./stepper_top.bit");
+
     // wou_set_debug(&w_param, TRUE);
     // printf ("debug: about to wou_connect()\n"); 
     // getchar();
@@ -76,8 +82,7 @@ int main(void)
 
     printf("\nTEST JCMD WRITE/READ:\n");
 
-  /** WISHBONE REGISTERS **/
-
+    /** WISHBONE REGISTERS **/
     printf("debug: for BOOST... getchar ...\n");
     getchar();
 
@@ -90,13 +95,31 @@ int main(void)
     printf("send a wou-frame ... press key ...\n");
     getchar();
 
-    // obsolete:     // JCMD_TBASE: 0: servo period is "32768" ticks
-    // obsolete:     // data[0] = 0; 
-    // obsolete:     // wr_usb (WR_AI, (uint16_t) (JCMD_BASE | JCMD_TBASE), (uint8_t) 1, data);
-    // obsolete:     value = 0;
-    // obsolete:     ret = wou_cmd(&w_param,
-    // obsolete: 		  (WB_WR_CMD | WB_AI_MODE),
-    // obsolete: 		  (JCMD_BASE | JCMD_TBASE), 1, &value);
+    // set MAX_PWM ratio for each joints
+    //  * for 華谷：
+    //  * JNT_0 ~ JNT_2: current limit: 2.12A/phase (DST56EX43A)
+    //  *                SSIF_MAX_PWM = 2.12A/3A * 255 * 70% = 126
+    //  *                comment from 林大哥：步進最大電流最好打七折
+    //  *                未打折：K值可上1000P/0.67ms
+    //  *                打七折：K值可上800P/0.67ms
+    //  * JNT_1:         current limit: 3.0A/phase (DST86EM82A)
+    //  *                Bipolar 串聯後之電流 = 3A * 0.707 = 2.121
+    //  *                SSIF_MAX_PWM = 2.121/3 * 255 = 180.285
+    // data[0] = 102; // JNT_0  // japanServo, 1.2A
+    // data[0] = 126; // JNT_0
+    // data[1] = 126; // JNT_1
+    // data[2] = 126; // JNT_2
+    // data[3] = 178; // JNT_3
+    data[0] = 139; // JNT_0
+    data[1] = 139; // JNT_1
+    data[2] = 0; // JNT_2
+    data[3] = 0; // JNT_3
+    // Write 4 bytes to USB with Automatically Address Increment
+    // wr_usb (WR_AI, (uint16_t) (SSIF_BASE | SSIF_MAX_PWM), (uint8_t) 4, data);
+    ret = wou_cmd(&w_param,
+		  (WB_WR_CMD | WB_AI_MODE),
+		  (SSIF_BASE | SSIF_MAX_PWM), 4, data);
+    wou_flush(&w_param);
 
     // JCMD_CTRL: 
     //  [bit-0]: BasePeriod WOU Registers Update (1)enable (0)disable
@@ -110,22 +133,89 @@ int main(void)
 
     clock_gettime(CLOCK_REALTIME, &time1);
     prev_ss = 59;
+   
+    // rev[0] = 10000      // 1000 revolution
+    //          * 200      // 200 full stepper pulse per revolution
+    //          / 4        // 4 full stepper pulse == 1 sine/cosine cycle (2PI)
+    //          * 1024;    // sine/cosine LUT theta resolution
+    rev[0] = -65535;    // RUN-forever
+             
+                        // microSteps per base_period
+    // speed[0] = 50       // 50 full stepper pulse per seconds
+    // speed[0] = 1        // 1 full stepper pulse per seconds
+    speed[0] = 1100      // 10 full stepper pulse per seconds
+             / 4        // 4 full stepper pulse == 1 sine/cosine cycle (2PI)
+             * 1024     // sine/cosine LUT theta resolution
+             / (1000/0.65535); // base_period is 0.65535ms
+                        
+    accel[0] = 0.01;    // increase X usteps per base_period
+    // accel[0] = 1    // increase ... full steps per second
+             // / 4        // 4 full stepper pulse == 1 sine/cosine cycle (2PI)
+             // * 1024     // sine/cosine LUT theta resolution
+             // / (1000/0.65535); // base_period is 0.65535ms
+
+    rev[1] = rev[0];
+    // speed[1] = 1050   // K=168,MAX_PWM=126: 1050 full stepper pulse per seconds
+    speed[1] = 800      // MAX_PWM=200, stable@800, unstable@900 full stepper pulse per seconds
+             / 4        // 4 full stepper pulse == 1 sine/cosine cycle (2PI)
+             * 1024     // sine/cosine LUT theta resolution
+             / (1000/0.65535); // base_period is 0.65535ms
+                        
+    accel[1] = 0.01;
+    
+    for (j=0; j<4; j++) {
+        acc_usteps[j] = 0;
+        cur_speed[j] = 0;
+    }
+
     for (i = 0;; i++) {
 	// JCMD_POS and JCMD_DIR (big-endian, byte-0 is MSB)
 
 	// prepare servo command for 4 axes
 	for (j = 0; j < 4; j++) {
 	    int k;
-	    if ((i % 2048) < (768 + j * 256)) {
-		k = 0;
-	    } else {
-		k = 1;
-	    }
+            
+            cur_speed[j] += accel[j];
+            if (cur_speed[j] > speed[j]) {
+                cur_speed[j] = speed[j];
+            }
+
+            // accumulated micro steps
+            acc_usteps[j] += cur_speed[j];
+            if (acc_usteps[j] >= 1) {
+                k = acc_usteps[j];
+                acc_usteps[j] -= (double)k;
+            } else {
+                k = 0;
+            }
+
+            // rev[j]: -65535 means RUN-Forever
+            if (rev[j] != -65535) {
+                rev[j] -= k;
+                if (rev[j] < 0) {
+                    k = 0;
+                }
+            }
+
+            // if ((j==0) && ((i % 128) == 1))
+            if (j==0) {
+                if (k > 400) 
+                    k = 400;
+                // k = 128; A/NOT_A: 3KHz, T=0.333ms
+            } else if (j==1) {
+                // if (k > 170) 
+                //     k = 170;
+            } else {
+                k = 0;
+            }
+            
+            sif_cmd[j] = k;
+            
 	    // data[13]: Direction, (positive(1), negative(0))
 	    // data[12:0]: Relative Angle Distance (0 ~ 8191)
-	    data[j * 2] = (1 << 5);
+	    data[j * 2] = (1 << 5) | (k >> 8);
 	    // data[1]  = 0xFA; // 0xFA: 250
-	    data[j * 2 + 1] = k;
+	    data[j * 2 + 1] = k & 0xFF;
 	}
 
 	// wr_usb (WR_FIFO, (uint16_t) (JCMD_BASE | JCMD_POS_W), (uint8_t) 2, data);
@@ -182,8 +272,8 @@ int main(void)
 
 	    // IN(0x%04X), switch_in
 	    printf
-		("[%02d:%02d:%02d] tx(%s) rx(%s) (%.2f Kbps) pcmd(0x%08X,0x%08X,0x%08X,0x%08X)\n",
-		 hh, mm, ss, tx_str, rx_str, data_rate, pulse_cmd[0],
+		("K0(%d)K1(%d)[%02d:%02d:%02d] tx(%s) rx(%s) (%.2f Kbps) pcmd(0x%08X,0x%08X,0x%08X,0x%08X)\n",
+		 sif_cmd[0], sif_cmd[1], hh, mm, ss, tx_str, rx_str, data_rate, pulse_cmd[0],
 		 pulse_cmd[1], pulse_cmd[2], pulse_cmd[3]
 		);
 
@@ -198,14 +288,6 @@ int main(void)
 
     }
 
-    // obsolete:    // JCMD_TBASE: 0: servo period is "32768" ticks
-    // obsolete:    // data[0] = 0; 
-    // obsolete:    // wr_usb (WR_AI, (uint16_t) (JCMD_BASE | JCMD_TBASE), (uint8_t) 1, data);
-    // obsolete:    value = 0;
-    // obsolete:    ret = wou_cmd(&w_param,
-    // obsolete:		  (WB_WR_CMD | WB_AI_MODE),
-    // obsolete:		  (JCMD_BASE | JCMD_TBASE), 1, &value);
-
     wou_flush(&w_param);
 
     /* Close the connection */
@@ -213,3 +295,5 @@ int main(void)
 
     return 0;
 }
+
+// vim:sw=4:sts=4:et:

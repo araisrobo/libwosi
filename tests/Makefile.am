@@ -5,7 +5,8 @@ noinst_PROGRAMS = \
 	wou-unit-test-jcmd \
 	wou-unit-test-axis \
 	wou-unit-test-bp_reg_update \
-	wou-unit-test-home_pos
+	wou-unit-test-home_pos \
+	wou-unit-test-ustep
 
 
 common_ldflags = \
@@ -30,6 +31,9 @@ wou_unit_test_bp_reg_update_LDADD = $(common_ldflags)
 
 wou_unit_test_home_pos_SOURCES = wou-unit-test-home_pos.c
 wou_unit_test_home_pos_LDADD = $(common_ldflags)
+
+wou_unit_test_ustep_SOURCES = wou-unit-test-ustep.c
+wou_unit_test_ustep_LDADD = $(common_ldflags)
 
 INCLUDES = -I$(top_srcdir) -I$(top_srcdir)/src
 CLEANFILES = *~

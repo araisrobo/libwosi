@@ -87,19 +87,19 @@ int main(void)
   printf("about to switch SON on ... press enter ...\n"); getchar();
   wou_flush(&w_param);
  
-  // JCMD_TBASE: 0: servo period is "32768" ticks
-  // data[0] = 0; 
-  // wr_usb (WR_AI, (uint16_t) (JCMD_BASE | JCMD_TBASE), (uint8_t) 1, data);
-  value = 0;
-  ret = wou_cmd (&w_param,
-                 (WB_WR_CMD | WB_AI_MODE),
-                 (JCMD_BASE | JCMD_TBASE),
-                 1,
-                 &value);
+  //obsolete: // JCMD_TBASE: 0: servo period is "32768" ticks
+  //obsolete: // data[0] = 0; 
+  //obsolete: // wr_usb (WR_AI, (uint16_t) (JCMD_BASE | JCMD_TBASE), (uint8_t) 1, data);
+  //obsolete: value = 0;
+  //obsolete: ret = wou_cmd (&w_param,
+  //obsolete:                (WB_WR_CMD | WB_AI_MODE),
+  //obsolete:                (JCMD_BASE | JCMD_TBASE),
+  //obsolete:                1,
+  //obsolete:                &value);
   
    // JCMD_CTRL: 
    //  [bit-0]: BasePeriod WOU Registers Update (1)enable (0)disable
-   //  [bit-1]: SIF_EN, servo interface enable
+   //  [bit-1]: SSIF_EN, servo/stepper interface enable
    //  [bit-2]: RST, reset JCMD_FIFO and JCMD_FSMs
    data[0] = 2;
    ret = wou_cmd (&w_param,
@@ -165,25 +165,25 @@ int main(void)
 
     ret = wou_cmd (&w_param,
                    (WB_RD_CMD | WB_AI_MODE),
-                   (SIFS_BASE | SIFS_PULSE_CMD),
+                   (SSIF_BASE | SSIF_PULSE_POS),
                    16,
                    data);
     
     ret = wou_cmd (&w_param,
                    (WB_RD_CMD | WB_AI_MODE),
-                   (SIFS_BASE | SIFS_ENC_POS),
+                   (SSIF_BASE | SSIF_ENC_POS),
                    16,
                    data);
     
     ret = wou_cmd (&w_param,
                    (WB_RD_CMD | WB_AI_MODE),
-                   (SIFS_BASE | SIFS_SWITCH_IN),
+                   (SSIF_BASE | SSIF_SWITCH_IN),
                    2,
                    data);
     
     ret = wou_cmd (&w_param,
                    (WB_RD_CMD | WB_AI_MODE),
-                   (SIFS_BASE | SIFS_HOME_POS),
+                   (SSIF_BASE | SSIF_HOME_POS),
                    16,
                    data);
     
@@ -194,11 +194,11 @@ int main(void)
     assert (wou_update(&w_param) == 0);
 
     for (j=0; j<4; j++) {
-      memcpy ((pulse_cmd + j), wou_reg_ptr(&w_param, SIFS_BASE + SIFS_PULSE_CMD + j*4), 4);
-      memcpy ((enc_pos + j), wou_reg_ptr(&w_param, SIFS_BASE + SIFS_ENC_POS + j*4), 4);
-      memcpy ((home_pos + j), wou_reg_ptr(&w_param, SIFS_BASE + SIFS_HOME_POS + j*4), 4);
+      memcpy ((pulse_cmd + j), wou_reg_ptr(&w_param, SSIF_BASE + SSIF_PULSE_POS+ j*4), 4);
+      memcpy ((enc_pos + j), wou_reg_ptr(&w_param, SSIF_BASE + SSIF_ENC_POS + j*4), 4);
+      memcpy ((home_pos + j), wou_reg_ptr(&w_param, SSIF_BASE + SSIF_HOME_POS + j*4), 4);
     }
-    memcpy (&switch_in, wou_reg_ptr(&w_param, SIFS_BASE + SIFS_SWITCH_IN), 2);
+    memcpy (&switch_in, wou_reg_ptr(&w_param, SSIF_BASE + SSIF_SWITCH_IN), 2);
     printf("rev(%d) cur_pos(%4d) gpio.in(0x%04X)\n", 
             rev, cur_pos, switch_in);
     printf("pulse_cmd: %12d%12d%12d%12d\n", 
@@ -207,15 +207,15 @@ int main(void)
             enc_pos[0], enc_pos[1], enc_pos[2], enc_pos[3]);
   }
   
-   // JCMD_TBASE: 0: servo period is "32768" ticks
-   // data[0] = 0; 
-   // wr_usb (WR_AI, (uint16_t) (JCMD_BASE | JCMD_TBASE), (uint8_t) 1, data);
-   value = 0;
-   ret = wou_cmd (&w_param,
-                  (WB_WR_CMD | WB_AI_MODE),
-                  (JCMD_BASE | JCMD_TBASE),
-                  1,
-                  &value);
+   //obsolete: // JCMD_TBASE: 0: servo period is "32768" ticks
+   //obsolete: // data[0] = 0; 
+   //obsolete: // wr_usb (WR_AI, (uint16_t) (JCMD_BASE | JCMD_TBASE), (uint8_t) 1, data);
+   //obsolete: value = 0;
+   //obsolete: ret = wou_cmd (&w_param,
+   //obsolete:                (WB_WR_CMD | WB_AI_MODE),
+   //obsolete:                (JCMD_BASE | JCMD_TBASE),
+   //obsolete:                1,
+   //obsolete:                &value);
 
    wou_flush(&w_param);
 

@@ -46,3 +46,4 @@ tests/wou-unit-test-gpio
 tests/wou-unit-test-jcmd
 tests/wou-unit-test-bp_reg_update
 tests/wou-unit-test-home_pos
+tests/wou-unit-test-ustep

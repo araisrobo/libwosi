@@ -56,15 +56,15 @@ int main(void)
         // for (i=0; i < 2550; i++) 
         {
           value = (uint8_t) i & 0xFF;
-          // printf ("debug: value(%.2X)\n", value); 
-          // getchar();
           ret = wou_cmd (&w_param,
                          (WB_WR_CMD | WB_AI_MODE),
                          GPIO_LEDS,
                          1,
                          &value);
           assert(wou_update(&w_param) == 0);
-          // wou_flush(&w_param);
+          wou_flush(&w_param);
+          printf ("debug: value(%.2X)\n", value); 
+          getchar();
         }
         
         value = (uint8_t) 0xAA;
