@@ -1,3 +1,9 @@
+libwou (0.1-2) lucid; urgency=low
+
+  * initial build for Ubuntu 10.04 (lucid)
+
+ -- Yi-Shin Li <ysli@araisrobo.com>  Fri, 23 Apr 2010 22:32:05 +0800
+
 libwou (0.1-2) karmic; urgency=low
 
   * update registers for micro-stepping motor control
