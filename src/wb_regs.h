@@ -32,18 +32,20 @@
  * DIR_W       [   13]  0x0000.FIFO   W       Direction, (positive(1), negative(0))
  *          Write addr[1] will push {DIR_W,POS_W} into JCMD_FIFO. 
  *          The WB_WRITE got stalled if JCMD_FIFO is full. 
- * RESERVED    [ 7: 0]  0x0001
- * POS_R       [12: 0]  0x0002.FIFO   R       Relative Angle Distance (0 ~ 8191)
- * DIR_R       [   13]  0x0002.FIFO   R       Direction, (positive(1), negative(0))
- *          Read addr[3] will fetch {DIR_R,POS_R} from JCMD_FIFO. 
- *          The WB_READ got stalled if JCMD_FIFO is empty. 
+ * DIR_POL     [ 3: 0]  0x0001        W       Direction Polarity for
+ *                                            mechanical movement
+ *                                            馬達裝配方向相反時，同樣順時針旋
+ *                                            轉，卻會造成機構往不同方向運動。
+ *                                            用此參數以補償 inverse Kinematics
+ *                                            的結果
+ * RESERVED    [ 7: 0]  0x0002
  * RESERVED    [ 7: 0]  0x0003
  * 
- * //OBSOLETE: TBASE       [ 3: 0]  0x0004        W       time base of pulse generator
- * //OBSOLETE:                                            0: timebase is 2^15 ticks 
- * //OBSOLETE:                                               1.31ms = 2^15 * 1/25000
- * //OBSOLETE:                                            1: timebase is 2^14 ticks
- * //OBSOLETE:                                               0.66ms = 2^14 * 1/25000
+ * //OBSOLETE: TBASE [ 3: 0] 0x0004 W         time base of pulse generator
+ * //OBSOLETE:                                0: timebase is 2^15 ticks 
+ * //OBSOLETE:                                   1.31ms = 2^15 * 1/25000
+ * //OBSOLETE:                                1: timebase is 2^14 ticks
+ * //OBSOLETE:                                   0.66ms = 2^14 * 1/25000
  * RESERVED    [ 7: 0]  0x0004
  *
  * JCMD_CTRL   [ 7: 0]  0x0005
@@ -206,6 +208,14 @@
 #define JCMD_MASK       0x000F
 // offset to JCMD registers
 #define JCMD_POS_W      0x0000  // 2-bytes: {DIR_W, POS_W} in FIFO mode
+#define JCMD_DIR_POL    0x0001  // Direction Polarity for mechanical movement
+                                // 馬達裝配方向相反時，同樣順時針旋
+                                // 轉，卻會造成機構往不同方向運動。
+                                // 用此參數以補償 inverse Kinematics 的結果
+                                // [0]: joint_0
+                                // [1]: joint_1
+                                // [2]: joint_2
+                                // [3]: joint_3
 // #define RESERVED     0x0002  
 // #define RESERVED     0x0003  
 //OBSOLETE: #define JCMD_TBASE      0x0004  // [3:0]

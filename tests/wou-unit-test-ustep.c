@@ -110,10 +110,10 @@ int main(void)
     // data[1] = 126; // JNT_1
     // data[2] = 126; // JNT_2
     // data[3] = 178; // JNT_3
-    data[0] = 139; // JNT_0
-    data[1] = 139; // JNT_1
-    data[2] = 0; // JNT_2
-    data[3] = 0; // JNT_3
+    data[0] = 180; // JNT_0
+    data[1] = 180; // JNT_1
+    data[2] = 180; // JNT_2
+    data[3] = 180; // JNT_3
     // Write 4 bytes to USB with Automatically Address Increment
     // wr_usb (WR_AI, (uint16_t) (SSIF_BASE | SSIF_MAX_PWM), (uint8_t) 4, data);
     ret = wou_cmd(&w_param,
@@ -134,7 +134,7 @@ int main(void)
     clock_gettime(CLOCK_REALTIME, &time1);
     prev_ss = 59;
    
-    // rev[0] = 10000      // 1000 revolution
+    // rev[0] = 1000       // 1000 revolution
     //          * 200      // 200 full stepper pulse per revolution
     //          / 4        // 4 full stepper pulse == 1 sine/cosine cycle (2PI)
     //          * 1024;    // sine/cosine LUT theta resolution
@@ -143,7 +143,7 @@ int main(void)
                         // microSteps per base_period
     // speed[0] = 50       // 50 full stepper pulse per seconds
     // speed[0] = 1        // 1 full stepper pulse per seconds
-    speed[0] = 1100      // 10 full stepper pulse per seconds
+    speed[0] = 100       // 10 full stepper pulse per seconds
              / 4        // 4 full stepper pulse == 1 sine/cosine cycle (2PI)
              * 1024     // sine/cosine LUT theta resolution
              / (1000/0.65535); // base_period is 0.65535ms
@@ -154,14 +154,18 @@ int main(void)
              // * 1024     // sine/cosine LUT theta resolution
              // / (1000/0.65535); // base_period is 0.65535ms
 
-    rev[1] = rev[0];
+    // rev[1] = rev[0];
+    rev[1] = 0;
     // speed[1] = 1050   // K=168,MAX_PWM=126: 1050 full stepper pulse per seconds
-    speed[1] = 800      // MAX_PWM=200, stable@800, unstable@900 full stepper pulse per seconds
+    speed[1] = 100      // MAX_PWM=200, stable@800, unstable@900 full stepper pulse per seconds
              / 4        // 4 full stepper pulse == 1 sine/cosine cycle (2PI)
              * 1024     // sine/cosine LUT theta resolution
              / (1000/0.65535); // base_period is 0.65535ms
                         
     accel[1] = 0.01;
+    
+    rev[2] = 0;
+    rev[3] = 0;
     
     for (j=0; j<4; j++) {
         acc_usteps[j] = 0;
@@ -213,7 +217,10 @@ int main(void)
             
 	    // data[13]: Direction, (positive(1), negative(0))
 	    // data[12:0]: Relative Angle Distance (0 ~ 8191)
-	    data[j * 2] = (1 << 5) | (k >> 8);
+	    // dir: 1 (to left)
+            // dir: 0 (to right)
+            data[j * 2] = (1 << 5) | (k >> 8);      // to left
+	    // data[j * 2] = (0 << 5) | (k >> 8);  // to right
 	    // data[1]  = 0xFA; // 0xFA: 250
 	    data[j * 2 + 1] = k & 0xFF;
 	}
@@ -248,7 +255,6 @@ int main(void)
 	diff_time(&time1, &time2, &dt);
 	// printf("\ndt.tv_sec(0x%d)", dt.tv_sec);
 
-	// if (dt.tv_sec > 0) {
 	ss = dt.tv_sec % 60;	// seconds
 
 	if ((ss > prev_ss) || ((ss == 0) && (prev_ss == 59))) {

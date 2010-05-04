@@ -57,6 +57,16 @@ int main(void)
     wou_flush(&w_param);
     printf("send a wou-frame ... press key ...\n");
     getchar();
+  
+    value = 1;
+    ret = wou_cmd (&w_param,
+                   (WB_WR_CMD | WB_AI_MODE),
+                   GPIO_OUT,
+                   1,
+                   &value);
+    //debug: check if the first packet is correct?
+    printf("about to switch SON on ... press enter ...\n"); getchar();
+    wou_flush(&w_param);
 
     //obsolete:    // JCMD_TBASE: 0: servo period is "32768" ticks
     //obsolete:    // data[0] = 0; 
@@ -75,20 +85,27 @@ int main(void)
 		  (WB_WR_CMD | WB_AI_MODE), (JCMD_BASE | JCMD_CTRL), 1,
 		  data);
 
-    for (i = 0;; i++) {
+    for (i = 0; i<10000; i++) {
 	// JCMD_POS and JCMD_DIR (big-endian, byte-0 is MSB)
 
 	// prepare servo command for 4 axes
 	for (j = 0; j < 4; j++) {
 	    int k;
-	    if ((i % 2048) < (768 + j * 256)) {
-		k = 0;
-	    } else {
-		k = 1;
-	    }
+	    // if ((i % 2048) < (768 + j * 256)) {
+	    //     k = 0;
+	    // } else {
+	    //     k = 1;
+	    // }
+            if (j == 2) {
+              // jogging JOINT_3 only
+              k = 3;
+            } else {
+              k = 0;
+            }
 	    // data[13]: Direction, (positive(1), negative(0))
 	    // data[12:0]: Relative Angle Distance (0 ~ 8191)
-	    data[j * 2] = (1 << 5);
+	    // data[j * 2] = (1 << 5);
+	    data[j * 2] = (0 << 5);
 	    // data[1]  = 0xFA; // 0xFA: 250
 	    data[j * 2 + 1] = k;
 	}
