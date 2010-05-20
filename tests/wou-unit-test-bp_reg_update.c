@@ -63,7 +63,8 @@ int main(void)
 
     // do not load fpga bitfile:
     // wou_init_usb(&w_param, "7i43u", 0, NULL);
-    wou_init(&w_param, "7i43u", 0, "./fpga_top.bit");
+    // wou_init(&w_param, "7i43u", 0, "./servo_top.bit");
+    wou_init(&w_param, "7i43u", 0, "./servo_top.bit");
     // wou_set_debug(&w_param, TRUE);
     // printf ("debug: about to wou_connect()\n"); 
     // getchar();

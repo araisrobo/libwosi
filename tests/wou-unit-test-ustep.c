@@ -87,7 +87,7 @@ int main(void)
     getchar();
 
     // switch LEDs to display servo pulse commands
-    value = 1;
+    value = 2;
     ret = wou_cmd(&w_param,
 		  (WB_WR_CMD | WB_AI_MODE), GPIO_LEDS_SEL, 1, &value);
     //debug: check if the first packet is correct?
@@ -110,9 +110,9 @@ int main(void)
     // data[1] = 126; // JNT_1
     // data[2] = 126; // JNT_2
     // data[3] = 178; // JNT_3
-    data[0] = 180; // JNT_0
+    data[0] = 150; // JNT_0
     data[1] = 180; // JNT_1
-    data[2] = 180; // JNT_2
+    data[2] = 1;  // JNT_2
     data[3] = 180; // JNT_3
     // Write 4 bytes to USB with Automatically Address Increment
     // wr_usb (WR_AI, (uint16_t) (SSIF_BASE | SSIF_MAX_PWM), (uint8_t) 4, data);
@@ -138,7 +138,8 @@ int main(void)
     //          * 200      // 200 full stepper pulse per revolution
     //          / 4        // 4 full stepper pulse == 1 sine/cosine cycle (2PI)
     //          * 1024;    // sine/cosine LUT theta resolution
-    rev[0] = -65535;    // RUN-forever
+    // rev[0] = -65535;    // RUN-forever
+    rev[0] = 0;    // stop joint_0
              
                         // microSteps per base_period
     // speed[0] = 50       // 50 full stepper pulse per seconds
@@ -165,7 +166,18 @@ int main(void)
     accel[1] = 0.01;
     
     rev[2] = 0;
-    rev[3] = 0;
+    
+    // rev[3] = 0;
+    rev[3] = 10         // 10 revolution
+             * 200      // 200 full stepper pulse per revolution
+             / 4        // 4 full stepper pulse == 1 sine/cosine cycle (2PI)
+             * 1024;    // sine/cosine LUT theta resolution
+    // speed[3] = 1050   // K=168,MAX_PWM=126: 1050 full stepper pulse per seconds
+    speed[3] = 100      // MAX_PWM=200, stable@800, unstable@900 full stepper pulse per seconds
+             / 4        // 4 full stepper pulse == 1 sine/cosine cycle (2PI)
+             * 1024     // sine/cosine LUT theta resolution
+             / (1000/0.65535); // base_period is 0.65535ms
+    accel[3] = 0.01;
     
     for (j=0; j<4; j++) {
         acc_usteps[j] = 0;
@@ -201,17 +213,17 @@ int main(void)
                 }
             }
 
-            // if ((j==0) && ((i % 128) == 1))
-            if (j==0) {
-                if (k > 400) 
-                    k = 400;
-                // k = 128; A/NOT_A: 3KHz, T=0.333ms
-            } else if (j==1) {
-                // if (k > 170) 
-                //     k = 170;
-            } else {
-                k = 0;
-            }
+            //? // if ((j==0) && ((i % 128) == 1))
+            //? if (j==0) {
+            //?     if (k > 400) 
+            //?         k = 400;
+            //?     // k = 128; A/NOT_A: 3KHz, T=0.333ms
+            //? } else if (j==1) {
+            //?     // if (k > 170) 
+            //?     //     k = 170;
+            //? } else {
+            //?     k = 0;
+            //? }
             
             sif_cmd[j] = k;
             

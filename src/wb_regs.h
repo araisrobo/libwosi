@@ -70,7 +70,14 @@
  * SSIF_SWITCHES        0X0030        R(BP)   (0X30 ~ 0X31) 16 INPUT SWITCHES FOR HOME, CCWL, AND CWL
  * RESERVED             0x0032~0x3F
  * SSIF_HOME_POS        0x0040        R       (0x40 ~ 0x4F) JNT_0 ~ JNT_3, home-position from servo driver
- * RESERVED             0x0050~0x007B
+ * RESERVED             0x0050~0x007A
+ * SSIF_WAIT_HS_TOG     0x007B        W       (0x7B[3:0]) wait for home switchs toggle
+ *                                            [0] wait for home switch of JNT_0 toggle
+ *                                            [1] wait for home switch of JNT_1 toggle
+ *                                            [2] wait for home switch of JNT_2 toggle
+ *                                            [3] wait for home switch of JNT_3 toggle
+ *                                            SSIF_PULSE_POS will get locked 
+ *                                            when its home switch is toggled
  * SSIF_MAX_PWM         0x007C~0x007F W       (0x7C ~ 0x7F) JNT_0 ~ JNT_3, 8-bits, Max PWM Ratio (Stepper Current Limit)
  *******************************************************************************
  * for 華谷：
@@ -237,6 +244,7 @@
 #define SSIF_SWITCH_IN  0x0030  // (0x30 ~ 0x31) 16 input switches for HOME, CCWL, and CWL
                                 // (0x32 ~ 0x3F) RESERVED
 #define SSIF_HOME_POS   0x0040  // (0x40 ~ 0x4F) JNT_0 ~ JNT_3, home-position from servo driver
+#define SSIF_WAIT_HS_TOG  0x007B
 #define SSIF_MAX_PWM    0x007C  // (0x7C ~ 0x7F) JNT_0 ~ JNT_3, 8-bits, Max PWM Ratio (Stepper Current Limit)
 
 #endif // __wb_regs_h__
