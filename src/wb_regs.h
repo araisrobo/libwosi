@@ -61,7 +61,10 @@
  * SSIF_PULSE_POS       0X0000        R(BP)   (0X00 ~ 0X0F) JNT_0 ~ JNT_3, PULSE-Position to Driver
  * SSIF_ENC_POS         0X0010        R(BP)   (0X10 ~ 0X1F) JNT_0 ~ JNT_3, ENCODER-POSITION FROM SERVO DRIVER
  * SSIF_SWITCH_IN       0X0020        R(BP)   (0X20 ~ 0X21) 16 INPUT SWITCHES FOR HOME, CCWL, AND CWL
- * RESERVED             0x0022~0x002C
+ * RESERVED             0x0022~0x002B
+ * SSIF_RST_POS         0x002C        W       (0x2C) reset PULSE/ENC/SWITCH/INDEX positions for homing
+ *                                            [i] set to 1 by SW to clear positions 
+ *                                                reset to 0 by HW one cycle after resetting
  * SSIF_SWITCH_EN[3:0]  0x002D        RW(BP)  (0x2D) update and lock SWITCH_POS when home switch is toggled
  *                                            [i] set to 1 by SW to update SWITCH_POS[i]
  *                                                reset to 0 by HW when home switch of JNT[i] is toggled
@@ -242,7 +245,10 @@
 #define SSIF_PULSE_POS  0x0000  // (0x00 ~ 0x0F) JNT_0 ~ JNT_3, pulse-position to driver
 #define SSIF_ENC_POS    0x0010  // (0x10 ~ 0x1F) JNT_0 ~ JNT_3, encoder-position from servo driver
 #define SSIF_SWITCH_IN  0x0020  // (0x20 ~ 0x21) 16 input switches for HOME, CCWL, and CWL
-//      RESERVED        0x22 ~ 0x2D
+//      RESERVED        0x22 ~ 0x2B
+#define SSIF_RST_POS    0x002C  // (0x2C) reset PULSE/ENC/SWITCH/INDEX positions for homing
+                                // [i] set to 1 by SW to clear positions 
+                                //     reset to 0 by HW one cycle after resetting
 #define SSIF_SWITCH_EN  0x002D  // (0x2D[3:0]) update and lock SWITCH_POS when home switch is toggled
                                 // [i] set to 1 by SW to update SWITCH_POS[i]
                                 //     reset to 0 by HW when home switch of JNT[i] is toggled
