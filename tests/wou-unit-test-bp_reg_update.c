@@ -58,6 +58,10 @@ int main(void)
     int32_t pulse_cmd[4];
     int32_t enc_pos[4];
     uint16_t switch_in;
+    uint8_t  switch_en;
+    uint8_t  index_en;
+    int32_t switch_pos[4];
+    int32_t index_pos[4];
     struct timespec time1, time2, dt;
     int ss, mm, hh, prev_ss;
 
@@ -145,14 +149,24 @@ int main(void)
 
 	for (j = 0; j < 4; j++) {
 	    memcpy((pulse_cmd + j),
-		   wou_reg_ptr(&w_param,
-			       SSIF_BASE + SSIF_PULSE_POS + j * 4), 4);
+		    wou_reg_ptr(&w_param, SSIF_BASE + SSIF_PULSE_POS + j * 4),
+                    4);
 	    memcpy((enc_pos + j),
-		   wou_reg_ptr(&w_param, SSIF_BASE + SSIF_ENC_POS + j * 4),
-		   4);
+		    wou_reg_ptr(&w_param, SSIF_BASE + SSIF_ENC_POS + j * 4),
+		    4);
+	    memcpy((switch_pos + j),
+		    wou_reg_ptr(&w_param, SSIF_BASE + SSIF_SWITCH_POS + j * 4),
+		    4);
+	    memcpy((index_pos + j),
+		    wou_reg_ptr(&w_param, SSIF_BASE + SSIF_INDEX_POS + j * 4),
+		    4);
 	}
 	memcpy(&switch_in,
 	       wou_reg_ptr(&w_param, SSIF_BASE + SSIF_SWITCH_IN), 2);
+        memcpy(&switch_en,
+	       wou_reg_ptr(&w_param, SSIF_BASE + SSIF_SWITCH_EN), 1);
+        memcpy(&index_en,
+	       wou_reg_ptr(&w_param, SSIF_BASE + SSIF_INDEX_EN), 1);
 
 	clock_gettime(CLOCK_REALTIME, &time2);
 

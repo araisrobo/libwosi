@@ -183,7 +183,7 @@ int main(void)
     
     ret = wou_cmd (&w_param,
                    (WB_RD_CMD | WB_AI_MODE),
-                   (SSIF_BASE | SSIF_HOME_POS),
+                   (SSIF_BASE | SSIF_SWITCH_POS),
                    16,
                    data);
     
@@ -196,7 +196,7 @@ int main(void)
     for (j=0; j<4; j++) {
       memcpy ((pulse_cmd + j), wou_reg_ptr(&w_param, SSIF_BASE + SSIF_PULSE_POS+ j*4), 4);
       memcpy ((enc_pos + j), wou_reg_ptr(&w_param, SSIF_BASE + SSIF_ENC_POS + j*4), 4);
-      memcpy ((home_pos + j), wou_reg_ptr(&w_param, SSIF_BASE + SSIF_HOME_POS + j*4), 4);
+      memcpy ((home_pos + j), wou_reg_ptr(&w_param, SSIF_BASE + SSIF_SWITCH_POS + j*4), 4);
     }
     memcpy (&switch_in, wou_reg_ptr(&w_param, SSIF_BASE + SSIF_SWITCH_IN), 2);
     printf("rev(%d) cur_pos(%4d) gpio.in(0x%04X)\n", 

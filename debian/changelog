@@ -1,3 +1,10 @@
+libwou (0.1-5) lucid; urgency=low
+
+  * add SSIF_SWITCH_EN, SSIF_INDEX_EN, SSIF_SWITCH_POS, SSIF_INDEX_POS,
+    ... registers for homing with HOME_SWITCHES and MOTOR_INDEXES
+
+ -- Yi-Shin Li <ysli@araisrobo.com>  Mon, 24 May 2010 10:46:27 +0800
+
 libwou (0.1-4) lucid; urgency=low
 
   * add SSIF_WAIT_HS_TOG register to wait for home switch toggeling

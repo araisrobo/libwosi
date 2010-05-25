@@ -40,12 +40,6 @@
  *                                            的結果
  * RESERVED    [ 7: 0]  0x0002
  * RESERVED    [ 7: 0]  0x0003
- * 
- * //OBSOLETE: TBASE [ 3: 0] 0x0004 W         time base of pulse generator
- * //OBSOLETE:                                0: timebase is 2^15 ticks 
- * //OBSOLETE:                                   1.31ms = 2^15 * 1/25000
- * //OBSOLETE:                                1: timebase is 2^14 ticks
- * //OBSOLETE:                                   0.66ms = 2^14 * 1/25000
  * RESERVED    [ 7: 0]  0x0004
  *
  * JCMD_CTRL   [ 7: 0]  0x0005
@@ -64,20 +58,27 @@
  * BP: Base Period register updating
  *******************************************************************************
  * REG_NAME             ADDR_OFFSET   ACCESS  DESCRIPTION
- * SSIF_SIF_CMD         0X0000        R       (0X00 ~ 0X0F) JNT_0 ~ JNT_3, SIF-COMMAND FROM JCMD FIFO
- * SSIF_PULSE_POS       0X0010        R(BP)   (0X10 ~ 0X1F) JNT_0 ~ JNT_3, PULSE-Position to Driver
- * SSIF_ENC_POS         0X0020        R(BP)   (0X20 ~ 0X2F) JNT_0 ~ JNT_3, ENCODER-POSITION FROM SERVO DRIVER
- * SSIF_SWITCHES        0X0030        R(BP)   (0X30 ~ 0X31) 16 INPUT SWITCHES FOR HOME, CCWL, AND CWL
- * RESERVED             0x0032~0x3F
- * SSIF_HOME_POS        0x0040        R       (0x40 ~ 0x4F) JNT_0 ~ JNT_3, home-position from servo driver
- * RESERVED             0x0050~0x007A
- * SSIF_WAIT_HS_TOG     0x007B        W       (0x7B[3:0]) wait for home switchs toggle
- *                                            [0] wait for home switch of JNT_0 toggle
- *                                            [1] wait for home switch of JNT_1 toggle
- *                                            [2] wait for home switch of JNT_2 toggle
- *                                            [3] wait for home switch of JNT_3 toggle
- *                                            SSIF_PULSE_POS will get locked 
- *                                            when its home switch is toggled
+ * SSIF_PULSE_POS       0X0000        R(BP)   (0X00 ~ 0X0F) JNT_0 ~ JNT_3, PULSE-Position to Driver
+ * SSIF_ENC_POS         0X0010        R(BP)   (0X10 ~ 0X1F) JNT_0 ~ JNT_3, ENCODER-POSITION FROM SERVO DRIVER
+ * SSIF_SWITCH_IN       0X0020        R(BP)   (0X20 ~ 0X21) 16 INPUT SWITCHES FOR HOME, CCWL, AND CWL
+ * RESERVED             0x0022~0x002C
+ * SSIF_SWITCH_EN[3:0]  0x002D        RW(BP)  (0x2D) update and lock SWITCH_POS when home switch is toggled
+ *                                            [i] set to 1 by SW to update SWITCH_POS[i]
+ *                                                reset to 0 by HW when home switch of JNT[i] is toggled
+ * SSIF_INDEX_EN[3:0]   0x002E        RW(BP)  (0x2E) update and lock INDEX_POS when motor index switch is toggled
+ *                                            [i] set to 1 by SW to update INDEX_POS[i]
+ *                                                reset to 0 by SW after detecting INDEX_LOCK[i]
+ * SSIF_INDEX_LOCK[3:0] 0x002F        R(BP)   (0x2F) lock INDEX_POS at posedge of motor index switch
+ *                                            [i] set to 1 at posedge of motor index switch 
+ *                                                update INDEX_POS when ((INDEX_LOCK == 0) && (posedge of INDEX))
+ *                                                reset to 0 when INDEX_EN[i] is 0
+ * SSIF_SWITCH_POS      0X0030        R(BP)   (0X30 ~ 0X3F) JNT_0 ~ JNT_3, HOME-SWITCH-POSITION 
+ *                                                          servo: based on ENC_POS
+ *                                                          stepper: based on PULSE_POS
+ * SSIF_INDEX_POS       0X0040        R(BP)   (0X40 ~ 0X4F) JNT_0 ~ JNT_3, MOTOR-INDEX-POSITION
+ *                                                          servo: based on ENC_POS
+ *                                                          stepper: based on PULSE_POS
+ * RESERVED             0x0050~0x007B
  * SSIF_MAX_PWM         0x007C~0x007F W       (0x7C ~ 0x7F) JNT_0 ~ JNT_3, 8-bits, Max PWM Ratio (Stepper Current Limit)
  *******************************************************************************
  * for 華谷：
@@ -238,13 +239,25 @@
 #define SSIF_BASE       0x0080  
 #define SSIF_MASK       0x007F  // (0x80 ~ 0xFF)
 //      REGISTERS       OFFSET  // DESCRIPTION
-#define SSIF_SIF_CMD    0x0000  // (0x00 ~ 0x0F) JNT_0 ~ JNT_3, sif-command from jcmd FIFO
-#define SSIF_PULSE_POS  0x0010  // (0x10 ~ 0x1F) JNT_0 ~ JNT_3, pulse-position to driver
-#define SSIF_ENC_POS    0x0020  // (0x20 ~ 0x2F) JNT_0 ~ JNT_3, encoder-position from servo driver
-#define SSIF_SWITCH_IN  0x0030  // (0x30 ~ 0x31) 16 input switches for HOME, CCWL, and CWL
-                                // (0x32 ~ 0x3F) RESERVED
-#define SSIF_HOME_POS   0x0040  // (0x40 ~ 0x4F) JNT_0 ~ JNT_3, home-position from servo driver
-#define SSIF_WAIT_HS_TOG  0x007B
+#define SSIF_PULSE_POS  0x0000  // (0x00 ~ 0x0F) JNT_0 ~ JNT_3, pulse-position to driver
+#define SSIF_ENC_POS    0x0010  // (0x10 ~ 0x1F) JNT_0 ~ JNT_3, encoder-position from servo driver
+#define SSIF_SWITCH_IN  0x0020  // (0x20 ~ 0x21) 16 input switches for HOME, CCWL, and CWL
+//      RESERVED        0x22 ~ 0x2D
+#define SSIF_SWITCH_EN  0x002D  // (0x2D[3:0]) update and lock SWITCH_POS when home switch is toggled
+                                // [i] set to 1 by SW to update SWITCH_POS[i]
+                                //     reset to 0 by HW when home switch of JNT[i] is toggled
+#define SSIF_INDEX_EN   0x002E  // (0x2E[3:0]) update and lock INDEX_POS when motor index switch is toggled
+                                // [i] set to 1 by SW to update INDEX_POS[i]
+                                //     reset to 0 by SW after detecting INDEX_LOCK[i]
+#define SSIF_INDEX_LOCK 0x002F  // (0x2F) lock INDEX_POS at posedge of motor index switch
+                                // [i] set to 1 at posedge of motor index switch 
+                                //     update INDEX_POS when ((INDEX_LOCK == 0) && (posedge of INDEX))
+                                //     reset to 0 when INDEX_EN[i] is 0
+#define SSIF_SWITCH_POS 0X0030  // (0X30 ~ 0X3F) JNT_0 ~ JNT_3, HOME-SWITCH-POSITION (based on PULSE_POS)
+#define SSIF_INDEX_POS  0X0040  // (0X40 ~ 0X4F) JNT_0 ~ JNT_3, MOTOR-INDEX-POSITION (based on PULSE_POS)
+//      RESERVED        0x0050~0x007B
 #define SSIF_MAX_PWM    0x007C  // (0x7C ~ 0x7F) JNT_0 ~ JNT_3, 8-bits, Max PWM Ratio (Stepper Current Limit)
+
+// obsolete: #define SSIF_SIF_CMD    0x0000  // (0x00 ~ 0x0F) JNT_0 ~ JNT_3, sif-command from jcmd FIFO
 
 #endif // __wb_regs_h__

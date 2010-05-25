@@ -115,7 +115,7 @@ int main(void)
 		      data);
 	ret = wou_cmd(&w_param,
 		      (WB_RD_CMD | WB_AI_MODE),
-		      (SSIF_BASE | SSIF_SIF_CMD), 16, data);
+		      (SSIF_BASE | SSIF_PULSE_POS), 16, data);
 	// debug:
 	if ((i % 16) == 0) {
 	    assert(wou_update(&w_param) == 0);
