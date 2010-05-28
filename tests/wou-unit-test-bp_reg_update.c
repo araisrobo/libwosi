@@ -95,19 +95,17 @@ int main(void)
     printf("send a wou-frame ... press key ...\n");
     getchar();
 
-    // obsolete:     // JCMD_TBASE: 0: servo period is "32768" ticks
-    // obsolete:     // data[0] = 0; 
-    // obsolete:     // wr_usb (WR_AI, (uint16_t) (JCMD_BASE | JCMD_TBASE), (uint8_t) 1, data);
-    // obsolete:     value = 0;
-    // obsolete:     ret = wou_cmd(&w_param,
-    // obsolete: 		  (WB_WR_CMD | WB_AI_MODE),
-    // obsolete: 		  (JCMD_BASE | JCMD_TBASE), 1, &value);
+    // JCMD_WATCHDOG: unit is 100ms
+    value = 0x77;
+    ret = wou_cmd(&w_param,
+    	  (WB_WR_CMD | WB_AI_MODE),
+    	  (JCMD_BASE | JCMD_WATCHDOG), 1, &value);
 
     // JCMD_CTRL: 
     //  [bit-0]: BasePeriod WOU Registers Update (1)enable (0)disable
     //  [bit-1]: SSIF_EN, servo interface enable
     //  [bit-2]: RST, reset JCMD_FIFO and JCMD_FSMs
-    data[0] = 3;
+    data[0] = 0x03;
     ret = wou_cmd(&w_param,
 		  (WB_WR_CMD | WB_AI_MODE),
 		  (JCMD_BASE | JCMD_CTRL), 1, data);

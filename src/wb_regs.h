@@ -38,7 +38,8 @@
  *                                            轉，卻會造成機構往不同方向運動。
  *                                            用此參數以補償 inverse Kinematics
  *                                            的結果
- * RESERVED    [ 7: 0]  0x0002
+ * JCMD_WATCHDOG        0x0002        W       watchdog timeout limit (unit: 100ms)
+                                              default value: 30 (3 seconds)
  * RESERVED    [ 7: 0]  0x0003
  * RESERVED    [ 7: 0]  0x0004
  *
@@ -227,7 +228,8 @@
                                 // [1]: joint_1
                                 // [2]: joint_2
                                 // [3]: joint_3
-// #define RESERVED     0x0002  
+#define JCMD_WATCHDOG   0x0002  // watchdog timeout limit (unit: 100ms)
+                                // default value: 30 (3 seconds)
 // #define RESERVED     0x0003  
 //OBSOLETE: #define JCMD_TBASE      0x0004  // [3:0]
 // #define RESERVED     0x0004  

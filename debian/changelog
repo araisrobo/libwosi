@@ -1,3 +1,9 @@
+libwou (0.1-6) lucid; urgency=low
+
+  * add JCMD_WATCHDOG (Release to HOFO, 2010-05-28)
+
+ -- Yi-Shin Li <ysli@araisrobo.com>  Fri, 28 May 2010 15:00:11 +0800
+
 libwou (0.1-5) lucid; urgency=low
 
   * add SSIF_SWITCH_EN, SSIF_INDEX_EN, SSIF_SWITCH_POS, SSIF_INDEX_POS,
