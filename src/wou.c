@@ -37,33 +37,32 @@
 #include "wou/board.h"
 
 /* read/write multiple wishbone registers */
-int wou_cmd (wou_param_t *w_param, uint8_t type, int start_addr, 
-             int nb, const uint8_t *data)
+void wou_cmd (wou_param_t *w_param, const uint8_t func, const uint16_t wb_addr, 
+             const uint16_t dsize, const uint8_t *data)
 {
-        int ret;
-        int i;
-        int query_length;
-        int byte_count;
+  int ret;
+  int i;
+  int query_length;
+  int byte_count;
 
-        if (nb > DSIZE_LIMIT) {
-                ERRP ("ERROR Trying to write to too many registers (%d > %d)\n",
-                      nb, DSIZE_LIMIT);
-                return INVALID_DATA;
-        }
+  if (dsize > MAX_DSIZE) {
+    ERRP ("ERROR Trying to write to too many registers (%d > %d)\n",
+          dsize, MAX_DSIZE);
+    return;
+  }
 
-        // wou_append (w_param->board, (WB_WR_CMD | WB_AI_MODE), 
-        wou_append (w_param->board, type, 
-                     (uint16_t) start_addr, (uint8_t) nb, data);
+  wou_append (w_param->board, func, wb_addr, dsize, data);
 
-        return 0;
+  return;
 }
 
 /**
  * wou_update - update wou registers if it's appeared in USB RX BUF
  **/
-int wou_update (wou_param_t *w_param)
+void wou_update (wou_param_t *w_param)
 {
-  return (wou_recv (w_param->board));
+    wou_recv (w_param->board);
+    return;
 }
 
 /**
@@ -88,12 +87,12 @@ const void *wou_reg_ptr (wou_param_t *w_param, uint32_t wou_addr)
   return (ptr);
 }
 
-int wou_flush (wou_param_t *w_param)
+void wou_flush (wou_param_t *w_param)
 {
-        if (w_param->board->wou->psize != 0) {
-                wou_eof (w_param->board);
-        }
-        return 0;
+    // if (w_param->board->wou->psize != 0) {
+    wou_eof (w_param->board);
+    // }
+    return;
 }
 
 /* Initializes the wou_param_t structure for USB
@@ -104,63 +103,50 @@ int wou_flush (wou_param_t *w_param)
 void wou_init (wou_param_t *w_param, const char *device_type, 
                const int device_id, const char *bitfile)
 {
-        memset(w_param, 0, sizeof(wou_param_t));
-        w_param->board = malloc(sizeof(board_t));
-        board_init(w_param->board, device_type, device_id, bitfile);
-        // w_param->type_com = USB;
-        // w_param->error_handling = FLUSH_OR_CONNECT_ON_ERROR;
+    memset(w_param, 0, sizeof(wou_param_t));
+    w_param->board = malloc(sizeof(board_t));
+    board_init(w_param->board, device_type, device_id, bitfile);
+    wouf_init(w_param->board);
 }
 
 
 
 /**
  * wou_connect_usb - Establishes a wou USB connection 
- *                      Program FPGA via USB if bitfile is provided
+ *                   Program FPGA via USB if bitfile is provided
  **/
 
 static int wou_connect_usb(wou_param_t *w_param)
 {
-        int ret;
-        
-        // if (w_param->debug) {
-        //         printf("Connecting to %s at usb-%d\n", 
-        //                 w_param->board->board_type,
-        //                 w_param->board->io.usb.usb_devnum);
-        //         if (w_param->board->io.usb.bitfile)
-        //                 printf("Programming FPGA with %s\n", 
-        //                         w_param->board->io.usb.bitfile);
-        // }
+    int ret;
+    ret = board_connect(w_param->board);
+    return ret;
+}
 
-        ret = board_connect(w_param->board);
-
-        return ret;
+/* Closes the USB connection */
+static void wou_close_usb(wou_param_t *w_param)
+{
+    // shutdown(w_param->fd, SHUT_RDWR);
+    // close(w_param->fd);
+    
+    board_close(w_param->board);
+    free(w_param->board);
 }
 
 /* Establishes a wou connexion.
    Returns 0 on success or -1 on failure. */
 int wou_connect(wou_param_t *w_param)
 {
-        int ret;
-
-        ret = wou_connect_usb(w_param);
-        
-        return ret;
-}
-
-/* Closes the USB connection */
-static void wou_close_usb(wou_param_t *w_param)
-{
-        // shutdown(w_param->fd, SHUT_RDWR);
-        // close(w_param->fd);
-        
-        board_close(w_param->board);
-        free(w_param->board);
+    int ret;
+    ret = wou_connect_usb(w_param);
+    return ret;
 }
 
 
 /* Closes a wou connection */
 void wou_close(wou_param_t *w_param)
 {
-  wou_close_usb(w_param);
+    wou_close_usb(w_param);
 }
 
+// vim:sw=4:sts=4:et:

@@ -14,7 +14,7 @@ struct bitfile_chunk;
 typedef struct _Ftstat _Ftstat; ///< FT_STATUS values and their descriptions
 struct _Ftstat {
 	FT_STATUS status;
-	const char* description;
+	const char* desc;
 };
 
 static const _Ftstat Ftstat[] = {
@@ -59,46 +59,65 @@ static const _Ftstat Ftstat[] = {
 #define MAX_DEVICES		10
 
 
-#define TID_LIMIT     256
-#define DSIZE_LIMIT   256
-#define REQ_H_SIZE    4
+//obsolete:  #define TID_LIMIT     256
+//obsolete:  #define DSIZE_LIMIT   256
+//obsolete:  #define REQ_H_SIZE    4
+//obsolete:  #define MAX_SEQ       250 // reserve TID: FF(SYNC) and FE(BPRU, base period reg update) 
+//obsolete:  #define MAX_SEQ       4
+
 // #define BURST_LIMIT   4096
 // #define BURST_LIMIT   64  // FT_Write delay: 0.8 ~ 2.6ms
 // #define BURST_LIMIT   128  // FT_Write delay: 0.6 ~ 1.1ms
 // #define BURST_LIMIT   256 // FT_Write delay: 0.8 ~ 5.6ms
 #define BURST_LIMIT   512 // FT_Write delay: 0.8 ~ 5.6ms (best bandwidth utilization for 1ms time slot)
-#define MAX_SEQ       250 // reserve TID: FF(SYNC) and FE(BPRU, base period reg update) 
-// #define MAX_SEQ       4
+
+// GO-BACK-N: http://en.wikipedia.org/wiki/Go-Back-N_ARQ
+#define NR_OF_WIN     128    // window size for GO-BACK-N
+#define NR_OF_CLK     256    // number of circular buffer for WOU_FRAMEs
+
+enum rx_state_type {
+  SYNC=0, PLOAD_CRC
+};
 
 /**
  * pkt_t -  packet for wishbone over usb protocol
  * @buf:    buffer to hold this [wou], buf[0] is tid
  * @size:   size in bytes for this [wou] 
  **/
-typedef struct pkt_struct {
-  uint8_t     buf[REQ_H_SIZE+DSIZE_LIMIT];   
-  uint16_t    size;
-} pkt_t;
+typedef struct wouf_struct {
+    uint8_t     buf[WOUF_HDR_SIZE+MAX_PSIZE+CRC_SIZE];   
+    uint16_t    fsize;          // frame size in bytes
+    uint16_t    pload_size_rx;  // Rx payload size in bytes
+    uint8_t     use;
+} wouf_t;
 
 /**
  * wou_t - circular buffer to keep track of wou packets
- * @frame_id:     // frame_id (appeared at 1st WOU packet: FF00<frame_id>00)
- *                   refer to board.c::wou_eof() and board_init()
- * @pkts[256]:    // array of wou pckets 
- * @clock:        // clock pointer for next available wou
- * @head_pend:    // head of pending wou packets to be send
- * @head_wait:    // head of wou packets which is waiting for ACK
- * @psize:        // size in bytes for pending wou packets
+ * //obsolete: @frame_id:     // frame_id (appeared at 1st WOU packet: FF00<frame_id>00)
+ * //obsolete:                   refer to board.c::wou_eof() and board_init()
+ * //obsolete: @psize:              size in bytes for pending wou packets
+ * //obsolete: @head_pend:          head of pending wou packets to be send
+ * //obsolete: @head_wait:          head of wou packets which is waiting for ACK
+ * @tid:                transaction id for the upcomming wouf
+ * @tidSb:              transaction id for sequence base(Sb)
+ * @woufs[NR_OF_CLK]:   circular clock array of WOU_FRAMEs
+ * @clock:              clock pointer for next available wouf buffer
+ * @Rn:                 request number
+ * @Sn:                 sequence number
+ * @Sb:                 sequence base of GBN
+ * @Sm:                 sequence max of GBN
  **/
 typedef struct wou_struct {
-  uint8_t     frame_id;       
-  pkt_t       pkts[TID_LIMIT];    
+  uint8_t     tid;       
+  uint8_t     tidSb;
+  wouf_t      woufs[NR_OF_CLK];    
   uint8_t     buf_send[BURST_LIMIT];
   uint8_t     buf_recv[BURST_LIMIT];
-  uint16_t    clock;        
-  uint8_t     head_pend;    
-  uint8_t     head_wait;    
-  uint32_t    psize;
+  uint8_t     clock;        
+  uint8_t     Rn;
+  uint8_t     Sn;
+  uint8_t     Sb;    
+  uint8_t     Sm;    
 } wou_t;
 
 //
@@ -151,9 +170,10 @@ int board_status (board_t* board);
 int board_reset (board_t* board);
 // int board_prog (board_t* board, char* filename);
 
-int wou_append (board_t* b, uint8_t cmd, uint16_t addr, uint8_t size,
-                const uint8_t* buf);
-int wou_recv (board_t* b);
+void wou_append (board_t* b, const uint8_t func, const uint16_t wb_addr, 
+                 const uint16_t dsize, const uint8_t* buf);
+void wou_recv (board_t* b);
 int wou_eof (board_t* b);
+void wouf_init (board_t* b);
 
 #endif  // __MESA_H__

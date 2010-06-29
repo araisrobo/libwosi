@@ -27,7 +27,9 @@ libwou_la_SOURCES = \
 	bitfile.h \
 	bitfile.c \
 	board.h \
-	board.c
+	board.c \
+	crc.h \
+	crc.c
 
 INCLUDES = -I../
 

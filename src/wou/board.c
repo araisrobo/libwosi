@@ -202,6 +202,23 @@ static int board_prog (struct board* board)
     return r;
 }
 
+// init for GO_BACK_N
+static void gbn_init (board_t* board)
+{
+    int i;
+    board->rd_dsize = 0;
+    board->wr_dsize = 0;
+    board->wou->tid = 0;
+    board->wou->tidSb = 0;
+    board->wou->clock = 0;
+    board->wou->Sn = 0;
+    board->wou->Sb = 0;
+    board->wou->Sm = NR_OF_WIN - 1;
+    for (i=0; i<NR_OF_CLK; i++) {
+        board->wou->woufs[i].use = 0;
+    }
+    wouf_init (board);
+}
 
 int board_init (board_t* board, const char* device_type, const int device_id,
                 const char* bitfile)
@@ -248,16 +265,7 @@ int board_init (board_t* board, const char* device_type, const int device_id,
     DP ("chip_type(%s)\n", board->chip_type);
    
     board->wou = (wou_t *) malloc (sizeof(wou_t));
-    board->wou->frame_id = 0;
-    board->wou->clock = 0;
-    board->wou->head_pend = 0;
-    board->wou->head_wait = 0;
-    board->wou->psize = 0;
-    for (i = 0; i < TID_LIMIT; i++) {
-      board->wou->pkts[i].size = 0;
-    }
-    board->rd_dsize = 0;
-    board->wr_dsize = 0;
+    gbn_init (board);
 
     return 0;
 }
@@ -287,7 +295,7 @@ int board_connect (board_t* board)
     
     if(ftStatus != FT_OK) {
         ERRP ("FT_ListDevices(): ftStatus(%lu:%s)\n", 
-               ftStatus, Ftstat[ftStatus]);
+               ftStatus, Ftstat[ftStatus].desc);
         return (-1);
     }
     
@@ -316,7 +324,6 @@ int board_connect (board_t* board)
     // getchar();
     ftStatus = FT_OpenEx(cBufLD[devnum], FT_OPEN_BY_SERIAL_NUMBER, 
                          &ftHandle);
-    // ftStatus = FT_Open(0, &ftHandle);
     if(ftStatus != FT_OK) {
         /** 
          * This can fail if the ftdi_sio driver is loaded
@@ -324,7 +331,7 @@ int board_connect (board_t* board)
          * also rmmod usbserial
          **/
         ERRP ("FT_OpenEx(%lu:%s), device(%d)\n", 
-               ftStatus, Ftstat[ftStatus], devnum);
+               ftStatus, Ftstat[ftStatus].desc, devnum);
         return (-1);
     }
     // printf ("after FT_OpenEx(), fpga got re-configured?\n");
@@ -338,8 +345,8 @@ int board_connect (board_t* board)
     nanosleep(&time, NULL);
     DP ("For Linux, we need extra delay for FT_OpenEx()\n");
     
-    // reset usb device
-    board_reset (board);
+//obsolete?    // reset usb device
+//obsolete?    board_reset (board);
     
     // InTransferSize = 64; // 64 bytes
     // ftStatus = FT_SetUSBParameters(ftHandle, InTransferSize, 0); 
@@ -354,6 +361,9 @@ int board_connect (board_t* board)
     }
 
     DP ("board(%p)\n", board);
+
+    gbn_init (board);   // go_back_n
+
     return (0);
 }
 
@@ -369,66 +379,67 @@ int board_close (board_t* board)
 }   
     
 
-int board_reset (struct board *b)
-{
-  FT_STATUS s;
-  int i;
-
-  if (!FT_SUCCESS(s = FT_ResetDevice(b->io.usb.ftHandle))) {
-    ERRP("FT_ResetDevice ... \n");
-    return -1;
-  }
-  DP ("FT_ResetDevice ... pass\n");
-  
-  // if (!FT_SUCCESS(s = FT_Purge(b->io.usb.ftHandle, FT_PURGE_RX | FT_PURGE_TX))) { 
-  //   ERRP("FT_Purge ... \n");
-  //   return -1;
-  // }
-  // DP ("FT_ResetDevice ... pass\n");
-  // 
-
-  // give a SOFT_RST to reset fpga
-  // WOU_SYNC packet: <FF><00><00><00>
-  // SOFT_RST packet: <00><C0><00><01><01>
-  char cBufWrite[9];
-  DWORD	dwBytesWritten/*, dwBytesRead*/;
-  cBufWrite[0] = 0xFF;
-  cBufWrite[1] = 0x00;
-  cBufWrite[2] = 0x00;
-  cBufWrite[3] = 0x00;
-  cBufWrite[4] = 0x00;
-  cBufWrite[5] = 0xC0;
-  cBufWrite[6] = 0x00;
-  cBufWrite[7] = 0x01;
-  cBufWrite[8] = 0x01;
-  if(!FT_SUCCESS(s = FT_Write(b->io.usb.ftHandle, cBufWrite, 9, 
-                            &dwBytesWritten))) {
-    ERRP("Error FT_Write(%lu)\n", s);
-  }
-  
-  // // debug:
-  // struct timespec time;
-  // board_status (b);
-  // time.tv_sec = 0;
-  // time.tv_nsec = 500000000;   // 500ms
-  // nanosleep(&time, NULL);
-  // board_status (b);
-  // DP ("wait for response ... press key ...\n"); getchar();
-
-
-  
-  // the first WOU_PACKET after RST would be <FF><00><00><00>
-  b->wou->frame_id = 0;
-  b->wou->clock = 0;
-  b->wou->head_pend = 0;
-  b->wou->head_wait = 0;
-  b->wou->psize = 0;
-  for (i = 0; i < TID_LIMIT; i++) {
-    b->wou->pkts[i].size = 0;
-  }
-         
-  return 0;
-}
+//obsolete: int board_reset (struct board *b)
+//obsolete: {
+//obsolete:   FT_STATUS s;
+//obsolete:   int i;
+//obsolete: 
+//obsolete:   if (!FT_SUCCESS(s = FT_ResetDevice(b->io.usb.ftHandle))) {
+//obsolete:     ERRP("FT_ResetDevice ... \n");
+//obsolete:     return -1;
+//obsolete:   }
+//obsolete:   DP ("FT_ResetDevice ... pass\n");
+//obsolete:   
+//obsolete:   //obsolete: // give a SOFT_RST to reset fpga
+//obsolete:   //obsolete: // WOU_SYNC packet: <FF><00><00><00>
+//obsolete:   //obsolete: // SOFT_RST packet: <00><C0><00><01><01>
+//obsolete:   //obsolete: char cBufWrite[9];
+//obsolete:   //obsolete: DWORD	dwBytesWritten/*, dwBytesRead*/;
+//obsolete:   //obsolete: cBufWrite[0] = 0xFF;
+//obsolete:   //obsolete: cBufWrite[1] = 0x00;
+//obsolete:   //obsolete: cBufWrite[2] = 0x00;
+//obsolete:   //obsolete: cBufWrite[3] = 0x00;
+//obsolete:   //obsolete: cBufWrite[4] = 0x00;
+//obsolete:   //obsolete: cBufWrite[5] = 0xC0;
+//obsolete:   //obsolete: cBufWrite[6] = 0x00;
+//obsolete:   //obsolete: cBufWrite[7] = 0x01;
+//obsolete:   //obsolete: cBufWrite[8] = 0x01;
+//obsolete:   //obsolete: if(!FT_SUCCESS(s = FT_Write(b->io.usb.ftHandle, cBufWrite, 9, 
+//obsolete:   //obsolete:                           &dwBytesWritten))) {
+//obsolete:   //obsolete:   ERRP("Error FT_Write(%lu)\n", s);
+//obsolete:   //obsolete: }
+//obsolete:   
+//obsolete:   // // debug:
+//obsolete:   // struct timespec time;
+//obsolete:   // board_status (b);
+//obsolete:   // time.tv_sec = 0;
+//obsolete:   // time.tv_nsec = 500000000;   // 500ms
+//obsolete:   // nanosleep(&time, NULL);
+//obsolete:   // board_status (b);
+//obsolete:   // DP ("wait for response ... press key ...\n"); getchar();
+//obsolete: 
+//obsolete:   //obsolete: // the first WOU_PACKET after RST would be <FF><00><00><00>
+//obsolete:   //obsolete: b->wou->frame_id = 0;
+//obsolete:   //obsolete: b->wou->clock = 0;
+//obsolete:   //obsolete: b->wou->head_pend = 0;
+//obsolete:   //obsolete: b->wou->head_wait = 0;
+//obsolete:   //obsolete: b->wou->psize = 0;
+//obsolete:   //obsolete: for (i = 0; i < TID_LIMIT; i++) {
+//obsolete:   //obsolete:   b->wou->pkts[i].size = 0;
+//obsolete:   //obsolete: }
+//obsolete:     b->rd_dsize = 0;
+//obsolete:     b->wr_dsize = 0;
+//obsolete:     b->wou->tid = 0;
+//obsolete:     b->wou->clock = 0;
+//obsolete:     b->wou->Sb = 0;
+//obsolete:     b->wou->Sm = NR_OF_WIN - 1;
+//obsolete:     for (i=0; i<NR_OF_CLK; i++) {
+//obsolete:         board->wou->woufs[i].use = 0;
+//obsolete:     }
+//obsolete:     wouf_init (board);
+//obsolete:          
+//obsolete:   return 0;
+//obsolete: }
 
 /**
  * TODO: update the results of FT_GetStatus into board data structure 
@@ -574,95 +585,284 @@ static int wb_reg_update (board_t* b, int wb_addr, int dsize)
   return (0);
 }      
 
-// receive data from USB and update corresponding WB registers
-int wou_recv (board_t* b)
+static void wouf_parse (board_t* b, const uint8_t *buf_head)
 {
-  FT_STATUS   ftStatus;
-  DWORD       recvd;
-  int         i;
-  static int  wb_addr = 0;
-  static int  dsize = 0;
+    uint8_t *Sm;
+    uint8_t *Sb;
+    uint8_t *Sn;
+    uint8_t *tidSb;
+    uint8_t pload_size_tx;  // PLOAD_SIZE_TX
+    uint8_t tidR;           // TID from FPGA
+    uint8_t advance;        // Sb advance number (woufs to be flushed)
+    wouf_t  *wou_frame_;
+    int     i;
+
+    Sm = &(b->wou->Sm);
+    Sb = &(b->wou->Sb);
+    Sn = &(b->wou->Sn);
+    tidSb = &(b->wou->tidSb);
+    tidR = buf_head[1];     
+    advance = tidR - *tidSb;
+    assert (advance < NR_OF_WIN);
+
+    DP ("TODO: CRC pass; about to update Rn\n");
+    // about to update Rn
+    if (advance) {
+        // If you receive a request number where Rn > Sb
+        // Sm = Sm + (Rn – Sb)
+        *Sm = *Sm + advance;
+        if (*Sm >= NR_OF_CLK) {
+            *Sm = 0;
+        }
+        // Sb = Rn
+        for (i=0; i<advance; i++) {
+            wou_frame_ = &(b->wou->woufs[*Sb]);
+            wou_frame_->use = 0;
+            *Sb += 1;
+            if (*Sb >= NR_OF_CLK) {
+                *Sb = 0;
+            }
+            DP ("Sm(%d) Sn(%d) Sb(%d) use(%d) clock(%d)\n", 
+                *Sm, *Sn, *Sb, b->wou->woufs[*Sn].use, b->wou->clock);
+        }
+        *tidSb = tidR;
+        
+//DEBUG:        // DEBUG:
+//DEBUG:        fprintf (stderr, "buf_head: ");
+//DEBUG:        for (i=0; i < (1 + buf_head[0] + CRC_SIZE); i++) {
+//DEBUG:            fprintf (stderr, "<%.2X>", buf_head[i]);
+//DEBUG:        }
+//DEBUG:        fprintf (stderr, "\n");
+
+    } else {
+        // re-transmit wou_frames where Sb <= Sn <= Sm
+        *Sn = *Sb;
+        ERRP ("check this out: got an un-expected tidR\n");
+
+        // DEBUG:
+        fprintf (stderr, "buf_head: ");
+        for (i=0; i < (1 + buf_head[0] + CRC_SIZE); i++) {
+            fprintf (stderr, "<%.2X>", buf_head[i]);
+        }
+        fprintf (stderr, "\n");
+
+        assert(0);
+    }
     
-  /**
-   * check FTDI Rx Buffer
-   **/
-  FT_STATUS   s;
-  DWORD       r, t, e;
-  ftStatus = FT_GetStatus(b->io.usb.ftHandle, &r, &t, &e);
-  if (ftStatus != FT_OK) {
-    ERRP("FT_GetStatus()\n");
-    return -1;
-  }
+    DP ("TODO: about to parse [WOU]\n");
 
-  if (r < dsize) {
-    // block until receiving enough data
-    return (0); 
-  } else if (dsize) {
-    wb_reg_update (b, wb_addr, dsize);
-    r -= dsize;
-    // dsize = 0; will be issued after the following while-loop
-  }
-  
-  // when (RX_BUF >= 4 bytes), read and process it
-  while (r >= WOU_HDR_SIZE) {
-    // read 4 bytes of header back
-    ftStatus = FT_Read( b->io.usb.ftHandle, 
-                        b->wou->buf_recv, 
-                        WOU_HDR_SIZE, &recvd );
-    if (ftStatus != FT_OK) 
-    {
-      DP ("FT_Read(): ftStatus(%d)\n", (int)ftStatus);
-      return -1;
-    }
-    b->rd_dsize += recvd;
+} // wouf_parse()
 
-#if (TRACE!=0)
-    DP ("WOU_HEADER: ");
-    for (i=0; i < recvd; i++) 
-    {
-      DPS ("<%.2X>", b->wou->buf_recv[i]);
+// receive data from USB and update corresponding WB registers
+void wou_recv (board_t* b)
+{
+    FT_STATUS   ftStatus;
+    DWORD       recvd;
+    int         i;
+    int         immediate_state;
+    int         cmp;
+    uint16_t    crc16;
+    int         pload_size_tx;
+    uint8_t     *buf_head;
+    static int  wb_addr = 0;
+    static int  rx_size = 0;      // size of buf_rx[]
+    static enum rx_state_type rx_state = SYNC;
+    static uint8_t buf_rx[NR_OF_WIN*(WOUF_HDR_SIZE+1/*TID_SIZE*/
+                                     +MAX_PSIZE+CRC_SIZE)];
+    static uint8_t sync_words[3] = {WOUF_PREAMBLE, WOUF_PREAMBLE, WOUF_SOFD};
+    /**
+     * check FTDI Rx Buffer size (but not read it)
+     **/
+    FT_STATUS   s;
+    DWORD       r, t, e;
+    ftStatus = FT_GetStatus(b->io.usb.ftHandle, &r, &t, &e);
+    if (ftStatus != FT_OK) {
+        ERRP("FT_GetStatus()\n");
+        return;
     }
-    DPS ("\n");
+    
+    DP ("r(%d)\n", r);
+    if (r) {
+        // append data from USB to buf_rx[]
+        ftStatus = FT_Read(b->io.usb.ftHandle, buf_rx + rx_size, r, &recvd );
+        if (ftStatus != FT_OK) 
+        {
+            ERRP ("FT_Read(%lu:%s)\n", ftStatus, Ftstat[ftStatus].desc);
+            return;
+        }
+        b->rd_dsize += recvd;
+        rx_size += recvd;
+    }
+   
+    buf_head = buf_rx;
+    do {
+        immediate_state = 0;
+        switch (rx_state) {
+        case SYNC:
+            if (rx_size < (WOUF_HDR_SIZE + 1/*TID_SIZE*/ + CRC_SIZE)) {
+                // block until receiving enough data
+                return; 
+            }
+#if(TRACE)
+            DP ("buf_rx: ");
+            for (i=0; i < rx_size; i++) {
+              DPS ("<%.2X>", buf_rx[i]);
+            }
+            DPS ("\n");
 #endif
+
+            // locate {PREAMBLE_0, PREAMBLE_1, SOFD}
+            for (i=0; i<(rx_size - (WOUF_HDR_SIZE - 1)); i++) {
+                cmp = memcmp (buf_rx + i, sync_words, 3);
+                if (cmp == 0) {
+                    // we got {PREAMBLE_0, PREAMBLE_1, SOFD}
+                    break; // break the for-loop
+                }
+            }
+
+            if (cmp == 0) {
+                // we got {PREAMBLE_0, PREAMBLE_1, SOFD}
+                // make buf_head point to PLOAD_SIZE_TX
+                buf_head = buf_rx + i + (WOUF_HDR_SIZE - 1);
+                rx_size -= (i + (WOUF_HDR_SIZE - 1));
+                rx_state = PLOAD_CRC;
+                immediate_state = 1;    // switch to PLOAD_CRC state ASAP
+            } else {
+                buf_head = buf_rx + i;
+                rx_size -= i;
+                memmove (buf_rx, buf_head, rx_size);
+                // next rx_state would still be SYNC;
+            }
+            break;  // rx_state == SYNC
+        
+        case PLOAD_CRC:
+#if(TRACE)
+            DP ("buf_head: ");
+            for (i=0; i < rx_size; i++) {
+              DPS ("<%.2X>", buf_head[i]);
+            }
+            DPS ("\n");
+#endif
+            pload_size_tx = buf_head[0];    // PLOAD_SIZE_TX
+            if (rx_size < (1/*PLOAD_SIZE_TX*/ + pload_size_tx + CRC_SIZE)) {
+                // block until receiving enough data
+                return; 
+            }
+            // calc CRC for {PLOAD_SIZE_TX, TID, WOU_PACKETS}
+            crcInit();
+            crc16 = crcFast(buf_head, (1/*PLOAD_SIZE_TX*/ + pload_size_tx)); 
+            cmp = memcmp(buf_head + (1 + pload_size_tx), &crc16, CRC_SIZE);
+            if (cmp == 0) {
+                // CRC pass; about to parse WOU_FRAME
+                wouf_parse (b, buf_head);
+                rx_size -= (1 + pload_size_tx + CRC_SIZE);
+                buf_head += (1 + pload_size_tx + CRC_SIZE);
+                if (rx_size) {
+                    memmove (buf_rx, buf_head, rx_size);
+                    immediate_state = 1;
+                }
+                // finished a WOU_FRAME
+                rx_state = SYNC;
+            } else {
+                // CRC fail; through buf_head back to SYNC state
+                if (buf_head != buf_rx) {
+                    memmove (buf_rx, buf_head, rx_size);
+                }
+                rx_state = SYNC;
+                immediate_state = 1;
+                ERRP ("RX_CRC(0x%04X) pload_size_tx(%d)\n", crc16, pload_size_tx);
+                assert(0);
+            }
+            break;  // rx_state == PLOAD_CRC
+
+        default:
+            /* should never get here */
+            ERRP ("unknown state (%d)\n", rx_state);
+            break;
+        } /* end of switch(rx_state) */
+
+        r = 0;  // reset RX cnt for immediate_state
+    } while (immediate_state);
     
-    wb_addr = ((b->wou->buf_recv[1] & 0x3F) << 8) | b->wou->buf_recv[2];
-    dsize = (int) b->wou->buf_recv[3];
-    r-=4;
+    return;
 
-    if (b->wou->buf_recv[1] & WB_WR_CMD) {
-      // WB_WR_CMD should never ACK; if we get it, that means we've
-      // got error
-      ERRPS ("WOU_HEADER: ");
-      for (i=0; i < recvd; i++) 
-      {
-        ERRPS ("<%.2X>", b->wou->buf_recv[i]);
-      }
-      ERRPS ("\n");
-      ERRP("NAK, check it out! ... \n"); getchar();
-    } else if (dsize) {
-      // WB_RD_CMD
-      if (r < dsize) {
-        // block until receiving enough data
-        return (0); 
-      }
-      // (r >= dsize) means we got enough data to be fetched from USB Rx BUF
-      if (wb_reg_update (b, wb_addr, dsize)) {
-        return (-1);
-      }
-      r -= dsize;
-    }
-  } // while (r >= WOU_HDR_SIZE)
-
-  dsize = 0;
-  return (0); // success
+//orig:    if (r < rx_size) {
+//orig:      // block until receiving enough data
+//orig:      return; 
+//orig:    } else if (rx_size) {
+//orig:      wb_reg_update (b, wb_addr, rx_size);
+//orig:      r -= rx_size;
+//orig:      // rx_size = 0; will be issued after the following while-loop
+//orig:    }
+//orig:  
+//orig:   // when (RX_BUF >= 4 bytes), read and process it
+//orig:   while (r >= WOU_HDR_SIZE) {
+//orig:     // read 4 bytes of header back
+//orig:     ftStatus = FT_Read( b->io.usb.ftHandle, 
+//orig:                         b->wou->buf_recv, 
+//orig:                         WOU_HDR_SIZE, &recvd );
+//orig:     if (ftStatus != FT_OK) 
+//orig:     {
+//orig:       DP ("FT_Read(): ftStatus(%d)\n", (int)ftStatus);
+//orig:       return -1;
+//orig:     }
+//orig:     b->rd_rx_size += recvd;
+//orig: 
+//orig: #if (TRACE!=0)
+//orig:     DP ("WOU_HEADER: ");
+//orig:     for (i=0; i < recvd; i++) 
+//orig:     {
+//orig:       DPS ("<%.2X>", b->wou->buf_recv[i]);
+//orig:     }
+//orig:     DPS ("\n");
+//orig: #endif
+//orig:     
+//orig:     wb_addr = ((b->wou->buf_recv[1] & 0x3F) << 8) | b->wou->buf_recv[2];
+//orig:     rx_size = (int) b->wou->buf_recv[3];
+//orig:     r-=4;
+//orig: 
+//orig:     if (b->wou->buf_recv[1] & WB_WR_CMD) {
+//orig:       // WB_WR_CMD should never ACK; if we get it, that means we've
+//orig:       // got error
+//orig:       ERRPS ("WOU_HEADER: ");
+//orig:       for (i=0; i < recvd; i++) 
+//orig:       {
+//orig:         ERRPS ("<%.2X>", b->wou->buf_recv[i]);
+//orig:       }
+//orig:       ERRPS ("\n");
+//orig:       ERRP("NAK, check it out! ... \n"); getchar();
+//orig:     } else if (rx_size) {
+//orig:       // WB_RD_CMD
+//orig:       if (r < rx_size) {
+//orig:         // block until receiving enough data
+//orig:         return (0); 
+//orig:       }
+//orig:       // (r >= rx_size) means we got enough data to be fetched from USB Rx BUF
+//orig:       if (wb_reg_update (b, wb_addr, rx_size)) {
+//orig:         return (-1);
+//orig:       }
+//orig:       r -= rx_size;
+//orig:     }
+//orig:   } // while (r >= WOU_HDR_SIZE)
+//orig: 
+//orig:   rx_size = 0;
+//orig:   return(0); // success
 } // wou_recv()
 
 
-static int wou_send (board_t* b)
+static void wou_send (board_t* b)
 {
     DWORD       dwBytesWritten;
     FT_STATUS   ftStatus;
     struct timespec    time1, time2, dt;
+
+    DWORD   size;
+    uint8_t buf_dest[NR_OF_WIN*(WOUF_HDR_SIZE+2/*PLOAD_SIZE_TX+TID*/
+                                +MAX_PSIZE+CRC_SIZE)];
+    uint8_t *buf_src;
+    uint8_t *Sm;
+    uint8_t *Sn;
+    int     i;
 
     // clock_gettime(CLOCK_REALTIME, &time1);
     // clock_gettime(CLOCK_REALTIME, &time2);
@@ -670,181 +870,256 @@ static int wou_send (board_t* b)
     // printf ("debug: dt.sec(%lu), dt.nsec(%lu)\n", 
     //          dt.tv_sec, dt.tv_nsec);
     
-    /**
-     * pack [wou] packets into buf_send[]
-     **/
-    uint8_t* buf_dest;
-    uint8_t* buf_src;
-    uint16_t size;
-    DWORD size_sum;
-    uint8_t  head;
-    int i, j;
-    buf_dest = b->wou->buf_send;
-    
-    // prepare [SYNC] packet
-    buf_src = b->wou->pkts[255].buf;
-    memcpy (buf_dest, buf_src, REQ_H_SIZE);  
-    buf_dest += REQ_H_SIZE;
-    size_sum = REQ_H_SIZE;
-    // prepare [WBOU] packets
-    for (i=0; i < b->wou->clock; i++) {
-        buf_src = b->wou->pkts[i].buf;
-        // buf_src = b->wou->pkts[head].buf;
-        if (buf_src[1] & WB_WR_CMD) {
-          // WB_WR 
-          size = b->wou->pkts[i].size;
-          // size = b->wou->pkts[head].size;
+    size = 0;
+    Sm = &(b->wou->Sm);
+    Sn = &(b->wou->Sn);
+    DP ("Sm(%d) Sn(%d) Sb(%d) use(%d) clock(%d)\n", 
+        *Sm, *Sn, b->wou->Sb, b->wou->woufs[*Sn].use, b->wou->clock);
+    if (*Sm >= *Sn) {
+        if ((*Sn - *Sm) == 1) {
+            // stop sending when exceening Max Window Boundary
+            return;
         } else {
-          // WB_RD
-          size = REQ_H_SIZE;
+            for (i=*Sn; i<=*Sm; i++) {
+                DP ("Sm(%d) Sn(%d) use(%d)\n", *Sm, *Sn, b->wou->woufs[i].use);
+                if (b->wou->woufs[i].use == 0) {
+                    break;
+                }
+                buf_src = b->wou->woufs[i].buf;
+                memcpy (buf_dest + size, buf_src, b->wou->woufs[i].fsize);  
+                size += b->wou->woufs[i].fsize;
+                *Sn += 1;
+                //TODO: use should be reset by wou_recv() when obtaining a Rn
+                // b->wou->woufs[i].use = 0;
+            }
         }
-        memcpy (buf_dest, buf_src, size);  
+    } else {
+        if ((*Sn - *Sm) == 1) {
+            // stop sending when exceening Max Window Boundary
+            return;
+        } else {
+            // round a circle
+            assert ((NR_OF_CLK - *Sn) < NR_OF_WIN);
+            assert (*Sm < (NR_OF_WIN - (NR_OF_CLK - *Sn)));
+            for (i=*Sn; i<NR_OF_CLK; i++) {
+                if (b->wou->woufs[i].use == 0) {
+                    break;
+                }
+                buf_src = b->wou->woufs[i].buf;
+                memcpy (buf_dest + size, buf_src, b->wou->woufs[i].fsize);  
+                size += b->wou->woufs[i].fsize;
+                *Sn += 1;
+                //TODO: use should be reset by wou_recv() when obtaining a Rn
+                // b->wou->woufs[i].use = 0;
+            }
+            if (*Sn == NR_OF_CLK) {
+                *Sn = 0;
+                for (i=0; i<=*Sm; i++) {
+                    if (b->wou->woufs[i].use == 0) {
+                        break;
+                    }
+                    buf_src = b->wou->woufs[i].buf;
+                    memcpy (buf_dest + size, buf_src, b->wou->woufs[i].fsize);  
+                    size += b->wou->woufs[i].fsize;
+                    *Sn += 1;
+                    //TODO: use should be reset by wou_recv() when obtaining a Rn
+                    // b->wou->woufs[i].use = 0;
+                }
+            }
+        }
+    }
 
-#if(TRACE!=0)
-        DP ("send: ");
-        for (j=0; j < size; j++) {
-          DPS ("<%.2X>", buf_src[j]);
-        }
-        DPS ("\n");
+#if(TRACE)
+    DP ("send: size(%d)", size);
+    for (i=0; i < size; i++) {
+      DPS ("<%.2X>", buf_dest[i]);
+    }
+    DPS ("\n");
 #endif
 
-        // head += 1;
-        size_sum += size;
-        buf_dest += size;
-    }
-    // b->wou->n_pkts = 0;
-    b->wou->clock = 0;
-    // b->wou->head_wait = b->wou->head_pend;
-    // b->wou->head_pend = head;
-
-    // debug: DP ("size_sum(%d), psize(%d)\n", size_sum, b->wou->psize);
-    // debug: assert (size_sum <= b->wou->psize);
-    // debug: 
-    // debug: DP ("FT_Write():\n");
-    // debug: for (i=0; i < size_sum; i++) {
-    // debug:   DPS ("<%.2X>", b->wou->buf_send[i]);
-    // debug: }
-    // debug: DPS ("\n");
-    
-    // debug: add board_status()
-    // debug: board_status(b);
     clock_gettime(CLOCK_REALTIME, &time1);
-    if ((ftStatus = FT_Write(b->io.usb.ftHandle, b->wou->buf_send, 
-                             size_sum, &dwBytesWritten)) 
+    if ((ftStatus = FT_Write(b->io.usb.ftHandle, buf_dest, 
+                             size, &dwBytesWritten)) 
         != FT_OK) 
     {
-        ERRP ( "FT_Write: ftStatus(%lu:%s)\n", ftStatus, Ftstat[ftStatus]);
-        return (-1);
+        ERRP ( "FT_Write: ftStatus(%lu:%s)\n", ftStatus, Ftstat[ftStatus].desc);
     } else {
         clock_gettime(CLOCK_REALTIME, &time2);
         dt = diff(time1,time2); 
-#if (TRACE>1)
-        DP ("FT_Write(): ");
-        for (i=0; i < size_sum; i++) 
-        {
-          DPS ("<%.2X>", b->wou->buf_send[i]);
-        }
-        DPS ("\n");
-#endif
+//TODO: #if (TRACE>1)
+//TODO:         DP ("FT_Write(): ");
+//TODO:         for (i=0; i < size_sum; i++) 
+//TODO:         {
+//TODO:           DPS ("<%.2X>", b->wou->buf_send[i]);
+//TODO:         }
+//TODO:         DPS ("\n");
+//TODO: #endif
         DP ("dwBytesWritten(%lu), dt.sec(%lu), dt.nsec(%lu)\n", 
              dwBytesWritten, dt.tv_sec, dt.tv_nsec);
         DP ("bitrate(%f Mbps)\n", 
              8.0*dwBytesWritten/(1000000.0*dt.tv_sec+dt.tv_nsec/1000.0));
-        b->wou->psize = 0; // reset pending wou buf size
+        //obsolete: b->wou->psize = 0; // reset pending wou buf size
         b->wr_dsize += dwBytesWritten;
-    
-        return (0);
     } // if FT_Write() successful
+    return;
 }
 
-// TODO: replace wou_eof as wou_sync
 int wou_eof (board_t* b)
 {
-    // static uint8_t clock = 0;
-    b->wou->pkts[255].size = REQ_H_SIZE;  // header
-    b->wou->pkts[255].buf[0] = 0xFF;      // tid for SYNC
-    b->wou->pkts[255].buf[1] = WB_RD_CMD; // ACK with frame_id
-    b->wou->pkts[255].buf[2] = b->wou->frame_id; // reset as 0 at board_init()
-    b->wou->pkts[255].buf[3] = 0;         // 0
-    b->wou->psize += REQ_H_SIZE;
-    b->wou->frame_id += 1;
+    // took from vip/ftdi/generator.cpp::send_frame()
+    int         cur_clock;
+    wouf_t      *wou_frame_;
+    uint16_t    crc16;
+
+    cur_clock = (int) b->wou->clock;
+    wou_frame_ = &(b->wou->woufs[cur_clock]);
+
+    assert ((wou_frame_->fsize - WOUF_HDR_SIZE) <= MAX_PSIZE);
+    // update PAYLOAD size TX/RX of WOU_FRAME 
+    // PLOAD_SIZE_TX is part of the header
+    wou_frame_->buf[3] = 0xFF & (wou_frame_->fsize - WOUF_HDR_SIZE);
+    wou_frame_->buf[4] = b->wou->tid;
+    wou_frame_->buf[5] = 0xFF & (wou_frame_->pload_size_rx);
+    
+    // calc CRC for {PLOAD_SIZE_TX, PLOAD_SIZE_RX, TID, WOU_PACKETS}
+    crcInit();
+    crc16 = crcFast(wou_frame_->buf + (WOUF_HDR_SIZE - 1), 
+                    wou_frame_->fsize - (WOUF_HDR_SIZE - 1)); 
+    memcpy (wou_frame_->buf + wou_frame_->fsize, &crc16, CRC_SIZE);
+    wou_frame_->fsize += CRC_SIZE;
+
+    // set use flag for CLOCK algorithm
+    wou_frame_->use = 1;    
+
+    // update the clock pointer
+    b->wou->clock += 1;
+    if (b->wou->clock == NR_OF_CLK) {
+        b->wou->clock = 0;  // clock: 0 ~ (NR_OF_CLK-1)
+    }
+
     // flush pending [wou] packets
-    wou_send(b);
+    wou_frame_ = &(b->wou->woufs[b->wou->clock]);
+    do {
+        wou_recv(b);    // update GBN pointer if receiving Rn
+        wou_send(b);
+    } while (wou_frame_->use);
+    
+    // init the wouf buffer and tid
+    b->wou->tid += 1;   // tid: 0 ~ 255
+    wouf_init (b);
+
     return 0;
 }
 
-int wou_append (board_t* b, uint8_t cmd, uint16_t addr, uint8_t size,
-                const uint8_t* buf)
+void wouf_init (board_t* b)
 {
-    int cur_clock;
+    // took from vip/ftdi/generator.cpp::init_frame()
+    int         cur_clock;
+    wouf_t      *wou_frame_;
 
-    // flush USB Rx buf and update WB regs if any
-    // assert (wou_recv(b) == 0);
-      
+    cur_clock = (int) b->wou->clock;
+    wou_frame_ = &(b->wou->woufs[cur_clock]);
 
-    // chcek this [wou] will not overflow the BURST_LIMIT
-    if ((b->wou->psize + size + (2 * REQ_H_SIZE)) > BURST_LIMIT) {
-      // flush pending [wou] packets
-      // TODO: append a pseudo WB_RD command for ACK response
-      wou_eof (b);   // wou_eof->wou_send-> it will reset b->wou->clock to 0
+    wou_frame_->buf[0]          = WOUF_PREAMBLE;
+    wou_frame_->buf[1]          = WOUF_PREAMBLE;
+    wou_frame_->buf[2]          = WOUF_SOFD;    // Start of Frame Delimiter
+    wou_frame_->buf[3]          = 0xFF;         // PLOAD_SIZE_TX
+    wou_frame_->buf[4]          = 0xFF;         // TID
+    wou_frame_->buf[5]          = 0xFF;         // PLOAD_SIZE_RX
+    wou_frame_->fsize           = 6;
+    wou_frame_->pload_size_rx   = 1;            // there would be no PLOAD_SIZE_RX in response WOU_FRAME
+    wou_frame_->use             = 0;
+
+    return ;
+}
+
+
+void wou_append (board_t* b, const uint8_t func, const uint16_t wb_addr, 
+                 const uint16_t dsize, const uint8_t* buf)
+{
+    int         cur_clock;
+    wouf_t      *wou_frame_;
+    uint16_t    i;
+
+    cur_clock = (int) b->wou->clock;
+    wou_frame_ = &(b->wou->woufs[cur_clock]);
+
+    // avoid exceeding WOUF_PAYLOAD limit
+    if (func == WB_WR_CMD) {
+        if ((wou_frame_->fsize - WOUF_HDR_SIZE + WOU_HDR_SIZE + dsize) 
+            > MAX_PSIZE) 
+        {
+            // CRC_SIZE is not counted in PLOAD_SIZE_TX
+            wou_eof(b);
+        }
+    } else if (func == WB_RD_CMD) {
+        if (((wou_frame_->fsize - WOUF_HDR_SIZE + WOU_HDR_SIZE) > MAX_PSIZE) 
+            || 
+            ((wou_frame_->pload_size_rx + WOU_HDR_SIZE + dsize) > MAX_PSIZE))
+        {
+            // CRC_SIZE is not counted in PLOAD_SIZE_TX
+            wou_eof(b);
+        }
+    } else {
+        assert (0); // not a valid func
     }
+
+    //obsolete: // chcek this [wou] will not overflow the BURST_LIMIT
+    //obsolete: if ((b->wou->psize + dsize + (2 * REQ_H_SIZE)) > BURST_LIMIT) {
+    //obsolete:   // flush pending [wou] packets
+    //obsolete:   // TODO: append a pseudo WB_RD command for ACK response
+    //obsolete:   wou_eof (b);   // wou_eof->wou_send-> it will reset b->wou->clock to 0
+    //obsolete: }
     
     cur_clock = (int) b->wou->clock;
-    b->wou->pkts[cur_clock].size = size + REQ_H_SIZE; // payload + header
-    b->wou->pkts[cur_clock].buf[0] = (uint8_t) b->wou->clock; // clock serves as tid also
-    b->wou->pkts[cur_clock].buf[1] = cmd | (addr >> 8);
-    b->wou->pkts[cur_clock].buf[2] = (uint8_t) (addr & 0xFF);
-    b->wou->pkts[cur_clock].buf[3] = size;
-    if (cmd & WB_WR_CMD) {
-      // WB_WR
-      memcpy (&(b->wou->pkts[b->wou->clock].buf[4]), buf, size);
-    }
-    // b->wou->n_pkts += 1;
-    b->wou->clock += 1;
-    b->wou->psize += (size + REQ_H_SIZE);
-    // TODO: chcek clock does not hit head_wait
-    // if (b->wou->clock == (uint8_t) (b->wou->head_pend - 1))
-    if (b->wou->clock == MAX_SEQ) {
-      // flush pending [wou] packets
-      // TODO: append a pseudo WB_RD command for ACK response
-      wou_eof(b);
-    }
-    // TODO: check if there's data in FTDI RX buffer
+    wou_frame_ = &(b->wou->woufs[cur_clock]);
+        
+    // DP ("func(0x%02X) dsize(0x%02X) wb_addr(0x%04X)\n", 
+    //      func, dsize, wb_addr);
     
-    return cur_clock;
+    // code took from vip/ftdi/generator.cpp:
+    i = wou_frame_->fsize;
+    wou_frame_->buf[i] = 0xFF & (func | (0x7F & dsize));
+    i++;
+    memcpy (wou_frame_->buf + i, &wb_addr, WB_ADDR_SIZE);
+    i+= WB_ADDR_SIZE;
+    if (func == WB_WR_CMD) {
+        memcpy (wou_frame_->buf + i, buf, dsize);
+        wou_frame_->fsize = i + dsize;
+    } else  if (func == WB_RD_CMD) {
+        wou_frame_->fsize = i;
+        wou_frame_->pload_size_rx += (WOU_HDR_SIZE + dsize);
+    }
+    return;    
 }
 
 
 
-static int m7i43u_reconfig (board_t* board)
+static void m7i43u_reconfig (board_t* board)
 {
     DP ("Park 7i43u in RECONFIG mode\n");
     uint8_t cBufWrite;
     
     cBufWrite = GPIO_RECONFIG;
-    wou_append (board, (WB_WR_CMD | WB_AI_MODE), GPIO_SYSTEM, 
-                        1, &cBufWrite);
+    wou_append (board, WB_WR_CMD, GPIO_SYSTEM, 1, &cBufWrite);
     wou_eof (board);
-    // wou_send (board);
-    return EC_OK;
+    return;
 }
 
 // for 7i43 USB version
 static int m7i43u_program_fpga(struct board *board, 
-                              struct bitfile_chunk *ch) 
+                               struct bitfile_chunk *ch) 
 {
     // 
     // reset the FPGA, then send appropriate firmware
     //
     printf ("begin: m7i43u_program_fpga()\n");
     
-    if (board_reset(board)) {
-        return EC_HDW;  // FTDI reset fail
-    }
+    // if (board_reset(board)) {
+    //     return EC_HDW;  // FTDI reset fail
+    // }
     
-    if (m7i43u_reconfig (board)) {
-        return EC_HDW;
-    }
+    m7i43u_reconfig (board);
 
     printf("about to m7i43u_cpld_reset\n");
     if (!m7i43u_cpld_reset(board)) {
@@ -858,32 +1133,17 @@ static int m7i43u_program_fpga(struct board *board,
         return -1;
     }
     
-//redundnat:    // DP ("right after sending bitfile... press key ...\n"); getchar();
-//redundnat:    board_status (board);
-//redundnat:    // DP ("before 1st rst ... check exp_tid[] press key ...\n"); getchar();
-//redundnat:    board_reset (board);  
-//redundnat:    // DP ("after 1st rst ... check exp_tid[] press key ...\n"); getchar();
-
     // in Linux, there are 519 bytes show up on the RxQueue after
     // programming. TODO: where does it come from?
     struct timespec time;
-//redundnat:    board_status (board);
     time.tv_sec = 0;
     time.tv_nsec = 500000000;   // 500ms
     nanosleep(&time, NULL);
-    // debug: board_status (board);
-    // DP ("before 2nd rst ... press key ...\n"); getchar();
-    board_reset (board);  
-//redundnat:    board_status (board);
-//redundnat:    // DP ("after 2nd rst ... press key ...\n"); getchar();
-//redundnat:    time.tv_sec = 0;
-//redundnat:    time.tv_nsec = 500000000;   // 500ms
-//redundnat:    nanosleep(&time, NULL);
-//redundnat:    board_status (board);
-    // DP ("about to leave ... press key ...\n"); getchar();
+    
+    //obsolete: board_reset (board);  
 
     return 0;
 }
 
 
-
+// vim:sw=4:sts=4:et:

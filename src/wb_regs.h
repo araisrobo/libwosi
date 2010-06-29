@@ -16,6 +16,10 @@
  * RESERVED       [ 7: 2]   0x0000
  * GPIO_LEDS      [ 7: 0]   0x0001        W       drive the 7i43 LEDS
  * GPIO_LEDS_SEL  [ 1: 0]   0x0002        W       LED source selection
+ *                                                GPIO_LEDS_SEL.[1:0] :
+ *                                                2'b00: gpio_leds[7:0]
+ *                                                2'b01: servo_if pulse output
+ *                                                2'b10: debug_port_0
  * GPIO_OUT       [ 7: 0]   0x0003        W       drive the 7i37 out ports
  * GPIO_MASK_IN0  [ 7: 0]   0x0004        W       mask for input bits [7:0]
  * GPIO_MASK_IN1  [ 7: 0]   0x0005        W       mask for input bits [15:8]
@@ -25,21 +29,19 @@
  * @registers for JCMD (Joint Command Processor)
  *******************************************************************************
  * JCMD_BASE            0x0020
- * JCMD_MASK            0x000F
+ * JCMD_MASK            0x001F
  *******************************************************************************
  * REG_NAME             ADDR_OFFSET   ACCESS  DESCRIPTION
- * POS_W       [12: 0]  0x0000.FIFO   W       Relative Angle Distance (0 ~ 8191)
- * DIR_W       [   13]  0x0000.FIFO   W       Direction, (positive(1), negative(0))
- *          Write addr[1] will push {DIR_W,POS_W} into JCMD_FIFO. 
- *          The WB_WRITE got stalled if JCMD_FIFO is full. 
- * DIR_POL     [ 3: 0]  0x0001        W       Direction Polarity for
- *                                            mechanical movement
- *                                            馬達裝配方向相反時，同樣順時針旋
- *                                            轉，卻會造成機構往不同方向運動。
- *                                            用此參數以補償 inverse Kinematics
- *                                            的結果
+ * //obsolete: DIR_POL     [ 3: 0]  0x0001        W       Direction Polarity for
+ * //obsolete:                                            mechanical movement
+ * //obsolete:                                            馬達裝配方向相反時，同樣順時針旋
+ * //obsolete:                                            轉，卻會造成機構往不同方向運動。
+ * //obsolete:                                            用此參數以補償 inverse Kinematics
+ * //obsolete:                                            的結果
+ * JCMD_SYNC_IN_TO      0x0000        W       sync_in_timeout limit (unit: 100ms), 
+ *                      0x0001                up to 109 minutes
  * JCMD_WATCHDOG        0x0002        W       watchdog timeout limit (unit: 100ms)
-                                              default value: 30 (3 seconds)
+ 0                                            default value: 30 (3 seconds)
  * RESERVED    [ 7: 0]  0x0003
  * RESERVED    [ 7: 0]  0x0004
  *
@@ -49,6 +51,20 @@
  *                                            periodically and automatically transmit WOU registers to HOST
  *    SSIF_EN  [    1]  0x0005        W       Servo/Stepper Interface Enable
  *    RST      [    2]  0x0005        W       Reset JCMD
+ * SYNC_CMD             0x0010        W       Synchronizing command to JCMD_FIFO
+ *                        ~
+ *                      0x001F
+ *    NAME        OP_CODE[15:14]  OPERAND[13:0]   Description
+ *    SYNC_JNT    2'b00           {DIR_W, POS_W}  DIR_W[13]:    Direction, (positive(1), negative(0))
+ *                                                POS_W[12:0]:  Relative Angle Distance (0 ~ 8191)
+ *    NAME        OP_CODE[15:13]  OPERAND[12:0]   Description
+ *    SYNC_DOUT   3'b010          {ID, VAL}       ID[12:7]: Output PIN ID
+ *                                                VAL[6]:   ON(1), OFF(0)
+ *    SYNC_DIN    3'b011          {ID, TYPE}      ID[12:7]: Input PIN ID
+ *                                                TYPE[6:5]: LOW(00), HIGH(01), FALL(10), RISE(11)
+ *    SYNC_AIO    3'b10.          ... TODO
+ *    Write 2nd byte of SYNC_CMD[] will push it into JCMD_FIFO. 
+ *    The WB_WRITE got stalled if JCMD_FIFO is full. 
  *******************************************************************************
  * RESERVED             0x0030 ~ 0x007F
  *******************************************************************************
@@ -118,13 +134,19 @@
 // #endif
 
 // for WOU protocol (wishbone over usb)
-#define WB_REG_SIZE     16384   // addressable wishbone register size (2^14)
-#define WOU_HDR_SIZE    4       // header sizea of WOU_HEADER
-#define MAX_DSIZE       256     // Maximum data size
+#define WOUF_PREAMBLE   0x55    // Preamble
+#define WOUF_SOFD       0xD5    // Start of Frame Delimiter
+#define WOUF_HDR_SIZE   4       // header size of WOU Frame
+#define MAX_PSIZE       255     // Maximum WOU Frame Payload Size
+#define CRC_SIZE        2       // the size for CRC-16
+#define WB_REG_SIZE     65536   // addressable wishbone register size (2^16)
+#define WOU_HDR_SIZE    3       // header size of WOU_HEADER
+#define WB_ADDR_SIZE    2       // size in bytes for WB_ADDR
+#define MAX_DSIZE       127     // Maximum WOU data size
 #define WB_RD_CMD       0x00
 #define WB_WR_CMD       0x80
-#define WB_AI_MODE      0x40    // ADDRESS INCREMENT MODE
-#define WB_FIFO_MODE    0x00    // FIFO MODE, const address
+//default:  #define WB_AI_MODE      0x40    // ADDRESS INCREMENT MODE
+//obsulete: #define WB_FIFO_MODE    0x00    // FIFO MODE, const address
 
 // GPIO register space: (8-bit GPIO for LEDs, purpose: test Wishbone protocol)
 #define GPIO_BASE       0x0000
@@ -216,26 +238,36 @@
 //obsolete: #endif // for non-SWIG
  
 // JCMD register space:
-#define JCMD_BASE       0x0020
-#define JCMD_MASK       0x000F
+#define JCMD_BASE       0x0020  // 0x20 ~ 0x3F
+#define JCMD_MASK       0x001F
 // offset to JCMD registers
-#define JCMD_POS_W      0x0000  // 2-bytes: {DIR_W, POS_W} in FIFO mode
-#define JCMD_DIR_POL    0x0001  // Direction Polarity for mechanical movement
-                                // 馬達裝配方向相反時，同樣順時針旋
-                                // 轉，卻會造成機構往不同方向運動。
-                                // 用此參數以補償 inverse Kinematics 的結果
-                                // [0]: joint_0
-                                // [1]: joint_1
-                                // [2]: joint_2
-                                // [3]: joint_3
+#define JCMD_SYNC_IN_TO 0x0000  // 2-bytes, sync_in timeout (unit: 100ms), up to 109 minutes
 #define JCMD_WATCHDOG   0x0002  // watchdog timeout limit (unit: 100ms)
                                 // default value: 30 (3 seconds)
 // #define RESERVED     0x0003  
-//OBSOLETE: #define JCMD_TBASE      0x0004  // [3:0]
 // #define RESERVED     0x0004  
 #define JCMD_CTRL       0x0005  // [2:0]: {RST, SSIF_EN, BPRU_EN}
 
-// (0x30 ~ 0x3F) RESERVED
+#define JCMD_SYNC_CMD   0x0010  // 2-bytes command to JCMD FIFO 
+#define SYNC_JNT        0x0000  // [15:14]
+#define DIR_P           0x2000  // [13] positive direction
+#define DIR_N           0x0000  // [13] negative direction
+#define POS_MASK        0x1FFF  // [12:0] relative position mask
+#define SYNC_DOUT       0x4000
+#define SYNC_DIN        0x6000
+#define SYNC_AOUT       0xA000
+#define SYNC_AIN        0xE000
+
+//obsolete: #define JCMD_POS_W      0x0000  // 2-bytes: {DIR_W, POS_W} in FIFO mode
+//obsolete: #define JCMD_DIR_POL    0x0001  // Direction Polarity for mechanical movement
+//obsolete:                                 // 馬達裝配方向相反時，同樣順時針旋
+//obsolete:                                 // 轉，卻會造成機構往不同方向運動。
+//obsolete:                                 // 用此參數以補償 inverse Kinematics 的結果
+//obsolete:                                 // [0]: joint_0
+//obsolete:                                 // [1]: joint_1
+//obsolete:                                 // [2]: joint_2
+//obsolete:                                 // [3]: joint_3
+
 // (0x40 ~ 0x7F) RESERVED
 
 // registers for SSIF (Servo/Stepper InterFace)

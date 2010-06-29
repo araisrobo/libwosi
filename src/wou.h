@@ -44,13 +44,13 @@ typedef struct {
 /**
  * type: READ/WRITE, AI/FIFO
  **/
-int wou_cmd (wou_param_t *w_param, uint8_t type, int start_addr, 
-             int nb, const uint8_t *data_src);
+void wou_cmd (wou_param_t *w_param, const uint8_t func, const uint16_t wb_addr, 
+             const uint16_t dsize, const uint8_t *data);
 
 /**
  * wou_update - update wou registers if it's appeared in USB RX BUF
  **/
-int wou_update (wou_param_t *w_param);
+void wou_update (wou_param_t *w_param);
 
 /**
  * wou_dsize - update TX and RX data size
@@ -63,7 +63,7 @@ void wou_dsize (wou_param_t *w_param, uint64_t *tx_dsize, uint64_t *rx_dsize);
 const void *wou_reg_ptr (wou_param_t *w_param, uint32_t wou_addr);
 
 
-int wou_flush (wou_param_t *w_param);
+void wou_flush (wou_param_t *w_param);
 
 /* Initializes the wou_param_t structure for USB
    @device_type: board name

@@ -54,7 +54,7 @@ int main(void)
     int ret;
     int i, j;
     uint8_t data[MAX_DSIZE];
-    int sif_cmd[4];
+    uint16_t sync_cmd[4];
     int rev[4];             // revolution for each joints
     double acc_usteps[4];   // accumulated micro steps
     double speed[4];        // target speed for each joints (unit: pps)
@@ -67,16 +67,16 @@ int main(void)
     struct timespec time1, time2, dt;
     int ss, mm, hh, prev_ss;
 
-    // do not load fpga bitfile:
+    // wou_init(): setting fpga board parameters
     wou_init(&w_param, "7i43u", 0, "./stepper_top.bit");
 
-    // wou_set_debug(&w_param, TRUE);
-    // printf ("debug: about to wou_connect()\n"); 
-    // getchar();
+    // wou_connect(): programe fpga with given "<fpga>.bit"
     if (wou_connect(&w_param) == -1) {
 	printf("ERROR Connection failed\n");
 	exit(1);
     }
+    printf("after programming FPGA with ./stepper_top.bit ...\n");
+    getchar();
 
     printf("** UNIT TESTING **\n");
 
@@ -88,12 +88,25 @@ int main(void)
 
     // switch LEDs to display servo pulse commands
     value = 2;
-    ret = wou_cmd(&w_param,
-		  (WB_WR_CMD | WB_AI_MODE), GPIO_LEDS_SEL, 1, &value);
+    wou_cmd(&w_param, WB_WR_CMD, (GPIO_BASE | GPIO_LEDS_SEL), 1, &value);
     //debug: check if the first packet is correct?
     wou_flush(&w_param);
     printf("send a wou-frame ... press key ...\n");
     getchar();
+    
+    // JCMD_WATCHDOG: unit is 100ms
+    value = 0xFF;
+    wou_cmd(&w_param, WB_WR_CMD,
+    	    (JCMD_BASE | JCMD_WATCHDOG), 1, &value);
+
+    // switch LEDs to display servo pulse commands
+    value = 2;
+    wou_cmd(&w_param, WB_WR_CMD, (GPIO_BASE | GPIO_LEDS_SEL), 1, &value);
+    //debug: check if the first packet is correct?
+    wou_flush(&w_param);
+    printf("send a wou-frame ... press key ...\n");
+    getchar();
+
 
     // set MAX_PWM ratio for each joints
     //  * for 華谷：
@@ -110,15 +123,11 @@ int main(void)
     // data[1] = 126; // JNT_1
     // data[2] = 126; // JNT_2
     // data[3] = 178; // JNT_3
-    data[0] = 150; // JNT_0
-    data[1] = 180; // JNT_1
-    data[2] = 1;  // JNT_2
-    data[3] = 180; // JNT_3
-    // Write 4 bytes to USB with Automatically Address Increment
-    // wr_usb (WR_AI, (uint16_t) (SSIF_BASE | SSIF_MAX_PWM), (uint8_t) 4, data);
-    ret = wou_cmd(&w_param,
-		  (WB_WR_CMD | WB_AI_MODE),
-		  (SSIF_BASE | SSIF_MAX_PWM), 4, data);
+    data[0] = 150;  // JNT_0
+    data[1] = 180;  // JNT_1
+    data[2] = 1;    // JNT_2
+    data[3] = 180;  // JNT_3
+    wou_cmd(&w_param, WB_WR_CMD, (SSIF_BASE | SSIF_MAX_PWM), 4, data);
     wou_flush(&w_param);
 
     // JCMD_CTRL: 
@@ -126,9 +135,7 @@ int main(void)
     //  [bit-1]: SSIF_EN, servo interface enable
     //  [bit-2]: RST, reset JCMD_FIFO and JCMD_FSMs
     data[0] = 3;
-    ret = wou_cmd(&w_param,
-		  (WB_WR_CMD | WB_AI_MODE),
-		  (JCMD_BASE | JCMD_CTRL), 1, data);
+    wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_CTRL), 1, data);
     wou_flush(&w_param);
 
     clock_gettime(CLOCK_REALTIME, &time1);
@@ -141,10 +148,10 @@ int main(void)
     // rev[0] = -65535;    // RUN-forever
     rev[0] = 0;    // stop joint_0
              
-                        // microSteps per base_period
+    // microSteps per base_period
     // speed[0] = 50       // 50 full stepper pulse per seconds
     // speed[0] = 1        // 1 full stepper pulse per seconds
-    speed[0] = 100       // 10 full stepper pulse per seconds
+    speed[0] = 100      // 10 full stepper pulse per seconds
              / 4        // 4 full stepper pulse == 1 sine/cosine cycle (2PI)
              * 1024     // sine/cosine LUT theta resolution
              / (1000/0.65535); // base_period is 0.65535ms
@@ -165,7 +172,8 @@ int main(void)
                         
     accel[1] = 0.01;
     
-    rev[2] = 0;
+    // rev[2] = 0;
+    rev[2] = -65535;    // RUN-forever
     
     // rev[3] = 0;
     rev[3] = 10         // 10 revolution
@@ -213,54 +221,36 @@ int main(void)
                 }
             }
 
-            //? // if ((j==0) && ((i % 128) == 1))
-            //? if (j==0) {
-            //?     if (k > 400) 
-            //?         k = 400;
-            //?     // k = 128; A/NOT_A: 3KHz, T=0.333ms
-            //? } else if (j==1) {
-            //?     // if (k > 170) 
-            //?     //     k = 170;
-            //? } else {
-            //?     k = 0;
-            //? }
-            
-            sif_cmd[j] = k;
-            
-	    // data[13]: Direction, (positive(1), negative(0))
-	    // data[12:0]: Relative Angle Distance (0 ~ 8191)
-	    // dir: 1 (to left)
-            // dir: 0 (to right)
-            data[j * 2] = (1 << 5) | (k >> 8);      // to left
-	    // data[j * 2] = (0 << 5) | (k >> 8);  // to right
-	    // data[1]  = 0xFA; // 0xFA: 250
-	    data[j * 2 + 1] = k & 0xFF;
+            // SYNC_JNT: opcode for SYNC_JNT command
+            // DIR_P: Direction, (positive(1), negative(0))
+            // POS_MASK: relative position mask
+            sync_cmd[j] = SYNC_JNT | DIR_P | (POS_MASK & k);
+            memcpy (data+j*sizeof(uint16_t), &(sync_cmd[j]), sizeof(uint16_t));
 	}
 
-	// wr_usb (WR_FIFO, (uint16_t) (JCMD_BASE | JCMD_POS_W), (uint8_t) 2, data);
-	ret = wou_cmd(&w_param, (WB_WR_CMD | WB_FIFO_MODE), (JCMD_BASE | JCMD_POS_W), 2 * 4,	// 4 axes
-		      data);
+	wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD), 
+                j*sizeof(uint16_t), data); // j axes
+	
+        //TODO: //replaced by bp_update: // send WB_RD_CMD to read 16 bytes back
+	//TODO: //replaced by bp_update: ret = wou_cmd (&w_param,
+	//TODO: //replaced by bp_update:                (WB_RD_CMD | WB_AI_MODE),
+	//TODO: //replaced by bp_update:                (SSIF_BASE | SSIF_SIF_CMD),
+	//TODO: //replaced by bp_update:                16,
+	//TODO: //replaced by bp_update:                data);
 
-	//replaced by bp_update: // send WB_RD_CMD to read 16 bytes back
-	//replaced by bp_update: ret = wou_cmd (&w_param,
-	//replaced by bp_update:                (WB_RD_CMD | WB_AI_MODE),
-	//replaced by bp_update:                (SSIF_BASE | SSIF_SIF_CMD),
-	//replaced by bp_update:                16,
-	//replaced by bp_update:                data);
+	//TODO: // obtain base_period updated wou registers (18 bytes)
+	//TODO: assert(wou_update(&w_param) == 0);
 
-	// obtain base_period updated wou registers (18 bytes)
-	assert(wou_update(&w_param) == 0);
-
-	for (j = 0; j < 4; j++) {
-	    memcpy((pulse_cmd + j),
-		   wou_reg_ptr(&w_param,
-			       SSIF_BASE + SSIF_PULSE_POS + j * 4), 4);
-	    memcpy((enc_pos + j),
-		   wou_reg_ptr(&w_param, SSIF_BASE + SSIF_ENC_POS + j * 4),
-		   4);
-	}
-	memcpy(&switch_in,
-	       wou_reg_ptr(&w_param, SSIF_BASE + SSIF_SWITCH_IN), 2);
+	//TODO: for (j = 0; j < 4; j++) {
+	//TODO:     memcpy((pulse_cmd + j),
+	//TODO: 	   wou_reg_ptr(&w_param,
+	//TODO: 		       SSIF_BASE + SSIF_PULSE_POS + j * 4), 4);
+	//TODO:     memcpy((enc_pos + j),
+	//TODO: 	   wou_reg_ptr(&w_param, SSIF_BASE + SSIF_ENC_POS + j * 4),
+	//TODO: 	   4);
+	//TODO: }
+	//TODO: memcpy(&switch_in,
+	//TODO:        wou_reg_ptr(&w_param, SSIF_BASE + SSIF_SWITCH_IN), 2);
 
 	clock_gettime(CLOCK_REALTIME, &time2);
 
@@ -291,19 +281,17 @@ int main(void)
 	    // IN(0x%04X), switch_in
 	    printf
 		("K0(%d)K1(%d)[%02d:%02d:%02d] tx(%s) rx(%s) (%.2f Kbps) pcmd(0x%08X,0x%08X,0x%08X,0x%08X)\n",
-		 sif_cmd[0], sif_cmd[1], hh, mm, ss, tx_str, rx_str, data_rate, pulse_cmd[0],
+		 sync_cmd[0], sync_cmd[1], hh, mm, ss, tx_str, rx_str, data_rate, pulse_cmd[0],
 		 pulse_cmd[1], pulse_cmd[2], pulse_cmd[3]
 		);
-
-	    // TODO: print data rate; refer to board.c
 	}
 
 	if ((i % 16) == 0) {
+            // TODO: add a bp_reg_update command here
 	    wou_flush(&w_param);
 	    // debug:
 	    // printf("send a wou-frame ... press key ...\n"); getchar();
 	}
-
     }
 
     wou_flush(&w_param);
