@@ -76,26 +76,24 @@ int main(void)
 	exit(1);
     }
     printf("after programming FPGA with ./stepper_top.bit ...\n");
-    getchar();
+    // getchar();
 
     printf("** UNIT TESTING **\n");
 
     printf("\nTEST JCMD WRITE/READ:\n");
 
     /** WISHBONE REGISTERS **/
-    printf("debug: for BOOST... getchar ...\n");
-    getchar();
 
     // switch LEDs to display servo pulse commands
     value = 2;
     wou_cmd(&w_param, WB_WR_CMD, (GPIO_BASE | GPIO_LEDS_SEL), 1, &value);
     //debug: check if the first packet is correct?
     wou_flush(&w_param);
-    printf("send a wou-frame ... press key ...\n");
-    getchar();
+    // printf("send a wou-frame ... press key ...\n");
+    // getchar();
     
     // JCMD_WATCHDOG: unit is 100ms
-    value = 0xFF;
+    value = 3;
     wou_cmd(&w_param, WB_WR_CMD,
     	    (JCMD_BASE | JCMD_WATCHDOG), 1, &value);
 
@@ -104,8 +102,8 @@ int main(void)
     wou_cmd(&w_param, WB_WR_CMD, (GPIO_BASE | GPIO_LEDS_SEL), 1, &value);
     //debug: check if the first packet is correct?
     wou_flush(&w_param);
-    printf("send a wou-frame ... press key ...\n");
-    getchar();
+    // printf("send a wou-frame ... press key ...\n");
+    // getchar();
 
 
     // set MAX_PWM ratio for each joints
@@ -125,7 +123,7 @@ int main(void)
     // data[3] = 178; // JNT_3
     data[0] = 150;  // JNT_0
     data[1] = 180;  // JNT_1
-    data[2] = 1;    // JNT_2
+    data[2] = 90;   // JNT_2
     data[3] = 180;  // JNT_3
     wou_cmd(&w_param, WB_WR_CMD, (SSIF_BASE | SSIF_MAX_PWM), 4, data);
     wou_flush(&w_param);
@@ -173,7 +171,12 @@ int main(void)
     accel[1] = 0.01;
     
     // rev[2] = 0;
-    rev[2] = -65535;    // RUN-forever
+    rev[2]      = -65535;       // RUN-forever
+    speed[2]    = 100           // 100 full stepper pulse per seconds
+                  / 4           // 4 full stepper pulse == 1 sine/cosine cycle (2PI)
+                  * 1024        // sine/cosine LUT theta resolution
+                  / (1000/0.65535); // base_period is 0.65535ms
+    accel[2] = 0.01;
     
     // rev[3] = 0;
     rev[3] = 10         // 10 revolution
@@ -231,26 +234,20 @@ int main(void)
 	wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD), 
                 j*sizeof(uint16_t), data); // j axes
 	
-        //TODO: //replaced by bp_update: // send WB_RD_CMD to read 16 bytes back
-	//TODO: //replaced by bp_update: ret = wou_cmd (&w_param,
-	//TODO: //replaced by bp_update:                (WB_RD_CMD | WB_AI_MODE),
-	//TODO: //replaced by bp_update:                (SSIF_BASE | SSIF_SIF_CMD),
-	//TODO: //replaced by bp_update:                16,
-	//TODO: //replaced by bp_update:                data);
 
-	//TODO: // obtain base_period updated wou registers (18 bytes)
-	//TODO: assert(wou_update(&w_param) == 0);
+	// obtain base_period updated wou registers
+	wou_update(&w_param);
 
-	//TODO: for (j = 0; j < 4; j++) {
-	//TODO:     memcpy((pulse_cmd + j),
-	//TODO: 	   wou_reg_ptr(&w_param,
-	//TODO: 		       SSIF_BASE + SSIF_PULSE_POS + j * 4), 4);
-	//TODO:     memcpy((enc_pos + j),
-	//TODO: 	   wou_reg_ptr(&w_param, SSIF_BASE + SSIF_ENC_POS + j * 4),
-	//TODO: 	   4);
-	//TODO: }
-	//TODO: memcpy(&switch_in,
-	//TODO:        wou_reg_ptr(&w_param, SSIF_BASE + SSIF_SWITCH_IN), 2);
+	for (j = 0; j < 4; j++) {
+	    memcpy((pulse_cmd + j),
+		   wou_reg_ptr(&w_param,
+			       SSIF_BASE + SSIF_PULSE_POS + j * 4), 4);
+	    memcpy((enc_pos + j),
+		   wou_reg_ptr(&w_param, SSIF_BASE + SSIF_ENC_POS + j * 4),
+		   4);
+	}
+	memcpy(&switch_in,
+	       wou_reg_ptr(&w_param, SSIF_BASE + SSIF_SWITCH_IN), 2);
 
 	clock_gettime(CLOCK_REALTIME, &time2);
 
@@ -286,12 +283,38 @@ int main(void)
 		);
 	}
 
-	if ((i % 16) == 0) {
+	// if ((i % 4) == 0) {
             // TODO: add a bp_reg_update command here
+            // replace "bp_reg_update"
+            // send WB_RD_CMD to read registers back
+            wou_cmd (&w_param,
+                     WB_RD_CMD,
+                     (SSIF_BASE | SSIF_PULSE_POS),
+                     16,
+                     data);
+            
+            wou_cmd (&w_param,
+                     WB_RD_CMD,
+                     (SSIF_BASE | SSIF_SWITCH_IN),
+                     2,
+                     data);
+
+            wou_cmd (&w_param,
+                     WB_RD_CMD,
+                     (SSIF_BASE | SSIF_SWITCH_POS),
+                     16,
+                     data);
+            
+            wou_cmd (&w_param,
+                     WB_RD_CMD,
+                     (SSIF_BASE | SSIF_INDEX_POS),
+                     16,
+                     data);
+	
 	    wou_flush(&w_param);
 	    // debug:
 	    // printf("send a wou-frame ... press key ...\n"); getchar();
-	}
+	// }
     }
 
     wou_flush(&w_param);

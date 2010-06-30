@@ -556,33 +556,46 @@ static struct timespec diff(struct timespec start, struct timespec end)
 }
 
 
-static int wb_reg_update (board_t* b, int wb_addr, int dsize)
+static uint8_t wb_reg_update (board_t* b, const uint8_t *buf)
 {
-  FT_STATUS   ftStatus;
-  DWORD       recvd;
-  int         i;
-  uint8_t*    wb_regp;   // wb_reg_map pointer
+    //obsolete: FT_STATUS   ftStatus;
+    //obsolete: DWORD       recvd;
+    uint8_t*    wb_regp;   // wb_reg_map pointer
+    uint8_t     dsize;
+    uint16_t    wb_addr;
+    
+    // [WOU]FUNC_DSIZE
+    dsize = buf[0];    
+    assert (dsize <= MAX_DSIZE);
 
-  wb_regp = &(b->wb_reg_map[wb_addr]);
+    // [WOU]WB_ADDR
+    memcpy (&wb_addr, buf+1, WB_ADDR_SIZE); 
+    
+    // [WOU]DATA
+    wb_regp = &(b->wb_reg_map[wb_addr]);
+    memcpy (wb_regp, buf+WOU_HDR_SIZE, dsize);
 
-  ftStatus = FT_Read(b->io.usb.ftHandle, wb_regp, dsize, &recvd);
-  if (ftStatus != FT_OK) 
-  {
-    ERRP ("FT_Read(): ftStatus(%d)\n", (int)ftStatus);
-    return -1;
-  }
-  b->rd_dsize += recvd;
+    //obsolete: ftStatus = FT_Read(b->io.usb.ftHandle, wb_regp, dsize, &recvd);
+    //obsolete: if (ftStatus != FT_OK) 
+    //obsolete: {
+    //obsolete:   ERRP ("FT_Read(): ftStatus(%d)\n", (int)ftStatus);
+    //obsolete:   return -1;
+    //obsolete: }
+    //obsolete: b->rd_dsize += recvd;
 
 #if (TRACE!=0)
-  DP ("WB_ADDR(0x%04X), DSIZE(%d), WB_RD_DATA:\n", wb_addr, dsize);
-  for (i=0; i < recvd; i++) 
-  {
-    DPS ("<%.2X>", wb_regp[i]);
-  }
-  DPS ("\n");
+    {
+        int         i;
+        DP ("WB_ADDR(0x%04X), DSIZE(%d), DATA:\n", wb_addr, dsize);
+        for (i=0; i < dsize; i++) 
+        {
+          DPS ("<%.2X>", wb_regp[i]);
+        }
+        DPS ("\n");
+    }
 #endif
   
-  return (0);
+    return (dsize);
 }      
 
 static void wouf_parse (board_t* b, const uint8_t *buf_head)
@@ -592,6 +605,7 @@ static void wouf_parse (board_t* b, const uint8_t *buf_head)
     uint8_t *Sn;
     uint8_t *tidSb;
     uint8_t pload_size_tx;  // PLOAD_SIZE_TX
+    uint8_t wou_dsize;
     uint8_t tidR;           // TID from FPGA
     uint8_t advance;        // Sb advance number (woufs to be flushed)
     wouf_t  *wou_frame_;
@@ -603,10 +617,23 @@ static void wouf_parse (board_t* b, const uint8_t *buf_head)
     tidSb = &(b->wou->tidSb);
     tidR = buf_head[1];     
     advance = tidR - *tidSb;
+
+    if ((advance >= NR_OF_WIN) || (advance == 0)) {
+        fprintf(stderr, "DEBUG: Sm(%d) Sn(%d) Sb(%d) use(%d) clock(%d)\n", 
+                *Sm, *Sn, *Sb, b->wou->woufs[*Sn].use, b->wou->clock);
+        fprintf(stderr, "DEBUG: tid(%d) tidR(%d) *tidSb(%d) advance(%u)\n",
+                        b->wou->tid, tidR, *tidSb, advance);
+        // DEBUG:
+        fprintf (stderr, "DEBUG: buf_head: ");
+        for (i=0; i < (1 + buf_head[0] + CRC_SIZE); i++) {
+            fprintf (stderr, "<%.2X>", buf_head[i]);
+        }
+        fprintf (stderr, "\n");
+
+    }
     assert (advance < NR_OF_WIN);
 
-    DP ("TODO: CRC pass; about to update Rn\n");
-    // about to update Rn
+    // CRC pass; about to update Rn
     if (advance) {
         // If you receive a request number where Rn > Sb
         // Sm = Sm + (Rn – Sb)
@@ -640,16 +667,25 @@ static void wouf_parse (board_t* b, const uint8_t *buf_head)
         ERRP ("check this out: got an un-expected tidR\n");
 
         // DEBUG:
-        fprintf (stderr, "buf_head: ");
+        fprintf (stderr, "DEBUG: buf_head: ");
         for (i=0; i < (1 + buf_head[0] + CRC_SIZE); i++) {
             fprintf (stderr, "<%.2X>", buf_head[i]);
         }
         fprintf (stderr, "\n");
 
-        assert(0);
+        // assert(0);
     }
     
-    DP ("TODO: about to parse [WOU]\n");
+    // about to parse [WOU][WOU]...
+    pload_size_tx = buf_head[0];
+    pload_size_tx -= 1;     // TID
+    buf_head += 2;          // point to [WOU]
+    while (pload_size_tx > 0) {
+        wou_dsize = wb_reg_update (b, buf_head);
+        pload_size_tx -= (WOU_HDR_SIZE + wou_dsize);
+        assert ((pload_size_tx & 0x80) == 0);   // no negative pload_size_tx
+        buf_head += (WOU_HDR_SIZE + wou_dsize);
+    }
 
 } // wouf_parse()
 
@@ -688,10 +724,12 @@ void wou_recv (board_t* b)
         if (ftStatus != FT_OK) 
         {
             ERRP ("FT_Read(%lu:%s)\n", ftStatus, Ftstat[ftStatus].desc);
+            assert(0);
             return;
         }
         b->rd_dsize += recvd;
         rx_size += recvd;
+        assert (r == recvd);
     }
    
     buf_head = buf_rx;
@@ -746,6 +784,9 @@ void wou_recv (board_t* b)
             pload_size_tx = buf_head[0];    // PLOAD_SIZE_TX
             if (rx_size < (1/*PLOAD_SIZE_TX*/ + pload_size_tx + CRC_SIZE)) {
                 // block until receiving enough data
+                if (buf_head != buf_rx) {
+                    memmove (buf_rx, buf_head, rx_size);
+                }
                 return; 
             }
             // calc CRC for {PLOAD_SIZE_TX, TID, WOU_PACKETS}
@@ -771,7 +812,7 @@ void wou_recv (board_t* b)
                 rx_state = SYNC;
                 immediate_state = 1;
                 ERRP ("RX_CRC(0x%04X) pload_size_tx(%d)\n", crc16, pload_size_tx);
-                assert(0);
+                // assert(0);
             }
             break;  // rx_state == PLOAD_CRC
 
@@ -943,6 +984,7 @@ static void wou_send (board_t* b)
         != FT_OK) 
     {
         ERRP ( "FT_Write: ftStatus(%lu:%s)\n", ftStatus, Ftstat[ftStatus].desc);
+        assert (0);
     } else {
         clock_gettime(CLOCK_REALTIME, &time2);
         dt = diff(time1,time2); 
@@ -960,6 +1002,7 @@ static void wou_send (board_t* b)
              8.0*dwBytesWritten/(1000000.0*dt.tv_sec+dt.tv_nsec/1000.0));
         //obsolete: b->wou->psize = 0; // reset pending wou buf size
         b->wr_dsize += dwBytesWritten;
+        assert (size == dwBytesWritten);
     } // if FT_Write() successful
     return;
 }
