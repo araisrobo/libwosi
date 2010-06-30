@@ -734,11 +734,13 @@ void wou_recv (board_t* b)
    
     buf_head = buf_rx;
     do {
+        DP ("rx_state(%d), rx_size(%d)\n", rx_state, rx_size);
         immediate_state = 0;
         switch (rx_state) {
         case SYNC:
             if (rx_size < (WOUF_HDR_SIZE + 1/*TID_SIZE*/ + CRC_SIZE)) {
                 // block until receiving enough data
+                DP ("block until receiving enough data\n");
                 return; 
             }
 #if(TRACE)
@@ -898,7 +900,7 @@ static void wou_send (board_t* b)
     struct timespec    time1, time2, dt;
 
     DWORD   size;
-    uint8_t buf_dest[NR_OF_WIN*(WOUF_HDR_SIZE+2/*PLOAD_SIZE_TX+TID*/
+    static uint8_t buf_tx[NR_OF_WIN*(WOUF_HDR_SIZE+2/*PLOAD_SIZE_TX+TID*/
                                 +MAX_PSIZE+CRC_SIZE)];
     uint8_t *buf_src;
     uint8_t *Sm;
@@ -910,7 +912,7 @@ static void wou_send (board_t* b)
     // dt = diff(time1,time2); 
     // printf ("debug: dt.sec(%lu), dt.nsec(%lu)\n", 
     //          dt.tv_sec, dt.tv_nsec);
-    
+    DP("begin\n"); 
     size = 0;
     Sm = &(b->wou->Sm);
     Sn = &(b->wou->Sn);
@@ -919,6 +921,7 @@ static void wou_send (board_t* b)
     if (*Sm >= *Sn) {
         if ((*Sn - *Sm) == 1) {
             // stop sending when exceening Max Window Boundary
+            DP("end\n"); 
             return;
         } else {
             for (i=*Sn; i<=*Sm; i++) {
@@ -927,7 +930,7 @@ static void wou_send (board_t* b)
                     break;
                 }
                 buf_src = b->wou->woufs[i].buf;
-                memcpy (buf_dest + size, buf_src, b->wou->woufs[i].fsize);  
+                memcpy (buf_tx + size, buf_src, b->wou->woufs[i].fsize);  
                 size += b->wou->woufs[i].fsize;
                 *Sn += 1;
                 //TODO: use should be reset by wou_recv() when obtaining a Rn
@@ -937,6 +940,7 @@ static void wou_send (board_t* b)
     } else {
         if ((*Sn - *Sm) == 1) {
             // stop sending when exceening Max Window Boundary
+            DP("end\n"); 
             return;
         } else {
             // round a circle
@@ -947,7 +951,7 @@ static void wou_send (board_t* b)
                     break;
                 }
                 buf_src = b->wou->woufs[i].buf;
-                memcpy (buf_dest + size, buf_src, b->wou->woufs[i].fsize);  
+                memcpy (buf_tx + size, buf_src, b->wou->woufs[i].fsize);  
                 size += b->wou->woufs[i].fsize;
                 *Sn += 1;
                 //TODO: use should be reset by wou_recv() when obtaining a Rn
@@ -960,7 +964,7 @@ static void wou_send (board_t* b)
                         break;
                     }
                     buf_src = b->wou->woufs[i].buf;
-                    memcpy (buf_dest + size, buf_src, b->wou->woufs[i].fsize);  
+                    memcpy (buf_tx + size, buf_src, b->wou->woufs[i].fsize);  
                     size += b->wou->woufs[i].fsize;
                     *Sn += 1;
                     //TODO: use should be reset by wou_recv() when obtaining a Rn
@@ -973,13 +977,13 @@ static void wou_send (board_t* b)
 #if(TRACE)
     DP ("send: size(%d)", size);
     for (i=0; i < size; i++) {
-      DPS ("<%.2X>", buf_dest[i]);
+      DPS ("<%.2X>", buf_tx[i]);
     }
     DPS ("\n");
 #endif
 
     clock_gettime(CLOCK_REALTIME, &time1);
-    if ((ftStatus = FT_Write(b->io.usb.ftHandle, buf_dest, 
+    if ((ftStatus = FT_Write(b->io.usb.ftHandle, buf_tx, 
                              size, &dwBytesWritten)) 
         != FT_OK) 
     {
@@ -1004,6 +1008,7 @@ static void wou_send (board_t* b)
         b->wr_dsize += dwBytesWritten;
         assert (size == dwBytesWritten);
     } // if FT_Write() successful
+    DP("end\n"); 
     return;
 }
 
@@ -1043,8 +1048,8 @@ int wou_eof (board_t* b)
     // flush pending [wou] packets
     wou_frame_ = &(b->wou->woufs[b->wou->clock]);
     do {
-        wou_recv(b);    // update GBN pointer if receiving Rn
         wou_send(b);
+        wou_recv(b);    // update GBN pointer if receiving Rn
     } while (wou_frame_->use);
     
     // init the wouf buffer and tid
