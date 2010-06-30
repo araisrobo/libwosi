@@ -92,8 +92,14 @@ int main(void)
     // printf("send a wou-frame ... press key ...\n");
     // getchar();
     
+    // this will create a CRC ERROR:
+    wou_flush(&w_param);
+    wou_cmd (&w_param, WB_RD_CMD, (SSIF_BASE + SSIF_PULSE_POS), 34, data);
+    wou_flush(&w_param);
+
+    
     // JCMD_WATCHDOG: unit is 100ms
-    value = 3;
+    value = 0x03;
     wou_cmd(&w_param, WB_WR_CMD,
     	    (JCMD_BASE | JCMD_WATCHDOG), 1, &value);
 
@@ -127,7 +133,7 @@ int main(void)
     data[3] = 180;  // JNT_3
     wou_cmd(&w_param, WB_WR_CMD, (SSIF_BASE | SSIF_MAX_PWM), 4, data);
     wou_flush(&w_param);
-
+            
     // JCMD_CTRL: 
     //  [bit-0]: BasePeriod WOU Registers Update (1)enable (0)disable
     //  [bit-1]: SSIF_EN, servo interface enable
