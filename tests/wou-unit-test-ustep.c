@@ -99,7 +99,7 @@ int main(void)
 
     
     // JCMD_WATCHDOG: unit is 100ms
-    value = 0x03;
+    value = 0xFF;
     wou_cmd(&w_param, WB_WR_CMD,
     	    (JCMD_BASE | JCMD_WATCHDOG), 1, &value);
 
