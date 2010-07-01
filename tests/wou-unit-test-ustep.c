@@ -60,6 +60,7 @@ int main(void)
     double speed[4];        // target speed for each joints (unit: pps)
     double accel[4];        // acceleration for each joints (unit: p/s^2)
     double cur_speed[4];    // current speed for each joints (unit: p/bp)
+    uint8_t sync_do_val;
 
     int32_t pulse_cmd[4];
     int32_t enc_pos[4];
@@ -200,9 +201,20 @@ int main(void)
         acc_usteps[j] = 0;
         cur_speed[j] = 0;
     }
-
+    
+    sync_do_val = 0;
     for (i = 0;; i++) {
-	// JCMD_POS and JCMD_DIR (big-endian, byte-0 is MSB)
+	// JCMD_POS and JCMD_DIR (little-endian, byte-0 is LSB)
+        
+        // SYNC_DOUT
+        if ((i % 1000) == 0) {
+            // toggle ext_pat_o[1] for every 0.655 sec
+            sync_do_val = ~sync_do_val;
+            sync_cmd[0] = SYNC_DOUT | SYNC_IO_ID(1) | SYNC_DO_VAL(sync_do_val);
+            memcpy (data, sync_cmd, sizeof(uint16_t));
+	    wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD), 
+                    sizeof(uint16_t), sync_cmd);
+	}
 
 	// prepare servo command for 4 axes
 	for (j = 0; j < 4; j++) {

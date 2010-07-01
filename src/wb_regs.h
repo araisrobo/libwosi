@@ -250,13 +250,20 @@
 
 #define JCMD_SYNC_CMD   0x0010  // 2-bytes command to JCMD FIFO 
 #define SYNC_JNT        0x0000  // [15:14]
-#define DIR_P           0x2000  // [13] positive direction
-#define DIR_N           0x0000  // [13] negative direction
-#define POS_MASK        0x1FFF  // [12:0] relative position mask
+#define DIR_P           0x2000  // + SYNC_JNT: [13] positive direction
+#define DIR_N           0x0000  // + SYNC_JNT: [13] negative direction
+#define POS_MASK        0x1FFF  // + SYNC_JNT: [12:0] relative position mask
 #define SYNC_DOUT       0x4000
 #define SYNC_DIN        0x6000
 #define SYNC_AOUT       0xA000
 #define SYNC_AIN        0xE000
+#define SYNC_IO_ID(i)   ((i & 0x3F) << 7)
+#define SYNC_DO_VAL(v)  ((v & 0x01) << 6)
+//    NAME        OP_CODE[15:13]  OPERAND[12:0]   Description
+//    SYNC_DOUT   3'b010          {ID, VAL}       ID[12:7]: Output PIN ID
+//                                                VAL[6]:   ON(1), OFF(0)
+//    SYNC_DIN    3'b011          {ID, TYPE}      ID[12:7]: Input PIN ID
+//                                                TYPE[6:5]: LOW(00), HIGH(01), FALL(10), RISE(11)
 
 //obsolete: #define JCMD_POS_W      0x0000  // 2-bytes: {DIR_W, POS_W} in FIFO mode
 //obsolete: #define JCMD_DIR_POL    0x0001  // Direction Polarity for mechanical movement
