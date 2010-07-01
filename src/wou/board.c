@@ -530,7 +530,7 @@ static void wouf_parse (board_t* b, const uint8_t *buf_head)
     uint8_t *Sb;
     uint8_t *Sn;
     uint8_t *tidSb;
-    uint8_t pload_size_tx;  // PLOAD_SIZE_TX
+    uint16_t pload_size_tx;  // PLOAD_SIZE_TX
     uint8_t wou_dsize;
     uint8_t tidR;           // TID from FPGA
     uint8_t advance;        // Sb advance number (woufs to be flushed)
@@ -611,7 +611,7 @@ static void wouf_parse (board_t* b, const uint8_t *buf_head)
     while (pload_size_tx > 0) {
         wou_dsize = wb_reg_update (b, buf_head);
         pload_size_tx -= (WOU_HDR_SIZE + wou_dsize);
-        assert ((pload_size_tx & 0x80) == 0);   // no negative pload_size_tx
+        assert ((pload_size_tx & 0x8000) == 0);   // no negative pload_size_tx
         buf_head += (WOU_HDR_SIZE + wou_dsize);
     }
 

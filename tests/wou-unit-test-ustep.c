@@ -329,7 +329,7 @@ int main(void)
                      16,
                      data);
 	
-	    wou_flush(&w_param);
+	    // wou_flush(&w_param);
 	    // debug:
 	    // printf("send a wou-frame ... press key ...\n"); getchar();
 	// }

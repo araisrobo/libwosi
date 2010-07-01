@@ -259,6 +259,7 @@
 #define SYNC_AIN        0xE000
 #define SYNC_IO_ID(i)   ((i & 0x3F) << 7)
 #define SYNC_DO_VAL(v)  ((v & 0x01) << 6)
+#define SYNC_DI_TYPE(t) ((t & 0x01) << 5) // support LOW and HIGH ONLY, TODO: support FALL and RISE
 //    NAME        OP_CODE[15:13]  OPERAND[12:0]   Description
 //    SYNC_DOUT   3'b010          {ID, VAL}       ID[12:7]: Output PIN ID
 //                                                VAL[6]:   ON(1), OFF(0)
