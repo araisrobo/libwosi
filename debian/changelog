@@ -1,3 +1,9 @@
+libwou (0.1-8) lucid; urgency=low
+
+  * fix stability 
+
+ -- Hsu-yao Tsai <hsuyao.tsai@araisrobo.com> Wed, 30 Jun 2010 11:42:07 +0800
+
 libwou (0.1-7) lucid; urgency=low
 
   * add libwou with CRC error detection 
