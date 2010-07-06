@@ -70,6 +70,7 @@ static const _Ftstat Ftstat[] = {
 // #define BURST_LIMIT   128  // FT_Write delay: 0.6 ~ 1.1ms
 // #define BURST_LIMIT   256 // FT_Write delay: 0.8 ~ 5.6ms
 #define BURST_LIMIT   512 // FT_Write delay: 0.8 ~ 5.6ms (best bandwidth utilization for 1ms time slot)
+// #define BURST_LIMIT   4 // for debugging
 
 // GO-BACK-N: http://en.wikipedia.org/wiki/Go-Back-N_ARQ
 #define NR_OF_WIN     128    // window size for GO-BACK-N
@@ -111,8 +112,10 @@ typedef struct wou_struct {
   uint8_t     tid;       
   uint8_t     tidSb;
   wouf_t      woufs[NR_OF_CLK];    
-  uint8_t     buf_send[BURST_LIMIT];
-  uint8_t     buf_recv[BURST_LIMIT];
+  DWORD       tx_size;
+  uint8_t     buf_tx[NR_OF_WIN*(WOUF_HDR_SIZE+2/*PLOAD_SIZE_RX+TID*/+MAX_PSIZE+CRC_SIZE)];
+  DWORD       rx_size;
+  // TODO: uint8_t     buf_rx[BURST_LIMIT];
   uint8_t     clock;        
   uint8_t     Rn;
   uint8_t     Sn;

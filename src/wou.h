@@ -58,6 +58,11 @@ void wou_update (wou_param_t *w_param);
 void wou_dsize (wou_param_t *w_param, uint64_t *tx_dsize, uint64_t *rx_dsize);
 
 /**
+ * wou_status - update TX and RX link status
+ **/
+void wou_status (wou_param_t *w_param);
+
+/**
  * wou_reg_ptr - return the pointer for given wou register
  **/
 const void *wou_reg_ptr (wou_param_t *w_param, uint32_t wou_addr);

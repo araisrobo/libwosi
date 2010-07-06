@@ -139,7 +139,7 @@ int main(void)
     //  [bit-0]: BasePeriod WOU Registers Update (1)enable (0)disable
     //  [bit-1]: SSIF_EN, servo interface enable
     //  [bit-2]: RST, reset JCMD_FIFO and JCMD_FSMs
-    data[0] = 3;
+    data[0] = 2;
     wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_CTRL), 1, data);
     wou_flush(&w_param);
 
@@ -208,14 +208,24 @@ int main(void)
         
         // SYNC_DOUT
         if ((i % 1000) == 0) {
+            // SYNC_DOUT:
             // toggle ext_pat_o[1] for every 0.655 sec
             sync_do_val = ~sync_do_val;
             sync_cmd[0] = SYNC_DOUT | SYNC_IO_ID(1) | SYNC_DO_VAL(sync_do_val);
             memcpy (data, sync_cmd, sizeof(uint16_t));
 	    wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD), 
                     sizeof(uint16_t), sync_cmd);
+            
+            //NEED TIMEOUT: // SYNC_DIN:
+            //NEED TIMEOUT: // // wait for EPP_I[0](ext_pad_i[0]) to be ON
+            //NEED TIMEOUT: // sync_cmd[0] = SYNC_DIN | SYNC_IO_ID(0) | SYNC_DI_TYPE(1);
+            //NEED TIMEOUT: // wait for EPP_I[0](ext_pad_i[0]) to be OFF
+            //NEED TIMEOUT: sync_cmd[0] = SYNC_DIN | SYNC_IO_ID(0) | SYNC_DI_TYPE(0);
+            //NEED TIMEOUT: memcpy (data, sync_cmd, sizeof(uint16_t));
+	    //NEED TIMEOUT: wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD), 
+            //NEED TIMEOUT:         sizeof(uint16_t), sync_cmd);
 	}
-
+      
 	// prepare servo command for 4 axes
 	for (j = 0; j < 4; j++) {
 	    int k;
@@ -267,39 +277,41 @@ int main(void)
 	memcpy(&switch_in,
 	       wou_reg_ptr(&w_param, SSIF_BASE + SSIF_SWITCH_IN), 2);
 
-	clock_gettime(CLOCK_REALTIME, &time2);
+	//replaced by wou_status(): clock_gettime(CLOCK_REALTIME, &time2);
 
-	diff_time(&time1, &time2, &dt);
-	// printf("\ndt.tv_sec(0x%d)", dt.tv_sec);
+	//replaced by wou_status(): diff_time(&time1, &time2, &dt);
+	//replaced by wou_status(): // printf("\ndt.tv_sec(0x%d)", dt.tv_sec);
 
-	ss = dt.tv_sec % 60;	// seconds
+	//replaced by wou_status(): ss = dt.tv_sec % 60;	// seconds
 
-	if ((ss > prev_ss) || ((ss == 0) && (prev_ss == 59))) {
+	//replaced by wou_status(): if ((ss > prev_ss) || ((ss == 0) && (prev_ss == 59))) {
 
-	    wou_dsize(&w_param, &tx_dsize, &rx_dsize);
-	    dsize_to_str(tx_str, tx_dsize);
-	    dsize_to_str(rx_str, rx_dsize);
+	//replaced by wou_status():     wou_dsize(&w_param, &tx_dsize, &rx_dsize);
+	//replaced by wou_status():     dsize_to_str(tx_str, tx_dsize);
+	//replaced by wou_status():     dsize_to_str(rx_str, rx_dsize);
 
-	    if (dt.tv_sec > 0) {
-		data_rate =
-		    (double) ((tx_dsize +
-			       rx_dsize) >> 10) * 8.0 / dt.tv_sec;
-	    } else {
-		data_rate = 0.0;
-	    }
+	//replaced by wou_status():     if (dt.tv_sec > 0) {
+	//replaced by wou_status(): 	data_rate =
+	//replaced by wou_status(): 	    (double) ((tx_dsize +
+	//replaced by wou_status(): 		       rx_dsize) >> 10) * 8.0 / dt.tv_sec;
+	//replaced by wou_status():     } else {
+	//replaced by wou_status(): 	data_rate = 0.0;
+	//replaced by wou_status():     }
 
-	    prev_ss = ss;
-	    dt.tv_sec /= 60;
-	    mm = dt.tv_sec % 60;	// minutes
-	    hh = dt.tv_sec / 60;	// hr
+	//replaced by wou_status():     prev_ss = ss;
+	//replaced by wou_status():     dt.tv_sec /= 60;
+	//replaced by wou_status():     mm = dt.tv_sec % 60;	// minutes
+	//replaced by wou_status():     hh = dt.tv_sec / 60;	// hr
 
-	    // IN(0x%04X), switch_in
-	    printf
-		("K0(%d)K1(%d)[%02d:%02d:%02d] tx(%s) rx(%s) (%.2f Kbps) pcmd(0x%08X,0x%08X,0x%08X,0x%08X)\n",
-		 sync_cmd[0], sync_cmd[1], hh, mm, ss, tx_str, rx_str, data_rate, pulse_cmd[0],
-		 pulse_cmd[1], pulse_cmd[2], pulse_cmd[3]
-		);
-	}
+	//replaced by wou_status():     // IN(0x%04X), switch_in
+	//replaced by wou_status():     printf
+	//replaced by wou_status(): 	("K0(%d)K1(%d)[%02d:%02d:%02d] tx(%s) rx(%s) (%.2f Kbps) pcmd(0x%08X,0x%08X,0x%08X,0x%08X)\n",
+	//replaced by wou_status(): 	 sync_cmd[0], sync_cmd[1], hh, mm, ss, tx_str, rx_str, data_rate, pulse_cmd[0],
+	//replaced by wou_status(): 	 pulse_cmd[1], pulse_cmd[2], pulse_cmd[3]
+	//replaced by wou_status(): 	);
+	//replaced by wou_status(): }
+
+        wou_status (&w_param);  // print out tx/rx data rate
 
 	// if ((i % 4) == 0) {
             // TODO: add a bp_reg_update command here

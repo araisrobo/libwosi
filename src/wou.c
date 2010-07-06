@@ -65,6 +65,7 @@ void wou_update (wou_param_t *w_param)
     return;
 }
 
+
 /**
  * wou_dsize - update TX and RX data size
  **/
@@ -72,6 +73,15 @@ void wou_dsize (wou_param_t *w_param, uint64_t *tx_dsize, uint64_t *rx_dsize)
 {
     *tx_dsize = w_param->board->wr_dsize;
     *rx_dsize = w_param->board->rd_dsize;
+    return;
+}
+
+/**
+ * wou_status - update TX and RX link status
+ **/
+void wou_status (wou_param_t *w_param)
+{
+    board_status (w_param->board);
     return;
 }
 
@@ -89,9 +99,7 @@ const void *wou_reg_ptr (wou_param_t *w_param, uint32_t wou_addr)
 
 void wou_flush (wou_param_t *w_param)
 {
-    // if (w_param->board->wou->psize != 0) {
     wou_eof (w_param->board);
-    // }
     return;
 }
 

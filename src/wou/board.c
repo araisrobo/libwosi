@@ -67,13 +67,18 @@ information, go to www.linuxcnc.org.
 #include "bitfile.h"
 #include "board.h"
 
-// to disable DP(): #define TRACE 0
+// to disable DP(): #define TRACE 1
 // to dump more info: #define TRACE 2
 #define TRACE 0
 #include "dptrace.h"
 #if (TRACE!=0)
 FILE *dptrace; // dptrace = fopen("dptrace.log","w");
 #endif
+
+// for updating board_status:
+static struct timespec time1;
+static int prev_ss;
+
 
 static int m7i43u_program_fpga(struct board *board, struct bitfile_chunk *ch);
 
@@ -228,8 +233,8 @@ int board_init (board_t* board, const char* device_type, const int device_id,
     int i;
 
 #if (TRACE!=0)
-    // dptrace = fopen("dptrace.log","w");
-    dptrace = stderr;
+    dptrace = fopen("dptrace.log","w");
+    // dptrace = stderr;
 #endif
     // init wb_reg_map
     memset (board->wb_reg_map, 0, WB_REG_SIZE);
@@ -265,8 +270,9 @@ int board_init (board_t* board, const char* device_type, const int device_id,
     DP ("chip_type(%s)\n", board->chip_type);
    
     board->wou = (wou_t *) malloc (sizeof(wou_t));
+    board->wou->tx_size = 0;
     gbn_init (board);
-
+   
     return 0;
 }
 
@@ -363,6 +369,10 @@ int board_connect (board_t* board)
     DP ("board(%p)\n", board);
 
     gbn_init (board);   // go_back_n
+    
+    // for updating board_status:
+    clock_gettime(CLOCK_REALTIME, &time1);
+    prev_ss = 0;
 
     return (0);
 }
@@ -379,24 +389,6 @@ int board_close (board_t* board)
 }   
     
 
-/**
- * TODO: update the results of FT_GetStatus into board data structure 
- **/
-int board_status (struct board *board)
-{
-    FT_STATUS s;
-    DWORD r, t, e;
-
-    if (!FT_SUCCESS(s = FT_GetStatus(board->io.usb.ftHandle, &r, &t, &e))) {
-        printf("ERROR: FT_GetStatus ... TODO: ERRP()\n");
-        return -1;
-    }
-
-    DP ("FT_GetStatus: dwRxBytes(%lu) dwTxBytes(%lu) dwEventDWord(%lu)\n",
-        r, t, e);
-    // okay: printf ("debug: board(%p)\n", board);
-    return 0;
-}
 
 /**
  * m7i43u_cpld_reset - reset the CPLD on 7i43
@@ -456,13 +448,19 @@ static int m7i43u_cpld_send_firmware(struct board *board, struct bitfile_chunk *
     }
 
     /* Write */
-    if((ftStatus = FT_Write(board->io.usb.ftHandle, ch->body, ch->len, 
-                            &dwBytesWritten)) != FT_OK) {
-            printf("Error FT_Write(%lu)\n", ftStatus);
-    }
-    printf("FT_Write %ld bytes\n", dwBytesWritten);
-
-    // usb_wb_reset(board->io.usb.ftHandle);
+    do {
+        if((ftStatus = FT_Write(board->io.usb.ftHandle, ch->body, ch->len, 
+                                &dwBytesWritten)) != FT_OK) {
+                printf("Error FT_Write(%lu)\n", ftStatus);
+        }
+        printf("FT_Write %ld bytes\n", dwBytesWritten);
+        if (dwBytesWritten) {
+            ch->len -= dwBytesWritten;
+            if (ch->len) {
+                memmove (ch->body, ch->body + dwBytesWritten, ch->len);
+            }
+        }
+    } while (ch->len != 0);
 
     return 1;
 }
@@ -645,7 +643,7 @@ void wou_recv (board_t* b)
         return;
     }
     
-    DP ("r(%d)\n", r);
+    DP ("r(%ld)\n", r);
     if (r) {
         // append data from USB to buf_rx[]
         ftStatus = FT_Read(b->io.usb.ftHandle, buf_rx + rx_size, r, &recvd );
@@ -824,12 +822,11 @@ void wou_recv (board_t* b)
 static void wou_send (board_t* b)
 {
     DWORD       dwBytesWritten;
-    DWORD       size;
     FT_STATUS   ftStatus;
     struct timespec    time1, time2, dt;
 
-    static uint8_t buf_tx[NR_OF_WIN*(WOUF_HDR_SIZE+2/*PLOAD_SIZE_TX+TID*/
-                                +MAX_PSIZE+CRC_SIZE)];
+    DWORD   *tx_size;
+    uint8_t *buf_tx;
     uint8_t *buf_src;
     uint8_t *Sm;
     uint8_t *Sn;
@@ -840,7 +837,9 @@ static void wou_send (board_t* b)
     // dt = diff(time1,time2); 
     // printf ("debug: dt.sec(%lu), dt.nsec(%lu)\n", 
     //          dt.tv_sec, dt.tv_nsec);
-    size = 0;
+
+    tx_size = &(b->wou->tx_size);
+    buf_tx = b->wou->buf_tx;
     Sm = &(b->wou->Sm);
     Sn = &(b->wou->Sn);
     DP ("Sm(%d) Sn(%d) Sb(%d) use(%d) clock(%d)\n", 
@@ -857,8 +856,8 @@ static void wou_send (board_t* b)
                     break;
                 }
                 buf_src = b->wou->woufs[i].buf;
-                memcpy (buf_tx + size, buf_src, b->wou->woufs[i].fsize);  
-                size += b->wou->woufs[i].fsize;
+                memcpy (buf_tx + *tx_size, buf_src, b->wou->woufs[i].fsize);  
+                *tx_size += b->wou->woufs[i].fsize;
                 *Sn += 1;
                 //TODO: use should be reset by wou_recv() when obtaining a Rn
                 // b->wou->woufs[i].use = 0;
@@ -878,8 +877,8 @@ static void wou_send (board_t* b)
                     break;
                 }
                 buf_src = b->wou->woufs[i].buf;
-                memcpy (buf_tx + size, buf_src, b->wou->woufs[i].fsize);  
-                size += b->wou->woufs[i].fsize;
+                memcpy (buf_tx + *tx_size, buf_src, b->wou->woufs[i].fsize);  
+                *tx_size += b->wou->woufs[i].fsize;
                 *Sn += 1;
                 //TODO: use should be reset by wou_recv() when obtaining a Rn
                 // b->wou->woufs[i].use = 0;
@@ -891,8 +890,8 @@ static void wou_send (board_t* b)
                         break;
                     }
                     buf_src = b->wou->woufs[i].buf;
-                    memcpy (buf_tx + size, buf_src, b->wou->woufs[i].fsize);  
-                    size += b->wou->woufs[i].fsize;
+                    memcpy (buf_tx + *tx_size, buf_src, b->wou->woufs[i].fsize);  
+                    *tx_size += b->wou->woufs[i].fsize;
                     *Sn += 1;
                     //TODO: use should be reset by wou_recv() when obtaining a Rn
                     // b->wou->woufs[i].use = 0;
@@ -900,10 +899,12 @@ static void wou_send (board_t* b)
             }
         }
     }
+        
+    assert (*tx_size < NR_OF_WIN*(WOUF_HDR_SIZE+2+MAX_PSIZE+CRC_SIZE));
 
 #if(TRACE)
-    DP ("send: size(%d)", size);
-    for (i=0; i < size; i++) {
+    DP ("buf_tx: tx_size(%ld), ", *tx_size);
+    for (i=0; ((i<*tx_size) && (i<50)) ; i++) {
       DPS ("<%.2X>", buf_tx[i]);
     }
     DPS ("\n");
@@ -912,14 +913,31 @@ static void wou_send (board_t* b)
     clock_gettime(CLOCK_REALTIME, &time1);
     
     dwBytesWritten = 0;
-    do {
-        if (dwBytesWritten) {
-            size -= dwBytesWritten;
-            memmove(buf_tx, buf_tx+dwBytesWritten, size);
+    // do {
+        FT_STATUS   s;
+        DWORD       r, t, e;
+        
+        ftStatus = FT_GetStatus(b->io.usb.ftHandle, &r, &t, &e);
+        if (ftStatus != FT_OK) {
+            ERRP("FT_GetStatus()\n");
+            return;
+        }
+        DP ("FT_GetStatus: dwRxBytes(%lu) dwTxBytes(%lu) dwEventDWord(%lu)\n",
+            r, t, e);
+        
+        if (*tx_size < BURST_LIMIT) {
+            DP ("skip wou_send(), tx_size(%lu)\n", *tx_size);
+            return;
         }
 
+        if (t > 256) {
+            DP (stderr, "dwTxBytes(%lu)\n", t);
+        }
+
+        DP ("wou_send(), tx_size(%lu)\n", *tx_size);
+    
         if ((ftStatus = FT_Write(b->io.usb.ftHandle, buf_tx, 
-                                 size, &dwBytesWritten)) 
+                                 *tx_size, &dwBytesWritten)) 
             != FT_OK) 
         {
             ERRP ( "FT_Write: ftStatus(%lu:%s)\n", ftStatus, Ftstat[ftStatus].desc);
@@ -927,22 +945,18 @@ static void wou_send (board_t* b)
         } else {
             clock_gettime(CLOCK_REALTIME, &time2);
             dt = diff(time1,time2); 
-    //TODO: #if (TRACE>1)
-    //TODO:         DP ("FT_Write(): ");
-    //TODO:         for (i=0; i < size_sum; i++) 
-    //TODO:         {
-    //TODO:           DPS ("<%.2X>", b->wou->buf_send[i]);
-    //TODO:         }
-    //TODO:         DPS ("\n");
-    //TODO: #endif
             DP ("dwBytesWritten(%lu), dt.sec(%lu), dt.nsec(%lu)\n", 
                  dwBytesWritten, dt.tv_sec, dt.tv_nsec);
             DP ("bitrate(%f Mbps)\n", 
                  8.0*dwBytesWritten/(1000000.0*dt.tv_sec+dt.tv_nsec/1000.0));
-            //obsolete: b->wou->psize = 0; // reset pending wou buf size
             b->wr_dsize += dwBytesWritten;
+            if (dwBytesWritten) {
+                *tx_size -= dwBytesWritten;
+                memmove(buf_tx, buf_tx+dwBytesWritten, *tx_size);
+            }
         } // if FT_Write() successful
-    } while (size == dwBytesWritten);
+        
+    // } while (*tx_size != dwBytesWritten);
     return;
 }
 
@@ -1066,6 +1080,9 @@ void wou_append (board_t* b, const uint8_t func, const uint16_t wb_addr,
     memcpy (wou_frame_->buf + i, &wb_addr, WB_ADDR_SIZE);
     i+= WB_ADDR_SIZE;
     if (func == WB_WR_CMD) {
+        // if (wb_addr == JCMD_SYNC_CMD) {
+        //     fprintf  ... debug SYNC_CMD only
+        // }
         memcpy (wou_frame_->buf + i, buf, dsize);
         wou_frame_->fsize = i + dsize;
     } else  if (func == WB_RD_CMD) {
@@ -1079,13 +1096,34 @@ void wou_append (board_t* b, const uint8_t func, const uint16_t wb_addr,
 
 static void m7i43u_reconfig (board_t* board)
 {
+    FT_STATUS   ftStatus;
+    DWORD       r, t, e;
+        
     uint8_t cBufWrite;
     int     i;
     DP ("Park 7i43u in RECONFIG mode\n");
     
     wouf_init(board);
-    wou_eof(board);
-    sleep(1);
+    cBufWrite = 0; // GPIO_SYSTEM = 0x00 (do nothing)
+    do {
+        wou_append (board, WB_WR_CMD, GPIO_BASE + GPIO_SYSTEM, 1, &cBufWrite);
+        wou_eof(board);
+        DP("tx_size(%lu)\n", board->wou->tx_size);
+        // tx_size would be 0 after successful wou_send()
+    } while (board->wou->tx_size != 0);
+
+    // wait for receiving buf_rx[]
+    r = 0;
+    while (r < (WOUF_HDR_SIZE + 1/*TID_SIZE*/ + CRC_SIZE)) {
+        sleep(1);   
+        ftStatus = FT_GetStatus(board->io.usb.ftHandle, &r, &t, &e);
+        if (ftStatus != FT_OK) {
+            ERRP("FT_GetStatus()\n");
+        }
+        DP ("FT_GetStatus: dwRxBytes(%lu) dwTxBytes(%lu) dwEventDWord(%lu)\n",
+            r, t, e);
+    }
+        
     // to get TID
     wou_recv(board);
     board->wou->tid = board->wou->tidSb;
@@ -1097,9 +1135,24 @@ static void m7i43u_reconfig (board_t* board)
     wouf_init(board);
 
     
+    // fill buf_tx whit NOP until approatching BURST_LIMIT
+    cBufWrite = 0; // GPIO_SYSTEM = 0x00 (do nothing)
+    do {
+        wou_append (board, WB_WR_CMD, GPIO_BASE + GPIO_SYSTEM, 1, &cBufWrite);
+        wou_eof(board);
+        DP("tx_size(%lu)\n", board->wou->tx_size);
+        // reserve 12 bytes for WOUF(GPIO_RECONFIG) 
+    } while ((board->wou->tx_size + 12) < BURST_LIMIT);
+    
     cBufWrite = GPIO_RECONFIG;
-    wou_append (board, WB_WR_CMD, GPIO_SYSTEM, 1, &cBufWrite);
+    wou_append (board, WB_WR_CMD, GPIO_BASE + GPIO_SYSTEM, 1, &cBufWrite);
     wou_eof (board);
+    DP("tx_size(%lu)\n", board->wou->tx_size);
+    
+    // to flush buf_rx[]
+    sleep(1);
+    wou_recv(board);
+    
     return;
 }
 
@@ -1116,7 +1169,10 @@ static int m7i43u_program_fpga(struct board *board,
     //     return EC_HDW;  // FTDI reset fail
     // }
     
+    printf("DEBUG: about to m7i43u_reconfig\n");
     m7i43u_reconfig (board);
+    printf("DEBUG: after m7i43u_reconfig...\n");
+    
 
     printf("about to m7i43u_cpld_reset\n");
     if (!m7i43u_cpld_reset(board)) {
@@ -1142,5 +1198,93 @@ static int m7i43u_program_fpga(struct board *board,
     return 0;
 }
 
+static void diff_time(struct timespec *start, struct timespec *end,
+		      struct timespec *diff)
+{
+    struct timespec temp;
+    if ((end->tv_nsec - start->tv_nsec) < 0) {
+	diff->tv_sec = end->tv_sec - start->tv_sec - 1;
+	diff->tv_nsec = 1000000000 + end->tv_nsec - start->tv_nsec;
+    } else {
+	diff->tv_sec = end->tv_sec - start->tv_sec;
+	diff->tv_nsec = end->tv_nsec - start->tv_nsec;
+    }
+    return;
+}
+
+static void dsize_to_str(char *buf, uint64_t dsize)
+{
+    if ((dsize >> 10) > 0) {	// KB?
+	dsize >>= 10;
+	if ((dsize >> 10) > 0) {	// MB?
+	    dsize >>= 10;
+	    if ((dsize >> 10) > 0) {	// GB?
+		dsize >>= 10;
+		sprintf(buf, "%llu GB\0", dsize);
+	    } else {
+		sprintf(buf, "%llu MB\0", dsize);
+	    }
+	} else {
+	    sprintf(buf, "%llu KB\0", dsize);
+	}
+    } else {
+	sprintf(buf, "%llu Bytes\0", dsize);
+    }
+    return;
+}
+
+/**
+ * TODO: update the results of FT_GetStatus into board data structure 
+ **/
+int board_status (struct board *board)
+{
+    struct timespec time2, dt;
+    int ss, mm, hh;
+    char tx_str[80], rx_str[80];
+    double data_rate;
+
+    clock_gettime(CLOCK_REALTIME, &time2);
+
+    diff_time(&time1, &time2, &dt);
+
+    ss = dt.tv_sec % 60;	// seconds
+    
+    // update for every seconds only
+    if ((ss > prev_ss) || ((ss == 0) && (prev_ss == 59))) {
+
+        //TODO: FT_STATUS s;
+        //TODO: DWORD r, t, e;
+        //TODO: if (!FT_SUCCESS(s = FT_GetStatus(board->io.usb.ftHandle, &r, &t, &e))) {
+        //TODO:     ERRP("TODO: ERRP()\n");
+        //TODO:     return -1;
+        //TODO: }
+        //TODO: printf ("FT_GetStatus: dwRxBytes(%lu) dwTxBytes(%lu) dwEventDWord(%lu)\n",
+        //TODO:         r, t, e);
+
+        dsize_to_str(tx_str, board->wr_dsize);
+        dsize_to_str(rx_str, board->rd_dsize);
+
+        if (dt.tv_sec > 0) {
+            data_rate =
+                (double) ((board->wr_dsize + board->rd_dsize) >> 10) 
+                          * 8.0 / dt.tv_sec;
+        } else {
+            data_rate = 0.0;
+        }
+
+        prev_ss = ss;
+        dt.tv_sec /= 60;
+        mm = dt.tv_sec % 60;	// minutes
+        hh = dt.tv_sec / 60;	// hr
+
+        // IN(0x%04X), switch_in
+        printf
+            ("[%02d:%02d:%02d] tx(%s) rx(%s) (%.2f Kbps)\n",
+             hh, mm, ss, tx_str, rx_str, data_rate);
+    }
+
+    // okay: printf ("debug: board(%p)\n", board);
+    return 0;
+}
 
 // vim:sw=4:sts=4:et:
