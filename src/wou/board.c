@@ -870,7 +870,7 @@ static void wou_send (board_t* b)
             return;
         } else {
             // round a circle
-            assert ((NR_OF_CLK - *Sn) < NR_OF_WIN);
+            assert ((NR_OF_CLK - *Sn) <= NR_OF_WIN);
             assert (*Sm < (NR_OF_WIN - (NR_OF_CLK - *Sn)));
             for (i=*Sn; i<NR_OF_CLK; i++) {
                 if (b->wou->woufs[i].use == 0) {
