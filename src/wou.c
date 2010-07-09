@@ -32,7 +32,17 @@
 #if __CYGWIN__ || __MINGW32__
 #include <windows.h>
 #endif
+
+#ifdef HAVE_LIBFTD2XX
 #include <ftd2xx.h>     // from FTDI
+#else
+#ifdef HAVE_LIBFTDI
+#include <ftdi.h>       // from libftdi
+#else
+#error "need LIBFTD2XX or LIBFTDI"
+#endif
+#endif
+
 #include "wb_regs.h"
 #include "wou/board.h"
 

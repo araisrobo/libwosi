@@ -10,6 +10,7 @@
 
 struct bitfile_chunk;
 
+#ifdef HAVE_LIBFTD2XX
 /* _Ftstat[]: take from _d2xx.h, PyUSB project, http://bleyer.org/pyusb/ */
 typedef struct _Ftstat _Ftstat; ///< FT_STATUS values and their descriptions
 struct _Ftstat {
@@ -41,7 +42,7 @@ static const _Ftstat Ftstat[] = {
         , {FT_DEVICE_LIST_NOT_READY, "Device list not ready."}
 #endif
 };
-
+#endif  // HAVE_LIBFTD2XX
 
 #define ERRP(fmt, args...)                                              \
     do {                                                                \
@@ -58,6 +59,10 @@ static const _Ftstat Ftstat[] = {
 
 #define MAX_DEVICES		10
 
+// #define MAX(a,b)        ((a) > (b) ? (a) : (b))
+// #define MIN(a,b)        ((a) < (b) ? (a) : (b))
+// #define ABS(a)          (((a) < 0) ? (-(a)) : (a))
+
 
 //obsolete:  #define TID_LIMIT     256
 //obsolete:  #define DSIZE_LIMIT   256
@@ -69,8 +74,11 @@ static const _Ftstat Ftstat[] = {
 // #define BURST_LIMIT   64  // FT_Write delay: 0.8 ~ 2.6ms
 // #define BURST_LIMIT   128  // FT_Write delay: 0.6 ~ 1.1ms
 // #define BURST_LIMIT   256 // FT_Write delay: 0.8 ~ 5.6ms
-#define BURST_LIMIT   512 // FT_Write delay: 0.8 ~ 5.6ms (best bandwidth utilization for 1ms time slot)
-// #define BURST_LIMIT   4 // for debugging
+//failed@1.2KV,16ms:
+// #define BURST_LIMIT   512 // FT_Write delay: 0.8 ~ 5.6ms (best bandwidth utilization for 1ms time slot)
+#define BURST_MIN     512
+#define BURST_MAX     4096
+//failed@1.2KV,16ms: #define BURST_LIMIT   32 // for debugging
 
 // GO-BACK-N: http://en.wikipedia.org/wiki/Go-Back-N_ARQ
 #define NR_OF_WIN     128    // window size for GO-BACK-N
@@ -112,9 +120,16 @@ typedef struct wou_struct {
   uint8_t     tid;       
   uint8_t     tidSb;
   wouf_t      woufs[NR_OF_CLK];    
+#ifdef HAVE_LIBFTD2XX
   DWORD       tx_size;
-  uint8_t     buf_tx[NR_OF_WIN*(WOUF_HDR_SIZE+2/*PLOAD_SIZE_RX+TID*/+MAX_PSIZE+CRC_SIZE)];
   DWORD       rx_size;
+#else
+#ifdef HAVE_LIBFTDI
+  int         tx_size;
+  int         rx_size;
+#endif  // HAVE_LIBFTDI
+#endif  // HAVE_LIBFTD2XX
+  uint8_t     buf_tx[NR_OF_WIN*(WOUF_HDR_SIZE+2/*PLOAD_SIZE_RX+TID*/+MAX_PSIZE+CRC_SIZE)];
   // TODO: uint8_t     buf_rx[BURST_LIMIT];
   uint8_t     clock;        
   uint8_t     Rn;
@@ -149,7 +164,14 @@ typedef struct board {
             unsigned short  device_id;
             int             usb_devnum;
             const char*     bitfile;    // NULL for not-programming fpga
+#ifdef HAVE_LIBFTD2XX
             FT_HANDLE	    ftHandle;
+#else
+            struct ftdi_context ftdic;
+            struct ftdi_transfer_control *tc;
+#ifdef HAVE_LIBFTDI
+#endif  // HAVE_LIBFTDI
+#endif  // HAVE_LIBFTD2XX
         } usb;
     } io;
     

@@ -20,6 +20,131 @@ AC_PROG_LIBTOOL
 # copied from configure.ac of UrJTAG ,http://urjtag.org,urjtag)
 AC_CHECK_FUNC(clock_gettime, [], [ AC_CHECK_LIB(rt, clock_gettime) ])
 
+dnl check for libusb-0.x
+AC_ARG_WITH([libusb],
+  [AS_HELP_STRING([--with-libusb],
+    [use libusb for some USB JTAG cables])],,
+    [with_libusb=check])
+
+HAVELIBUSB=no
+AS_IF([test "x$with_libusb" != xno -a "x$with_libusb" != x1.0], [
+  save_LIBS=$LIBS
+  save_CPPFLAGS=$CPPFLAGS
+  PKG_CHECK_MODULES(LIBUSB, libusb, [:;], [dnl
+    AS_IF([test "x$with_libusb" != xyes -a "x$with_libusb" != xcheck], [
+      case $host in
+      *cygwin*)
+        LIBUSB_LIBS="-L$with_libusb/lib/gcc -lusb"
+        LIBUSB_CFLAGS="-I$with_libusb/include"
+        ;;
+      *)
+        LIBUSB_LIBS="-L$with_libusb -lusb"
+        LIBUSB_CFLAGS="-I$with_libusb"
+        ;;
+      esac
+    ],[
+      AC_PATH_TOOL(LIBUSB_CONFIG, libusb-config, no)
+      AS_IF([test "$LIBUSB_CONFIG" != "no"],[
+        LIBUSB_LIBS=`$LIBUSB_CONFIG --libs`
+        LIBUSB_CFLAGS=`$LIBUSB_CONFIG --cflags`
+      ],)
+    ])
+  ])
+  LIBS="$LIBS $LIBUSB_LIBS"
+  CPPFLAGS="$CPPFLAGS $LIBUSB_CFLAGS"
+  AC_CHECK_FUNC([usb_find_devices], [
+    HAVELIBUSB=0.1
+  ],[
+    AS_IF([test "x$with_libusb" = x0.1], [
+      AC_MSG_ERROR([*** libusb-0.1 not detected.])
+    ],[
+      AC_MSG_WARN([*** libusb not detected. No support for USB JTAG cables via libusb.])
+    ])
+    LIBS=$save_LIBS
+    CPPFLAGS=$save_CPPFLAGS
+  ])
+],)
+
+dnl check for libusb-1.0
+
+AS_IF([test "x$with_libusb" != xno -a "x$with_libusb" != x0.1 -a "x$HAVELIBUSB" = "xno"], [
+  save_LIBS=$LIBS
+  save_CPPFLAGS=$CPPFLAGS
+  PKG_CHECK_MODULES(LIBUSB, libusb-1.0, have_libusb=yes, have_libusb=no)
+  AS_IF([test "$have_libusb" = "yes"],[
+    LIBUSB_CFLAGS="$CFLAGS $LIBUSB_CFLAGS"
+    LIBUSB_LIBS="$USB_LIBS $LIBUSB_LIBS"
+  ],)
+  LIBS="$LIBS $LIBUSB_LIBS"
+  CPPFLAGS="$CPPFLAGS $LIBUSB_CFLAGS"
+  AC_CHECK_FUNC([libusb_get_device_list], [
+    AC_DEFINE(HAVE_LIBUSB1, 1, [Define if you have libusb-1.0])
+    HAVELIBUSB=1.0
+  ],[
+    AS_IF([test "x$with_libusb" = x1.0], [
+      AC_MSG_ERROR([*** libusb-1.0 not detected.])
+    ],[
+      AC_MSG_WARN([*** libusb-1.0 not detected. No support for async mode for FTDI cables.])
+    ])
+    LIBS=$save_LIBS
+    CPPFLAGS=$save_CPPFLAGS
+  ])
+],)
+if test "x$HAVELIBUSB" != "xno"; then
+  AC_DEFINE(HAVE_LIBUSB, 1, [Define if you have libusb])
+fi
+AM_CONDITIONAL(HAVE_LIBUSB, [test "x$HAVELIBUSB" != "xno"])
+
+
+dnl Use FTDI library?
+AC_ARG_WITH([libftdi],
+  [AS_HELP_STRING([--with-libftdi],
+    [use libftdi for FTDI-based cables])],
+    [], [with_libftdi=check])
+
+HAVELIBFTDI=no
+AS_IF([test "x$with_libftdi" != xno], [
+  save_LIBS=$LIBS
+  save_CPPFLAGS=$CPPFLAGS
+  PKG_CHECK_MODULES(LIBFTDI, libftdi, [:;], [dnl
+    AS_IF([test "x$with_libftdi" != xyes -a "x$with_libftdi" != xcheck], [
+      LIBFTDI_LIBS="-L$with_libftdi -lftdi"
+      LIBFTDI_CFLAGS="-I$with_libftdi"
+    ],[
+      AC_PATH_TOOL(LIBFTDI_CONFIG, libftdi-config, no)
+      AS_IF([test "$LIBFTDI_CONFIG" != "no"],[
+        LIBFTDI_LIBS=`$LIBFTDI_CONFIG --libs`
+        LIBFTDI_CFLAGS=`$LIBFTDI_CONFIG --cflags`
+      ],)
+    ])
+  ])
+  LIBS="$LIBFTDI_LIBS $LIBS"
+  CPPFLAGS="$CPPFLAGS $LIBFTDI_CFLAGS"
+  AC_CHECK_FUNC([ftdi_usb_open], [
+    AC_DEFINE(HAVE_LIBFTDI, 1, [Define if you have libftdi])
+    HAVELIBFTDI=yes
+  ],[
+    AC_MSG_WARN([*** libftdi not detected. No support for FTDI-based USB JTAG cables via libftdi.])
+    LIBS=$save_LIBS
+    CPPFLAGS=$save_CPPFLAGS
+  ])
+  AC_CHECK_FUNC([ftdi_read_data_submit], [
+    AS_IF([test "x$HAVELIBUSB" = "x0.1"], [
+      AC_MSG_ERROR([this libftdi cannot be used with libusb-0.1, libusb-1.0 is needed])
+    ],)
+    AC_DEFINE(HAVE_LIBFTDI_ASYNC_MODE, 1, [Define if libftdi support async mode])
+    HAVELIBFTDI_ASYNCMODE=yes
+  ], [
+    AS_IF([test "x$HAVELIBUSB" = "x1.0"], [
+      AC_MSG_ERROR([this libftdi cannot be used with libusb-1.0, libusb-0.1 is needed.
+                    did you configure libftdi with --with-async-mode ?])
+    ],)
+  ])
+],)
+AM_CONDITIONAL(HAVE_LIBFTDI, [test "x$HAVELIBFTDI" = "xyes"])
+AM_CONDITIONAL(HAVE_LIBFTDI_ASYNC_MODE, [test "x$HAVELIBFTDI_ASYNCMODE" = "xyes"])
+
+
 dnl Use FTDI ftd2xx library?
 AC_ARG_WITH([ftd2xx],
   [AS_HELP_STRING([--with-ftd2xx],
@@ -136,30 +261,54 @@ AC_OUTPUT([
 dnl
 dnl Configuration summary
 dnl
-# AS_IF([test ${HAVELIBUSB:-no} != no], [
-#    FLAG_HAVELIBUSB=yes
-# ], [
-#    FLAG_HAVELIBUSB=no
-# ])
-AS_IF([test ${HAVELIBFTDI:-no} != no], [
-   FLAG_HAVELIBFTDI=yes
-], [
-   FLAG_HAVELIBFTDI=no
+dnl orig: # AS_IF([test ${HAVELIBUSB:-no} != no], [
+dnl orig: #    FLAG_HAVELIBUSB=yes
+dnl orig: # ], [
+dnl orig: #    FLAG_HAVELIBUSB=no
+dnl orig: # ])
+dnl orig: AS_IF([test ${HAVELIBFTDI:-no} != no], [
+dnl orig:    FLAG_HAVELIBFTDI=yes
+dnl orig: ], [
+dnl orig:    FLAG_HAVELIBFTDI=no
+dnl orig: ])
+dnl orig: AS_IF([test ${HAVELIBFTD2XX:-no} != no], [
+dnl orig:    FLAG_HAVELIBFTD2XX=yes
+dnl orig: ], [
+dnl orig:    FLAG_HAVELIBFTD2XX=no
+dnl orig: ])
+dnl orig: AC_MSG_NOTICE([
+dnl orig: 
+dnl orig: wou is now configured for
+dnl orig: 
+dnl orig: dnl  Detected libusb      : $FLAG_HAVELIBUSB
+dnl orig: dnl  Detected libftdi     : $FLAG_HAVELIBFTDI
+dnl orig:   Detected libftd2xx   : $FLAG_HAVELIBFTD2XX
+dnl orig: dnl  Bus drivers          : $enabled_bus_drivers
+dnl orig: dnl  Cable drivers        : $enabled_cable_drivers
+dnl orig:   Lowlevel drivers     : $enabled_lowlevel_drivers
+dnl orig: ])
+FLAG_HAVELIBUSB=$HAVELIBUSB
+AS_IF([test "x$HAVELIBFTDI_ASYNCMODE" = "xyes"], [
+  FLAG_HAVELIBFTDI_ASYNCMODE="(have async mode)"
+],[
+  FLAG_HAVELIBFTDI_ASYNCMODE="(no async mode)"
 ])
-AS_IF([test ${HAVELIBFTD2XX:-no} != no], [
-   FLAG_HAVELIBFTD2XX=yes
-], [
-   FLAG_HAVELIBFTD2XX=no
+AC_DEFUN([MAKE_YESNO_VAR],[dnl
+  AS_IF([test ${$1:-$2} != $2], [dnl
+     FLAG_$1=yes
+  ], [dnl
+     FLAG_$1=no
+  ])
 ])
+MAKE_YESNO_VAR([HAVELIBFTDI], [no])
+MAKE_YESNO_VAR([HAVELIBFTD2XX], [no])
 AC_MSG_NOTICE([
 
 wou is now configured for
 
-dnl  Detected libusb      : $FLAG_HAVELIBUSB
-dnl  Detected libftdi     : $FLAG_HAVELIBFTDI
+  Detected libusb      : $FLAG_HAVELIBUSB
+  Detected libftdi     : $FLAG_HAVELIBFTDI $FLAG_HAVELIBFTDI_ASYNCMODE
   Detected libftd2xx   : $FLAG_HAVELIBFTD2XX
-dnl  Bus drivers          : $enabled_bus_drivers
-dnl  Cable drivers        : $enabled_cable_drivers
   Lowlevel drivers     : $enabled_lowlevel_drivers
 ])
 

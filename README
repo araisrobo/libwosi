@@ -16,4 +16,4 @@ Linux:
     ... TODO ...
 
 for debugging with gdb, build with "-g -O0":
-$ CFLAGS="-g -O0" CXXFLAGS="-g -O0" ./configure
+$ CFLAGS="-g -O0" CXXFLAGS="-g -O0" ./configure --with-libusb=1.0
