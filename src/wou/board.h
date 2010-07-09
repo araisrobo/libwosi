@@ -76,8 +76,10 @@ static const _Ftstat Ftstat[] = {
 // #define BURST_LIMIT   256 // FT_Write delay: 0.8 ~ 5.6ms
 //failed@1.2KV,16ms:
 // #define BURST_LIMIT   512 // FT_Write delay: 0.8 ~ 5.6ms (best bandwidth utilization for 1ms time slot)
-#define BURST_MIN     512
+// #define BURST_MIN     512: failed for ftdi_write_data() (synchronous mode)
+#define BURST_MIN     128
 #define BURST_MAX     4096
+#define RX_CHUNK_SIZE 2048
 //failed@1.2KV,16ms: #define BURST_LIMIT   32 // for debugging
 
 // GO-BACK-N: http://en.wikipedia.org/wiki/Go-Back-N_ARQ

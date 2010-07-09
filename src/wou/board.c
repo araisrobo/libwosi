@@ -374,7 +374,7 @@ int board_connect (board_t* board)
     ftdic->usb_read_timeout = 1000;
     ftdic->usb_write_timeout = 1000;
     ftdic->writebuffer_chunksize = BURST_MIN;
-    if (ret = ftdi_read_data_set_chunksize(ftdic, BURST_MAX) < 0) {
+    if (ret = ftdi_read_data_set_chunksize(ftdic, RX_CHUNK_SIZE) < 0) {
         ERRP("ftdi_read_data_set_chunksize(): %d (%s)\n", 
               ret, ftdi_get_error_string(ftdic));
         return EXIT_FAILURE;
@@ -873,10 +873,15 @@ void wou_recv (board_t* b)
             cmp = memcmp(buf_head + (1 + pload_size_tx), &crc16, CRC_SIZE);
             if (cmp == 0) {
                 // CRC pass; about to parse WOU_FRAME
-                wouf_parse (b, buf_head);
-                // expected Rn
-                rx_size -= (1 + pload_size_tx + CRC_SIZE);
-                buf_head += (1 + pload_size_tx + CRC_SIZE);
+                if (wouf_parse (b, buf_head)) {
+                    // un-expected Rn
+                    // invalidate buf_rx[]
+                    rx_size = 0;
+                } else {
+                    // expected Rn
+                    rx_size -= (1 + pload_size_tx + CRC_SIZE);
+                    buf_head += (1 + pload_size_tx + CRC_SIZE);
+                }
                 if (rx_size) {
                     memmove (buf_rx, buf_head, rx_size);
                     immediate_state = 1;
@@ -884,13 +889,14 @@ void wou_recv (board_t* b)
                 rx_state = SYNC;
                 // finished a WOU_FRAME
             } else {
-                // CRC fail; through buf_head back to SYNC state
+                // CRC fail; throw buf_head back to SYNC state
                 if (buf_head != buf_rx) {
                     memmove (buf_rx, buf_head, rx_size);
                 }
                 rx_state = SYNC;
                 immediate_state = 1;
                 ERRP ("RX_CRC(0x%04X) pload_size_tx(%d)\n", crc16, pload_size_tx);
+                ERRP ("buf_rx(%p) buf_head(%p) rx_size(%d)\n", buf_rx, buf_head, rx_size);
                 // assert(0);
             }
             break;  // rx_state == PLOAD_CRC
@@ -910,7 +916,6 @@ void wou_recv (board_t* b)
                             ftdic, 
                             buf_rx + rx_size, 
                             MAX(1, ftdic->readbuffer_remaining))) 
-                            // MAX(BURST_MIN, ftdic->readbuffer_remaining))) 
                             == NULL) {
         ERRP("ftdi_read_data_submit(): %s\n", 
              ftdi_get_error_string (ftdic));
@@ -1008,7 +1013,10 @@ static void wou_send (board_t* b)
             }
         }
     }
-        
+       
+    if (*tx_size >= NR_OF_WIN*(WOUF_HDR_SIZE+2+MAX_PSIZE+CRC_SIZE)) {
+        printf("tx_size(%d)\n", *tx_size);
+    }
     assert (*tx_size < NR_OF_WIN*(WOUF_HDR_SIZE+2+MAX_PSIZE+CRC_SIZE));
     
     if (*tx_size < BURST_MIN) {
@@ -1223,12 +1231,34 @@ static void m7i43u_reconfig (board_t* board)
     DP ("readbuffer_remaining(%u)\n",
         board->io.usb.ftdic.readbuffer_remaining);
     
+    // to clear tx and rx queue
+    if ((ret = ftdi_usb_purge_buffers (ftdic)) < 0)
+    {
+        ERRP ("ftdi_usb_purge_buffers() failed: %d", ret);
+        return EXIT_FAILURE;
+    }
+    // to flush rx queue
+    while (ftdi_read_data (ftdic, &cBufWrite, 1) > 0) { 
+        printf ("flush 1 byte\n");
+        if (ftdic->readbuffer_remaining) {
+            printf ("flush %u byte\n", ftdic->readbuffer_remaining);
+            ftdi_read_data (ftdic, 
+                            board->wou->buf_tx,
+                            ftdic->readbuffer_remaining);
+        }
+    }
+    
     // to lower the writebuffer_chunksize is mandatory for RECONFIG
     // otherwise we won't get a chance to update tidR from buf_rx[]
     tx_chunksize = board->io.usb.ftdic.writebuffer_chunksize;
-    // board->io.usb.ftdic.writebuffer_chunksize = BURST_MIN>>2;
     board->io.usb.ftdic.writebuffer_chunksize = ftdic->max_packet_size;
     
+    board->wou->tid = board->wou->tidSb;
+    board->wou->clock = board->wou->Sb;
+    board->wou->Sn = board->wou->Sb;
+    printf("1: tidSb(%02X), Sb(%02X), Sn(%02X), Sm(%02X) clock(%02X)\n",
+             board->wou->tidSb, board->wou->Sb, board->wou->Sn, 
+             board->wou->Sm, board->wou->clock);
     wouf_init(board);
     cBufWrite = 0; // GPIO_SYSTEM = 0x00 (do nothing)
     do {
@@ -1253,11 +1283,19 @@ static void m7i43u_reconfig (board_t* board)
 #endif
 
     // to get TID
-    wou_recv(board);
+    printf ("rd_dsize(%lu)\n", board->rd_dsize);
+    // assert (board->rd_dsize == 0);
+    do {
+        wou_recv(board);
+    } while (board->rd_dsize < (WOUF_HDR_SIZE + 1/*TID_SIZE*/ + CRC_SIZE));
+    printf ("rd_dsize(%lu)\n", board->rd_dsize);
     board->wou->tid = board->wou->tidSb;
     board->wou->clock = board->wou->Sb;
     board->wou->Sn = board->wou->Sb;
     DP ("tidSb(%02X), Sb(%02X), Sn(%02X), Sm(%02X) clock(%02X)\n",
+             board->wou->tidSb, board->wou->Sb, board->wou->Sn, 
+             board->wou->Sm, board->wou->clock);
+    printf("2: tidSb(%02X), Sb(%02X), Sn(%02X), Sm(%02X) clock(%02X)\n",
              board->wou->tidSb, board->wou->Sb, board->wou->Sn, 
              board->wou->Sm, board->wou->clock);
     for (i=0; i<NR_OF_CLK; i++) {
@@ -1278,15 +1316,17 @@ static void m7i43u_reconfig (board_t* board)
     wou_append (board, WB_WR_CMD, GPIO_BASE + GPIO_SYSTEM, 1, &cBufWrite);
     wou_eof (board);
     DP("tx_size(%d)\n", board->wou->tx_size);
-
-    // to purget the internal rx buffer
-    if ((ret = ftdi_usb_purge_buffers (ftdic)) < 0)
-    {
-        ERRP ("ftdi_usb_purge_buffers() failed: %d", ret);
-        return EXIT_FAILURE;
+    
+    // to clean tx and rx queue
+    for (i=0; i<10; i++) {
+        // to purget the buf_rx[]
+        wou_recv(board);
+        // to purget the internal rx buffer
+        if ((ret = ftdi_usb_purge_buffers (ftdic)) < 0) {
+            ERRP ("ftdi_usb_purge_buffers() failed: %d", ret);
+            return EXIT_FAILURE;
+        }
     }
-    // to purget the buf_rx[]
-    wou_recv(board);
     
     // restore writebuffer_chunksize
     board->io.usb.ftdic.writebuffer_chunksize = tx_chunksize;
