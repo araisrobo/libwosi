@@ -20,54 +20,8 @@ AC_PROG_LIBTOOL
 # copied from configure.ac of UrJTAG ,http://urjtag.org,urjtag)
 AC_CHECK_FUNC(clock_gettime, [], [ AC_CHECK_LIB(rt, clock_gettime) ])
 
-dnl check for libusb-0.x
-AC_ARG_WITH([libusb],
-  [AS_HELP_STRING([--with-libusb],
-    [use libusb for some USB JTAG cables])],,
-    [with_libusb=check])
-
-HAVELIBUSB=no
-AS_IF([test "x$with_libusb" != xno -a "x$with_libusb" != x1.0], [
-  save_LIBS=$LIBS
-  save_CPPFLAGS=$CPPFLAGS
-  PKG_CHECK_MODULES(LIBUSB, libusb, [:;], [dnl
-    AS_IF([test "x$with_libusb" != xyes -a "x$with_libusb" != xcheck], [
-      case $host in
-      *cygwin*)
-        LIBUSB_LIBS="-L$with_libusb/lib/gcc -lusb"
-        LIBUSB_CFLAGS="-I$with_libusb/include"
-        ;;
-      *)
-        LIBUSB_LIBS="-L$with_libusb -lusb"
-        LIBUSB_CFLAGS="-I$with_libusb"
-        ;;
-      esac
-    ],[
-      AC_PATH_TOOL(LIBUSB_CONFIG, libusb-config, no)
-      AS_IF([test "$LIBUSB_CONFIG" != "no"],[
-        LIBUSB_LIBS=`$LIBUSB_CONFIG --libs`
-        LIBUSB_CFLAGS=`$LIBUSB_CONFIG --cflags`
-      ],)
-    ])
-  ])
-  LIBS="$LIBS $LIBUSB_LIBS"
-  CPPFLAGS="$CPPFLAGS $LIBUSB_CFLAGS"
-  AC_CHECK_FUNC([usb_find_devices], [
-    HAVELIBUSB=0.1
-  ],[
-    AS_IF([test "x$with_libusb" = x0.1], [
-      AC_MSG_ERROR([*** libusb-0.1 not detected.])
-    ],[
-      AC_MSG_WARN([*** libusb not detected. No support for USB JTAG cables via libusb.])
-    ])
-    LIBS=$save_LIBS
-    CPPFLAGS=$save_CPPFLAGS
-  ])
-],)
-
 dnl check for libusb-1.0
-
-AS_IF([test "x$with_libusb" != xno -a "x$with_libusb" != x0.1 -a "x$HAVELIBUSB" = "xno"], [
+AS_IF([test "x$with_libusb" != xno], [
   save_LIBS=$LIBS
   save_CPPFLAGS=$CPPFLAGS
   PKG_CHECK_MODULES(LIBUSB, libusb-1.0, have_libusb=yes, have_libusb=no)
@@ -145,57 +99,57 @@ AM_CONDITIONAL(HAVE_LIBFTDI, [test "x$HAVELIBFTDI" = "xyes"])
 AM_CONDITIONAL(HAVE_LIBFTDI_ASYNC_MODE, [test "x$HAVELIBFTDI_ASYNCMODE" = "xyes"])
 
 
-dnl Use FTDI ftd2xx library?
-AC_ARG_WITH([ftd2xx],
-  [AS_HELP_STRING([--with-ftd2xx],
-    [use ftd2xx library for FTDI-based cables])],
-    [], [with_ftd2xx=check])
-
-FTD2XXLIB=
-AS_IF([test "x$with_ftd2xx" = xyes -o "x$with_ftd2xx" = xcheck], [
-    case $host in
-    *cygwin*|*mingw*)
-      HAVELIBFTD2XX=yes
-      FTD2XXLIB="-lftd2xx"
-      ;;
-    *)
-      AC_CHECK_LIB([ftd2xx], [FT_OpenEx], [
-        HAVELIBFTD2XX=yes
-        LIBS="-lftd2xx $LIBS"
-      ],[
-        AC_MSG_WARN([*** libftd2xx not found. No support for FTDI-based USB JTAG cables via libftd2xx.])
-      ])
-      ;;
-    esac
-],[
-  AS_IF([test "x$with_ftd2xx" != xno], [
-    HAVELIBFTD2XX=yes
-    case $host in
-    *cygwin*|*mingw*)
-      CFLAGS="$CFLAGS -I$with_ftd2xx"
-      AS_IF([test -d "$with_ftd2xx/i386"], [
-        FTD2XXLIB="$with_ftd2xx/i386/ftd2xx.lib"
-      ],[
-        FTD2XXLIB="$with_ftd2xx/ftd2xx.lib"
-      ])
-      # notice: this method failed to build binaries at ./tests/
-      #         because FTD2XXLIB got removed by *_LDADD=... macro
-      # building library is okay though
-      ;;
-    *)
-      CFLAGS="$CFLAGS -I$with_ftd2xx -L$with_ftd2xx"
-      LIBS="-lftd2xx $LIBS"
-      ;;
-    esac
-  ],)
-])
-AS_IF([test "x$HAVELIBFTD2XX" = xyes], [
-  AM_CONDITIONAL(HAVE_LIBFTD2XX, true)
-  AC_DEFINE(HAVE_LIBFTD2XX, 1, [define if you have libftd2xx])
-],[
-  AM_CONDITIONAL(HAVE_LIBFTD2XX, false)
-])
-AC_SUBST(FTD2XXLIB)
+dnl dnl Use FTDI ftd2xx library?
+dnl AC_ARG_WITH([ftd2xx],
+dnl   [AS_HELP_STRING([--with-ftd2xx],
+dnl     [use ftd2xx library for FTDI-based cables])],
+dnl     [], [with_ftd2xx=check])
+dnl 
+dnl FTD2XXLIB=
+dnl AS_IF([test "x$with_ftd2xx" = xyes -o "x$with_ftd2xx" = xcheck], [
+dnl     case $host in
+dnl     *cygwin*|*mingw*)
+dnl       HAVELIBFTD2XX=yes
+dnl       FTD2XXLIB="-lftd2xx"
+dnl       ;;
+dnl     *)
+dnl       AC_CHECK_LIB([ftd2xx], [FT_OpenEx], [
+dnl         HAVELIBFTD2XX=yes
+dnl         LIBS="-lftd2xx $LIBS"
+dnl       ],[
+dnl         AC_MSG_WARN([*** libftd2xx not found. No support for FTDI-based USB JTAG cables via libftd2xx.])
+dnl       ])
+dnl       ;;
+dnl     esac
+dnl ],[
+dnl   AS_IF([test "x$with_ftd2xx" != xno], [
+dnl     HAVELIBFTD2XX=yes
+dnl     case $host in
+dnl     *cygwin*|*mingw*)
+dnl       CFLAGS="$CFLAGS -I$with_ftd2xx"
+dnl       AS_IF([test -d "$with_ftd2xx/i386"], [
+dnl         FTD2XXLIB="$with_ftd2xx/i386/ftd2xx.lib"
+dnl       ],[
+dnl         FTD2XXLIB="$with_ftd2xx/ftd2xx.lib"
+dnl       ])
+dnl       # notice: this method failed to build binaries at ./tests/
+dnl       #         because FTD2XXLIB got removed by *_LDADD=... macro
+dnl       # building library is okay though
+dnl       ;;
+dnl     *)
+dnl       CFLAGS="$CFLAGS -I$with_ftd2xx -L$with_ftd2xx"
+dnl       LIBS="-lftd2xx $LIBS"
+dnl       ;;
+dnl     esac
+dnl   ],)
+dnl ])
+dnl AS_IF([test "x$HAVELIBFTD2XX" = xyes], [
+dnl   AM_CONDITIONAL(HAVE_LIBFTD2XX, true)
+dnl   AC_DEFINE(HAVE_LIBFTD2XX, 1, [define if you have libftd2xx])
+dnl ],[
+dnl   AM_CONDITIONAL(HAVE_LIBFTD2XX, false)
+dnl ])
+dnl AC_SUBST(FTD2XXLIB)
 
 
 # Macro for driver include check

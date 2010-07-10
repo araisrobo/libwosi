@@ -12,9 +12,12 @@ noinst_PROGRAMS = \
   	wou-unit-test-ustep
 
 
+# common_ldflags = \
+# 	$(top_builddir)/src/libwou.la \
+#  	@FTD2XXLIB@
+
 common_ldflags = \
-	$(top_builddir)/src/libwou.la \
- 	@FTD2XXLIB@
+	$(top_builddir)/src/libwou.la
 
 #random_test_slave_LDFLAGS = -all-static
 # for debugging, static linking of test programs:

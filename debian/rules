@@ -107,7 +107,8 @@ binary-arch: install
 #	dh_python
 	dh_makeshlibs -V
 	dh_installdeb
-	cat /var/lib/dpkg/info/ftdi.shlibs debian/libwou/DEBIAN/shlibs > debian/shlibs.local 
+#FTD2XX: cat /var/lib/dpkg/info/ftdi.shlibs debian/libwou/DEBIAN/shlibs > debian/shlibs.local 
+	cat debian/libwou/DEBIAN/shlibs > debian/shlibs.local 
 	dh_shlibdeps
 	dh_gencontrol
 	dh_md5sums
