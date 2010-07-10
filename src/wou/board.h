@@ -77,9 +77,10 @@ static const _Ftstat Ftstat[] = {
 //failed@1.2KV,16ms:
 // #define BURST_LIMIT   512 // FT_Write delay: 0.8 ~ 5.6ms (best bandwidth utilization for 1ms time slot)
 // #define BURST_MIN     512: failed for ftdi_write_data() (synchronous mode)
-#define BURST_MIN     128
-#define BURST_MAX     4096
-#define RX_CHUNK_SIZE 2048
+// #define BURST_MIN     512
+#define BURST_MIN     1024
+#define BURST_MAX     (4096 - 64)
+#define RX_CHUNK_SIZE (4096 - 64)
 //failed@1.2KV,16ms: #define BURST_LIMIT   32 // for debugging
 
 // GO-BACK-N: http://en.wikipedia.org/wiki/Go-Back-N_ARQ
@@ -132,7 +133,8 @@ typedef struct wou_struct {
 #endif  // HAVE_LIBFTDI
 #endif  // HAVE_LIBFTD2XX
   uint8_t     buf_tx[NR_OF_WIN*(WOUF_HDR_SIZE+2/*PLOAD_SIZE_RX+TID*/+MAX_PSIZE+CRC_SIZE)];
-  // TODO: uint8_t     buf_rx[BURST_LIMIT];
+  uint8_t     buf_rx[NR_OF_WIN*(WOUF_HDR_SIZE+1/*TID_SIZE*/+MAX_PSIZE+CRC_SIZE)];
+  enum rx_state_type rx_state;
   uint8_t     clock;        
   uint8_t     Rn;
   uint8_t     Sn;
@@ -170,7 +172,8 @@ typedef struct board {
             FT_HANDLE	    ftHandle;
 #else
             struct ftdi_context ftdic;
-            struct ftdi_transfer_control *tc;
+            struct ftdi_transfer_control *rx_tc;
+            struct ftdi_transfer_control *tx_tc;
 #ifdef HAVE_LIBFTDI
 #endif  // HAVE_LIBFTDI
 #endif  // HAVE_LIBFTD2XX
