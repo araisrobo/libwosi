@@ -1,3 +1,11 @@
+libwou (0.1-9) lucid; urgency=low
+
+  * switch from FTD2XX to LIBFTDI
+  * adopt async-mode of libftdi
+  * need libusb-1.0-0 for Asynchronous API
+
+ -- Yi-Shin Li <ysli@araisrobo.com>  Mon, 12 Jul 2010 01:23:23 +0800
+
 libwou (0.1-8) lucid; urgency=low
 
   * fix stability 

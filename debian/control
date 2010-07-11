@@ -2,7 +2,8 @@ Source: libwou
 Priority: extra
 Maintainer: Yi-Shin Li <ysli@araisrobo.com>
 Build-Depends:  debhelper (>= 7), autotools-dev, build-essential, autoconf,
-                automake, libtool, libusb-1.0-0-dev, libftdi-1.0-dev
+                automake, libtool, pkg-config (>= 0.18), libusb-1.0-0-dev,
+                libftdi-1.0-dev
 Standards-Version: 3.8.1
 Section: libs
 Homepage: http://www.araisrobo.com/
