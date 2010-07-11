@@ -78,14 +78,15 @@ static const _Ftstat Ftstat[] = {
 // #define BURST_LIMIT   512 // FT_Write delay: 0.8 ~ 5.6ms (best bandwidth utilization for 1ms time slot)
 // #define BURST_MIN     512: failed for ftdi_write_data() (synchronous mode)
 // #define BURST_MIN     512
-#define BURST_MIN     1024
-#define BURST_MAX     (4096 - 64)
-#define RX_CHUNK_SIZE (4096 - 64)
+#define BURST_MIN     128
+#define BURST_MAX     1024
+#define RX_CHUNK_SIZE 4096
+#define RX_BURST_MIN  512
 //failed@1.2KV,16ms: #define BURST_LIMIT   32 // for debugging
 
 // GO-BACK-N: http://en.wikipedia.org/wiki/Go-Back-N_ARQ
-#define NR_OF_WIN     128    // window size for GO-BACK-N
-#define NR_OF_CLK     256    // number of circular buffer for WOU_FRAMEs
+#define NR_OF_WIN     32     // window size for GO-BACK-N
+#define NR_OF_CLK     255    // number of circular buffer for WOU_FRAMEs
 
 enum rx_state_type {
   SYNC=0, PLOAD_CRC
@@ -132,6 +133,8 @@ typedef struct wou_struct {
   int         rx_size;
 #endif  // HAVE_LIBFTDI
 #endif  // HAVE_LIBFTD2XX
+  int         rx_req_size;
+  int         rx_req;
   uint8_t     buf_tx[NR_OF_WIN*(WOUF_HDR_SIZE+2/*PLOAD_SIZE_RX+TID*/+MAX_PSIZE+CRC_SIZE)];
   uint8_t     buf_rx[NR_OF_WIN*(WOUF_HDR_SIZE+1/*TID_SIZE*/+MAX_PSIZE+CRC_SIZE)];
   enum rx_state_type rx_state;

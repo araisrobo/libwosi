@@ -222,6 +222,8 @@ static void gbn_init (board_t* board)
     board->rd_dsize = 0;
     board->wr_dsize = 0;
     board->wou->tx_size = 0;
+    board->wou->rx_req_size = 0;
+    board->wou->rx_req = 0;
     board->wou->rx_size = 0;
     board->wou->rx_state = SYNC;
     board->wou->tid = 0;
@@ -529,7 +531,8 @@ static int m7i43u_cpld_send_firmware(struct board *board, struct bitfile_chunk *
 {
     int i;
     uint8_t *dp;
-
+    
+    printf("%s: ch(%p), ch->body(%p)\n", ch, ch->body);
     dp = ch->body;
     for (i = 0; i < ch->len; i ++) {
         *dp = bit_reverse(*dp);
@@ -561,7 +564,7 @@ static int m7i43u_cpld_send_firmware(struct board *board, struct bitfile_chunk *
     
     ftdic = &(board->io.usb.ftdic);
 
-#if 0
+#if 1
     /* sync Write */
     do {
         if ((ret = ftdi_write_data (ftdic, ch->body, ch->len)) < 0)
@@ -768,6 +771,8 @@ void wou_recv (board_t* b)
     int         pload_size_tx;
     uint8_t     *buf_head;
     int         *rx_size;      // size of buf_rx[]
+    // int         *rx_req_size;
+    int         *rx_req;
     uint8_t     *buf_rx;
     enum rx_state_type *rx_state;
     static uint8_t sync_words[3] = {WOUF_PREAMBLE, WOUF_PREAMBLE, WOUF_SOFD};
@@ -778,6 +783,8 @@ void wou_recv (board_t* b)
     
     ftdic = &(b->io.usb.ftdic);
     rx_size = &(b->wou->rx_size);
+    // rx_req_size = &(b->wou->rx_req_size);
+    rx_req = &(b->wou->rx_req);
     buf_rx = b->wou->buf_rx;
     rx_state = &(b->wou->rx_state);
     if (b->io.usb.rx_tc) {
@@ -790,6 +797,8 @@ void wou_recv (board_t* b)
             {
                 ERRP("libusb_handle_events_timeout() (%s)\n", ftdi_get_error_string(ftdic));
             }
+            DP ("libusb_handle_events...\n");
+            DP ("readbuffer_remaining(%u)\n", ftdic->readbuffer_remaining);
         }
         if (b->io.usb.rx_tc->completed) {
             recvd = ftdi_transfer_data_done (b->io.usb.rx_tc);
@@ -809,11 +818,10 @@ void wou_recv (board_t* b)
     assert(b->io.usb.rx_tc == NULL);
         
     DP ("recvd(%d)\n", recvd);
-        /* recvd > 0 */
-        // append data from USB to buf_rx[]
-        b->rd_dsize += recvd;
-        *rx_size += recvd;
-    // }
+    /* recvd > 0 */
+    // append data from USB to buf_rx[]
+    b->rd_dsize += recvd;
+    *rx_size += recvd;
     
     // parsing buf_rx[]:
     buf_head = buf_rx;
@@ -923,15 +931,21 @@ void wou_recv (board_t* b)
     DP ("readbuffer_remaining(%u)\n",
         b->io.usb.ftdic.readbuffer_remaining);
     
-    // issue async_read ...
-    if ((b->io.usb.rx_tc = ftdi_read_data_submit (
-                            ftdic, 
-                            buf_rx + *rx_size, 
-                            MAX(1, ftdic->readbuffer_remaining))) 
-                            == NULL) {
-        ERRP("ftdi_read_data_submit(): %s\n", 
-             ftdi_get_error_string (ftdic));
-        assert(0);
+    *rx_req -= recvd;
+    if (*rx_req) {
+        // issue async_read ...
+        if ((b->io.usb.rx_tc = ftdi_read_data_submit (
+                                ftdic, 
+                                buf_rx + *rx_size, 
+                                // ftdic->readbuffer_remaining + 1)) 
+                                // MAX(1, ftdic->readbuffer_remaining))) 
+                                MIN(RX_BURST_MIN, *rx_req))) 
+                                == NULL) {
+            ERRP("ftdi_read_data_submit(): %s\n", 
+                 ftdi_get_error_string (ftdic));
+            assert(0);
+        }
+        DP ("rx_req(%d)\n", *rx_req);
     }
     return;
 } // wou_recv()
@@ -956,6 +970,8 @@ static void wou_send (board_t* b)
 #ifdef HAVE_LIBFTDI
     int         dwBytesWritten;
     int         *tx_size;
+    int         *rx_req_size;
+    int         *rx_req;
     struct ftdi_context     *ftdic;
     ftdic = &(b->io.usb.ftdic);
         
@@ -969,6 +985,8 @@ static void wou_send (board_t* b)
     //          dt.tv_sec, dt.tv_nsec);
 
     tx_size = &(b->wou->tx_size);
+    rx_req_size = &(b->wou->rx_req_size);
+    rx_req = &(b->wou->rx_req);
     buf_tx = b->wou->buf_tx;
     Sm = &(b->wou->Sm);
     Sn = &(b->wou->Sn);
@@ -989,9 +1007,9 @@ static void wou_send (board_t* b)
                 buf_src = b->wou->woufs[i].buf;
                 memcpy (buf_tx + *tx_size, buf_src, b->wou->woufs[i].fsize);  
                 *tx_size += b->wou->woufs[i].fsize;
+                *rx_req_size += (b->wou->woufs[i].pload_size_rx + WOUF_HDR_SIZE + 1/*TID*/ + CRC_SIZE);
+                DP ("rx_req_size(%d)\n", *rx_req_size);
                 *Sn += 1;
-                //TODO: use should be reset by wou_recv() when obtaining a Rn
-                // b->wou->woufs[i].use = 0;
             }
         }
     } else {
@@ -1010,11 +1028,11 @@ static void wou_send (board_t* b)
                 buf_src = b->wou->woufs[i].buf;
                 memcpy (buf_tx + *tx_size, buf_src, b->wou->woufs[i].fsize);  
                 *tx_size += b->wou->woufs[i].fsize;
+                *rx_req_size += (b->wou->woufs[i].pload_size_rx + WOUF_HDR_SIZE + 1/*TID*/ + CRC_SIZE);
+                DP ("rx_req_size(%d)\n", *rx_req_size);
                 *Sn += 1;
-                //TODO: use should be reset by wou_recv() when obtaining a Rn
-                // b->wou->woufs[i].use = 0;
             }
-            if (*Sn == NR_OF_CLK) {
+            if (*Sn == (NR_OF_CLK & 0xFF)) {
                 *Sn = 0;
                 for (i=0; i<=*Sm; i++) {
                     if (b->wou->woufs[i].use == 0) {
@@ -1023,16 +1041,15 @@ static void wou_send (board_t* b)
                     buf_src = b->wou->woufs[i].buf;
                     memcpy (buf_tx + *tx_size, buf_src, b->wou->woufs[i].fsize);  
                     *tx_size += b->wou->woufs[i].fsize;
+                    *rx_req_size += (b->wou->woufs[i].pload_size_rx + WOUF_HDR_SIZE + 1/*TID*/ + CRC_SIZE);
+                    DP ("rx_req_size(%d)\n", *rx_req_size);
                     *Sn += 1;
-                    //TODO: use should be reset by wou_recv() when obtaining a Rn
-                    // b->wou->woufs[i].use = 0;
                 }
             }
         }
     }
        
     if (*tx_size >= NR_OF_WIN*(WOUF_HDR_SIZE+2+MAX_PSIZE+CRC_SIZE)) {
-        // TODO: print the sum of *.fsize frim Sb to Sn
         printf ("Sm(%d) Sn(%d) Sb(%d) Sn.use(%d) clock(%d)\n", 
                 *Sm, *Sn, b->wou->Sb, b->wou->woufs[*Sn].use, b->wou->clock);
         printf("tx_size(%d)\n", *tx_size);
@@ -1107,8 +1124,8 @@ static void wou_send (board_t* b)
     if (dwBytesWritten) {
         clock_gettime(CLOCK_REALTIME, &time2);
         dt = diff(time1,time2); 
-        DP ("dwBytesWritten(%d,0x%08X), dt.sec(%lu), dt.nsec(%lu)\n", 
-             dwBytesWritten, dwBytesWritten, dt.tv_sec, dt.tv_nsec);
+        DP ("tx_size(%d), dwBytesWritten(%d,0x%08X), dt.sec(%lu), dt.nsec(%lu)\n", 
+             *tx_size, dwBytesWritten, dwBytesWritten, dt.tv_sec, dt.tv_nsec);
         DP ("bitrate(%f Mbps)\n", 
              8.0*dwBytesWritten/(1000000.0*dt.tv_sec+dt.tv_nsec/1000.0));
         assert (dwBytesWritten <= *tx_size);
@@ -1133,6 +1150,11 @@ static void wou_send (board_t* b)
              ftdi_get_error_string (ftdic));
         assert(0);
     }
+    // request for rx
+    *rx_req += *rx_req_size;    
+    DP ("dwBytesWritten(%d) tx_size(%d) rx_req(%d), rx_req_size(%d)\n", 
+         dwBytesWritten, *tx_size, *rx_req, *rx_req_size);
+    *rx_req_size = 0;
 
     DP("tx_tc.completed(%d)\n", b->io.usb.tx_tc->completed);
     DP("tx_tc->transfer->status(%d)\n", b->io.usb.tx_tc->transfer->status);
@@ -1140,7 +1162,8 @@ static void wou_send (board_t* b)
 
 #if(TRACE)
     DP ("buf_tx: tx_size(%d), ", *tx_size);
-    for (i=0; ((i<*tx_size) && (i<50)) ; i++) {
+    // for (i=0; ((i<*tx_size) && (i<50)) ; i++)
+    for (i=0; ((i<*tx_size) && (i<256)) ; i++) {
       DPS ("<%.2X>", buf_tx[i]);
     }
     DPS ("\n");
@@ -1287,7 +1310,7 @@ static void m7i43u_reconfig (board_t* board)
 #else
 #ifdef HAVE_LIBFTDI
     int ret;
-    unsigned int tx_chunksize;
+    // unsigned int tx_chunksize;
     struct ftdi_context *ftdic;
     ftdic = &(board->io.usb.ftdic);
 #endif
@@ -1305,8 +1328,8 @@ static void m7i43u_reconfig (board_t* board)
         return EXIT_FAILURE;
     }
     // to flush rx queue
-    while (ftdi_read_data (ftdic, &cBufWrite, 1) > 0) { 
-        printf ("flush 1 byte\n");
+    while (ret = ftdi_read_data (ftdic, &cBufWrite, 1) > 0) { 
+        printf ("flush %d byte\n", ret);
         if (ftdic->readbuffer_remaining) {
             printf ("flush %u byte\n", ftdic->readbuffer_remaining);
             ftdi_read_data (ftdic, 
@@ -1314,11 +1337,11 @@ static void m7i43u_reconfig (board_t* board)
                             ftdic->readbuffer_remaining);
         }
     }
-    
-    // to lower the writebuffer_chunksize is mandatory for RECONFIG
-    // otherwise we won't get a chance to update tidR from buf_rx[]
-    tx_chunksize = board->io.usb.ftdic.writebuffer_chunksize;
-    board->io.usb.ftdic.writebuffer_chunksize = ftdic->max_packet_size;
+
+//error:    // to lower the writebuffer_chunksize is mandatory for RECONFIG
+//error:    // otherwise we won't get a chance to update tidR from buf_rx[]
+//error:    tx_chunksize = board->io.usb.ftdic.writebuffer_chunksize;
+//error:    // board->io.usb.ftdic.writebuffer_chunksize = ftdic->max_packet_size;
     printf("ftdic->max_packet_size(%d)\n", ftdic->max_packet_size);
     
     printf("1: tidSb(%02X), Sb(%02X), Sn(%02X), Sm(%02X) clock(%02X)\n",
@@ -1326,91 +1349,109 @@ static void m7i43u_reconfig (board_t* board)
              board->wou->Sm, board->wou->clock);
     wouf_init(board);
     cBufWrite = 0; // GPIO_SYSTEM = 0x00 (do nothing)
-    do {
-        wou_append (board, WB_WR_CMD, GPIO_BASE + GPIO_SYSTEM, 1, &cBufWrite);
-        wou_eof(board);
-        DP("tx_size(%d)\n", board->wou->tx_size);
-    } while ((board->wou->tx_size + 24) < BURST_MIN);
-    
-    ret = ftdi_write_data (ftdic, board->wou->buf_tx, board->wou->tx_size);
-    if (ret < 0) {
-        ERRP("ftdi_write_data: %d (%s)\n", ret, ftdi_get_error_string(ftdic));
-        assert(0);
+    for (i=0; i<2; i++) {
+        do {
+            wou_append (board, WB_WR_CMD, GPIO_BASE + GPIO_SYSTEM, 1, &cBufWrite);
+            wou_append (board, WB_WR_CMD, GPIO_BASE + GPIO_SYSTEM, 1, &cBufWrite);
+            wou_eof(board);
+            DP("tx_size(%d)\n", board->wou->tx_size);
+        } while ((board->wou->tx_size) < BURST_MIN);
+        // while ((board->wou->tx_size) < BURST_MIN);
+        // wait until data are wrote to usb
+        // while ((board->wou->tx_size >= BURST_MIN) && board->io.usb.tx_tc) {};
+        
+        // to get TID, and flush buf_rx[]
+        printf ("rd_dsize(%lu)\n", board->rd_dsize);
+        clock_gettime(CLOCK_REALTIME, &time1);
+        do {
+            wou_recv(board);
+            // wou_send(board);    // to toggle the libusb_handle_events_timeout()
+            clock_gettime(CLOCK_REALTIME, &time2);
+            dt = diff(time1,time2); 
+        } while (dt.tv_sec < 1);
+        printf ("rd_dsize(%lu)\n", board->rd_dsize);
     }
-    DP("ret(%d)\n", ret);
-    assert (ret == board->wou->tx_size);
-    board->wou->tx_size = 0;
-
-    // // wait until finishing buf_tx[]
-    // while (board->wou->tx_size) {
-    //     wou_send(board);
-    // }
-
     
-#ifdef HAVE_LIBFTD2XX
-    // wait for receiving buf_rx[]
-    r = 0;
-    while (r < (WOUF_HDR_SIZE + 1/*TID_SIZE*/ + CRC_SIZE)) {
-        sleep(1);   
-        ftStatus = FT_GetStatus(board->io.usb.ftHandle, &r, &t, &e);
-        if (ftStatus != FT_OK) {
-            ERRP("FT_GetStatus()\n");
-        }
-        DP ("FT_GetStatus: dwRxBytes(%lu) dwTxBytes(%lu) dwEventDWord(%lu)\n",
-            r, t, e);
-    }
-#endif
-
-    // to get TID, and flush buf_rx[]
-    printf ("rd_dsize(%lu)\n", board->rd_dsize);
-    clock_gettime(CLOCK_REALTIME, &time1);
-    do {
-        wou_recv(board);
-        clock_gettime(CLOCK_REALTIME, &time2);
-        dt = diff(time1,time2); 
-    } while (dt.tv_sec < 1);
-    printf ("rd_dsize(%lu)\n", board->rd_dsize);
-    
+    // reset clock buffer
+    // board->wou->tx_size = 0;
+    // board->wou->rx_req_size = 0;
+    // board->wou->rx_req = 0;
+    // board->wou->rx_size = 0;
+    // board->wou->rx_state = SYNC;
     board->wou->tid = board->wou->tidSb;
     board->wou->clock = board->wou->Sb;
     board->wou->Sn = board->wou->Sb;
-    DP ("tidSb(%02X), Sb(%02X), Sn(%02X), Sm(%02X) clock(%02X)\n",
-             board->wou->tidSb, board->wou->Sb, board->wou->Sn, 
-             board->wou->Sm, board->wou->clock);
-    printf("2: tidSb(%02X), Sb(%02X), Sn(%02X), Sm(%02X) clock(%02X)\n",
-             board->wou->tidSb, board->wou->Sb, board->wou->Sn, 
-             board->wou->Sm, board->wou->clock);
     for (i=0; i<NR_OF_CLK; i++) {
         board->wou->woufs[i].use = 0;
     }
     wouf_init(board);
+    printf("2: tidSb(%02X), Sb(%02X), Sn(%02X), Sm(%02X) clock(%02X)\n",
+             board->wou->tidSb, board->wou->Sb, board->wou->Sn, 
+             board->wou->Sm, board->wou->clock);
 
     // fill buf_tx whit NOP until approatching BURST_MIN
     cBufWrite = 0; // GPIO_SYSTEM = 0x00 (do nothing)
+    // reserve 12 bytes for WOUF(GPIO_RECONFIG) 
     do {
         wou_append (board, WB_WR_CMD, GPIO_BASE + GPIO_SYSTEM, 1, &cBufWrite);
         wou_eof(board);
         DP("tx_size(%d)\n", board->wou->tx_size);
-        // reserve 12 bytes for WOUF(GPIO_RECONFIG) 
-    } while ((board->wou->tx_size + 24) < BURST_MIN);
+    } while ((board->wou->tx_size + 12) < BURST_MIN);
     
+    DP("tx_size(%d)\n", board->wou->tx_size);
     cBufWrite = GPIO_RECONFIG;
     wou_append (board, WB_WR_CMD, GPIO_BASE + GPIO_SYSTEM, 1, &cBufWrite);
     wou_eof (board);
     DP("tx_size(%d)\n", board->wou->tx_size);
     
-    ret = ftdi_write_data (ftdic, board->wou->buf_tx, board->wou->tx_size);
-    if (ret < 0) {
-        ERRP("ftdi_write_data: %d (%s)\n", ret, ftdi_get_error_string(ftdic));
-        assert(0);
+    // wait until data are wrote to usb. Or, timed out.
+    // blocked: while (board->io.usb.tx_tc) {};
+
+    // ret = ftdi_write_data (ftdic, board->wou->buf_tx, board->wou->tx_size);
+    // if (ret < 0) {
+    //     ERRP("ftdi_write_data: %d (%s)\n", ret, ftdi_get_error_string(ftdic));
+    //     assert(0);
+    // }
+    // DP("ret(%d)\n", ret);
+    // assert (ret == board->wou->tx_size);
+    // board->wou->tx_size = 0;
+
+    if (board->io.usb.tx_tc) {
+        ret = ftdi_transfer_data_done (board->io.usb.tx_tc);
+        if (ret < 0) {
+            ERRP("ret (%d) (%s)\n", ret , ftdi_get_error_string(ftdic));
+        } 
+        board->io.usb.tx_tc = NULL;
     }
-    DP("ret(%d)\n", ret);
-    assert (ret == board->wou->tx_size);
-    board->wou->tx_size = 0;
+    
+    // printf ("rd_dsize(%lu)\n", board->rd_dsize);
+    if (board->rd_dsize > 50) {
+        DP ("if (rd_dsize > 50), that means the FPGA is alive.");
+        DP ("we can only release the rx_tc(transfer for RX) when FPGA is alive.");
+        DP ("Otherwise, the system will be locked.");
+        DP ("this workaround is ugly; thought I can't come out other solution yet. -ysli");
+        if (board->io.usb.rx_tc) {
+            ret = ftdi_transfer_data_done (board->io.usb.rx_tc);
+            if (ret < 0) {
+                ERRP("ret (%d) (%s)\n", ret , ftdi_get_error_string(ftdic));
+            } 
+            board->io.usb.rx_tc = NULL;
+        }
+    }
+
+    // // to get TID, and flush buf_rx[]
+    // printf ("rd_dsize(%lu)\n", board->rd_dsize);
+    // clock_gettime(CLOCK_REALTIME, &time1);
+    // do {
+    //     wou_recv(board);
+    //     clock_gettime(CLOCK_REALTIME, &time2);
+    //     dt = diff(time1,time2); 
+    // } while (dt.tv_sec < 2);
+    // printf ("rd_dsize(%lu)\n", board->rd_dsize);
     
     // to flush rx queue
-    while (ftdi_read_data (ftdic, &cBufWrite, 1) > 0) { 
-        printf ("flush 1 byte\n");
+    while (ret = ftdi_read_data (ftdic, &cBufWrite, 1) > 0) { 
+        printf ("flush %d byte\n", ret);
         if (ftdic->readbuffer_remaining) {
             printf ("flush %u byte\n", ftdic->readbuffer_remaining);
             ftdi_read_data (ftdic, 
@@ -1418,6 +1459,8 @@ static void m7i43u_reconfig (board_t* board)
                             ftdic->readbuffer_remaining);
         }
     }
+    
+
     // // to clear tx and rx queue
     // if ((ret = ftdi_usb_purge_buffers (ftdic)) < 0)
     // {
@@ -1425,8 +1468,8 @@ static void m7i43u_reconfig (board_t* board)
     //     return EXIT_FAILURE;
     // }
     
-    // restore writebuffer_chunksize
-    board->io.usb.ftdic.writebuffer_chunksize = tx_chunksize;
+    //error: // restore writebuffer_chunksize
+    //error: board->io.usb.ftdic.writebuffer_chunksize = tx_chunksize;
 
     return;
 }
