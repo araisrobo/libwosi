@@ -378,7 +378,7 @@ int board_connect (board_t* board)
     
     ftdic->usb_read_timeout = 1000;
     ftdic->usb_write_timeout = 1000;
-    ftdic->writebuffer_chunksize = BURST_MAX;
+    ftdic->writebuffer_chunksize = TX_CHUNK_SIZE;
     if (ret = ftdi_read_data_set_chunksize(ftdic, RX_CHUNK_SIZE) < 0) {
         ERRP("ftdi_read_data_set_chunksize(): %d (%s)\n", 
               ret, ftdi_get_error_string(ftdic));
@@ -943,7 +943,7 @@ void wou_recv (board_t* b)
                                 == NULL) {
             ERRP("ftdi_read_data_submit(): %s\n", 
                  ftdi_get_error_string (ftdic));
-            assert(0);
+            // assert(0);
         }
         DP ("rx_req(%d)\n", *rx_req);
     }
@@ -1134,7 +1134,7 @@ static void wou_send (board_t* b)
         memmove(buf_tx, buf_tx+dwBytesWritten, *tx_size);
     }
     
-    if (*tx_size < BURST_MIN) {
+    if (*tx_size < TX_BURST_MIN) {
         DP ("skip wou_send(), tx_size(%d)\n", *tx_size);
         return;
     }
@@ -1144,7 +1144,7 @@ static void wou_send (board_t* b)
     if ((b->io.usb.tx_tc = ftdi_write_data_submit (
                             ftdic, 
                             buf_tx, 
-                            *tx_size)) 
+                            MIN(*tx_size, TX_BURST_MAX))) 
                             == NULL) {
         ERRP("ftdi_write_data_submit(): %s\n", 
              ftdi_get_error_string (ftdic));
@@ -1325,7 +1325,7 @@ static void m7i43u_reconfig (board_t* board)
     if ((ret = ftdi_usb_purge_buffers (ftdic)) < 0)
     {
         ERRP ("ftdi_usb_purge_buffers() failed: %d", ret);
-        return EXIT_FAILURE;
+        return;
     }
     // to flush rx queue
     while (ret = ftdi_read_data (ftdic, &cBufWrite, 1) > 0) { 
@@ -1355,7 +1355,7 @@ static void m7i43u_reconfig (board_t* board)
             wou_append (board, WB_WR_CMD, GPIO_BASE + GPIO_SYSTEM, 1, &cBufWrite);
             wou_eof(board);
             DP("tx_size(%d)\n", board->wou->tx_size);
-        } while ((board->wou->tx_size) < BURST_MIN);
+        } while ((board->wou->tx_size) < TX_BURST_MIN);
         // while ((board->wou->tx_size) < BURST_MIN);
         // wait until data are wrote to usb
         // while ((board->wou->tx_size >= BURST_MIN) && board->io.usb.tx_tc) {};
@@ -1396,7 +1396,7 @@ static void m7i43u_reconfig (board_t* board)
         wou_append (board, WB_WR_CMD, GPIO_BASE + GPIO_SYSTEM, 1, &cBufWrite);
         wou_eof(board);
         DP("tx_size(%d)\n", board->wou->tx_size);
-    } while ((board->wou->tx_size + 12) < BURST_MIN);
+    } while ((board->wou->tx_size + 12) < TX_BURST_MIN);
     
     DP("tx_size(%d)\n", board->wou->tx_size);
     cBufWrite = GPIO_RECONFIG;
