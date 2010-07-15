@@ -277,45 +277,10 @@ int main(void)
 	memcpy(&switch_in,
 	       wou_reg_ptr(&w_param, SSIF_BASE + SSIF_SWITCH_IN), 2);
 
-	//replaced by wou_status(): clock_gettime(CLOCK_REALTIME, &time2);
-
-	//replaced by wou_status(): diff_time(&time1, &time2, &dt);
-	//replaced by wou_status(): // printf("\ndt.tv_sec(0x%d)", dt.tv_sec);
-
-	//replaced by wou_status(): ss = dt.tv_sec % 60;	// seconds
-
-	//replaced by wou_status(): if ((ss > prev_ss) || ((ss == 0) && (prev_ss == 59))) {
-
-	//replaced by wou_status():     wou_dsize(&w_param, &tx_dsize, &rx_dsize);
-	//replaced by wou_status():     dsize_to_str(tx_str, tx_dsize);
-	//replaced by wou_status():     dsize_to_str(rx_str, rx_dsize);
-
-	//replaced by wou_status():     if (dt.tv_sec > 0) {
-	//replaced by wou_status(): 	data_rate =
-	//replaced by wou_status(): 	    (double) ((tx_dsize +
-	//replaced by wou_status(): 		       rx_dsize) >> 10) * 8.0 / dt.tv_sec;
-	//replaced by wou_status():     } else {
-	//replaced by wou_status(): 	data_rate = 0.0;
-	//replaced by wou_status():     }
-
-	//replaced by wou_status():     prev_ss = ss;
-	//replaced by wou_status():     dt.tv_sec /= 60;
-	//replaced by wou_status():     mm = dt.tv_sec % 60;	// minutes
-	//replaced by wou_status():     hh = dt.tv_sec / 60;	// hr
-
-	//replaced by wou_status():     // IN(0x%04X), switch_in
-	//replaced by wou_status():     printf
-	//replaced by wou_status(): 	("K0(%d)K1(%d)[%02d:%02d:%02d] tx(%s) rx(%s) (%.2f Kbps) pcmd(0x%08X,0x%08X,0x%08X,0x%08X)\n",
-	//replaced by wou_status(): 	 sync_cmd[0], sync_cmd[1], hh, mm, ss, tx_str, rx_str, data_rate, pulse_cmd[0],
-	//replaced by wou_status(): 	 pulse_cmd[1], pulse_cmd[2], pulse_cmd[3]
-	//replaced by wou_status(): 	);
-	//replaced by wou_status(): }
-
         wou_status (&w_param);  // print out tx/rx data rate
 
 	// if ((i % 4) == 0) {
-            // TODO: add a bp_reg_update command here
-            // replace "bp_reg_update"
+            // replace "bp_reg_update":
             // send WB_RD_CMD to read registers back
             wou_cmd (&w_param,
                      WB_RD_CMD,

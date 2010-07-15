@@ -2,13 +2,13 @@ EXTRA_DIST = README
 
 #TODO: noinst_PROGRAMS = \
 #TODO: 	wou-unit-test-gpio \
-#TODO: 	wou-unit-test-jcmd \
 #TODO: 	wou-unit-test-axis \
 #TODO: 	wou-unit-test-bp_reg_update \
 #TODO: 	wou-unit-test-home_pos \
 #TODO: 	wou-unit-test-ustep
 
 noinst_PROGRAMS = \
+	wou-unit-test-jcmd \
   	wou-unit-test-ustep
 
 
@@ -25,10 +25,10 @@ AM_LDFLAGS = -static
 
 #TODO: wou_unit_test_gpio_SOURCES = wou-unit-test-gpio.c
 #TODO: wou_unit_test_gpio_LDADD = $(common_ldflags)
-#TODO: 
-#TODO: wou_unit_test_jcmd_SOURCES = wou-unit-test-jcmd.c
-#TODO: wou_unit_test_jcmd_LDADD = $(common_ldflags)
-#TODO: 
+
+wou_unit_test_jcmd_SOURCES = wou-unit-test-jcmd.c
+wou_unit_test_jcmd_LDADD = $(common_ldflags)
+
 #TODO: wou_unit_test_axis_SOURCES = wou-unit-test-axis.c
 #TODO: wou_unit_test_axis_LDADD = $(common_ldflags)
 #TODO: 
