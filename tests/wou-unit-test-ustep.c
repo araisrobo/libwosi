@@ -129,9 +129,9 @@ int main(void)
     // data[2] = 126; // JNT_2
     // data[3] = 178; // JNT_3
     data[0] = 150;  // JNT_0
-    data[1] = 180;  // JNT_1
+    data[1] = 150;  // JNT_1
     data[2] = 90;   // JNT_2
-    data[3] = 180;  // JNT_3
+    data[3] = 150;  // JNT_3
     wou_cmd(&w_param, WB_WR_CMD, (SSIF_BASE | SSIF_MAX_PWM), 4, data);
     wou_flush(&w_param);
             
@@ -216,14 +216,14 @@ int main(void)
 	    wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD), 
                     sizeof(uint16_t), sync_cmd);
             
-            //NEED TIMEOUT: // SYNC_DIN:
-            //NEED TIMEOUT: // // wait for EPP_I[0](ext_pad_i[0]) to be ON
-            //NEED TIMEOUT: // sync_cmd[0] = SYNC_DIN | SYNC_IO_ID(0) | SYNC_DI_TYPE(1);
-            //NEED TIMEOUT: // wait for EPP_I[0](ext_pad_i[0]) to be OFF
-            //NEED TIMEOUT: sync_cmd[0] = SYNC_DIN | SYNC_IO_ID(0) | SYNC_DI_TYPE(0);
-            //NEED TIMEOUT: memcpy (data, sync_cmd, sizeof(uint16_t));
-	    //NEED TIMEOUT: wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD), 
-            //NEED TIMEOUT:         sizeof(uint16_t), sync_cmd);
+            // SYNC_DIN:
+            // // wait for EPP_I[0](ext_pad_i[0]) to be ON
+            // sync_cmd[0] = SYNC_DIN | SYNC_IO_ID(0) | SYNC_DI_TYPE(1);
+            // wait for EPP_I[0](ext_pad_i[0]) to be OFF
+            sync_cmd[0] = SYNC_DIN | SYNC_IO_ID(1) | SYNC_DI_TYPE(0);
+            memcpy (data, sync_cmd, sizeof(uint16_t));
+	    wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD), 
+                    sizeof(uint16_t), sync_cmd);
 	}
       
 	// prepare servo command for 4 axes
