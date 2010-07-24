@@ -779,7 +779,7 @@ void wou_recv (board_t* b)
 
     int recvd;
     struct ftdi_context     *ftdic;
-    struct timeval          poll_timeout = {0,0};
+    const struct timeval    poll_timeout = {0,0};
     
     ftdic = &(b->io.usb.ftdic);
     rx_size = &(b->wou->rx_size);
@@ -1211,6 +1211,10 @@ int wou_eof (board_t* b)
     do {
         wou_send(b);
         wou_recv(b);    // update GBN pointer if receiving Rn
+        if (wou_frame_->use) {
+            const struct timespec   req = {0,300000};   // 0.3ms
+            nanosleep(&req, NULL);  // sleep for 0.3ms to avoid busy loop
+        }
     } while (wou_frame_->use);
     
     // init the wouf buffer and tid
