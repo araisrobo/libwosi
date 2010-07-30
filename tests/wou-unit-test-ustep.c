@@ -216,14 +216,14 @@ int main(void)
 	    wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD), 
                     sizeof(uint16_t), sync_cmd);
             
-            // SYNC_DIN:
-            // // wait for EPP_I[0](ext_pad_i[0]) to be ON
-            // sync_cmd[0] = SYNC_DIN | SYNC_IO_ID(0) | SYNC_DI_TYPE(1);
-            // wait for EPP_I[0](ext_pad_i[0]) to be OFF
-            sync_cmd[0] = SYNC_DIN | SYNC_IO_ID(1) | SYNC_DI_TYPE(0);
-            memcpy (data, sync_cmd, sizeof(uint16_t));
-	    wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD), 
-                    sizeof(uint16_t), sync_cmd);
+            // // SYNC_DIN:
+            // // // wait for EPP_I[0](ext_pad_i[0]) to be ON
+            // // sync_cmd[0] = SYNC_DIN | SYNC_IO_ID(0) | SYNC_DI_TYPE(1);
+            // // wait for EPP_I[0](ext_pad_i[0]) to be OFF
+            // sync_cmd[0] = SYNC_DIN | SYNC_IO_ID(1) | SYNC_DI_TYPE(0);
+            // memcpy (data, sync_cmd, sizeof(uint16_t));
+	    // wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD), 
+            //         sizeof(uint16_t), sync_cmd);
 	}
       
 	// prepare servo command for 4 axes

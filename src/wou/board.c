@@ -953,7 +953,7 @@ void wou_recv (board_t* b)
 
 static void wou_send (board_t* b)
 {
-    static struct timespec  time1;
+    static struct timespec  time1 = {0, 0};
     struct timespec         time2, dt;
     uint8_t *buf_tx;
     uint8_t *buf_src;
@@ -961,13 +961,6 @@ static void wou_send (board_t* b)
     uint8_t *Sn;
     int     i;
 
-#ifdef HAVE_LIBFTD2XX
-    DWORD       dwBytesWritten;
-    FT_STATUS   ftStatus;
-    DWORD       r, t, e;
-    DWORD       *tx_size;
-#else
-#ifdef HAVE_LIBFTDI
     int         dwBytesWritten;
     int         *tx_size;
     int         *rx_req_size;
@@ -975,14 +968,21 @@ static void wou_send (board_t* b)
     struct ftdi_context     *ftdic;
     ftdic = &(b->io.usb.ftdic);
         
-#endif
-#endif
-
     // clock_gettime(CLOCK_REALTIME, &time1);
     // clock_gettime(CLOCK_REALTIME, &time2);
     // dt = diff(time1,time2); 
     // printf ("debug: dt.sec(%lu), dt.nsec(%lu)\n", 
     //          dt.tv_sec, dt.tv_nsec);
+
+    clock_gettime(CLOCK_REALTIME, &time2);
+    dt = diff(time1,time2); 
+    if (dt.tv_sec > 2) { // TODO: deal with timeout value for GO-BACK-N
+        DP ("dt.sec(%lu), dt.nsec(%lu)\n", dt.tv_sec, dt.tv_nsec);
+        ERRP("TX TIMEOUT, Sm(%d) Sn(%d) Sb(%d)\n", b->wou->Sm, b->wou->Sn, b->wou->Sb);
+        // assert(0);
+        // reset Sn to Sb
+        b->wou->Sn = b->wou->Sb;
+    }
 
     tx_size = &(b->wou->tx_size);
     rx_req_size = &(b->wou->rx_req_size);
@@ -996,8 +996,7 @@ static void wou_send (board_t* b)
         if ((*Sm - *Sn) >= NR_OF_WIN) {
             // case: Sm(255), Sn(0): Sn is behind Sm
             // stop sending when exceening Max Window Boundary
-            DP("end\n"); 
-            return;
+            DP("hit Window Boundary\n"); 
         } else {
             for (i=*Sn; i<=*Sm; i++) {
                 DP ("Sm(%d) Sn(%d) use(%d)\n", *Sm, *Sn, b->wou->woufs[i].use);
@@ -1015,8 +1014,7 @@ static void wou_send (board_t* b)
     } else {
         if ((*Sn - *Sm) == 1) {
             // stop sending when exceening Max Window Boundary
-            DP("end\n"); 
-            return;
+            DP("hit Window Boundary\n"); 
         } else {
             // round a circle
             assert ((NR_OF_CLK - *Sn) <= NR_OF_WIN);
@@ -1056,44 +1054,7 @@ static void wou_send (board_t* b)
     }
     assert (*tx_size < NR_OF_WIN*(WOUF_HDR_SIZE+2+MAX_PSIZE+CRC_SIZE));
     
-    //sync: if (*tx_size < BURST_MIN) {
-    //sync:     DP ("skip wou_send(), tx_size(%d)\n", *tx_size);
-    //sync:     return;
-    //sync: }
-
-
-#ifdef HAVE_LIBFTD2XX
-    dwBytesWritten = 0;
-    if ((ftStatus = FT_Write(b->io.usb.ftHandle, buf_tx, 
-                             MIN(*tx_size, BURST_MAX), &dwBytesWritten)) 
-        != FT_OK) 
-    {
-        ERRP ( "FT_Write: ftStatus(%lu:%s)\n", ftStatus, Ftstat[ftStatus].desc);
-        assert (0);
-        return;
-    }
-    if ((dwBytesWritten&0x80000000) == 0x80000000) {
-        // workaround for FTDI
-        DP ("dwBytesWritten(%lu,0x%08X)\n", 
-             dwBytesWritten, dwBytesWritten);
-        return;
-    }
-#else
-#ifdef HAVE_LIBFTDI
-//sync:    if ((dwBytesWritten = ftdi_write_data (
-//sync:                                &(b->io.usb.ftdic), buf_tx, 
-//sync:                                MIN(*tx_size, BURST_MAX))) < 0)
-//sync:    {
-//sync:        ERRP("ftdi_write_data: %d (%s)\n", 
-//sync:                dwBytesWritten, 
-//sync:                ftdi_get_error_string(&(b->io.usb.ftdic)));
-//sync:        DP ("ftdi_write_data: %d (%s)\n", 
-//sync:                dwBytesWritten, 
-//sync:                ftdi_get_error_string(&(b->io.usb.ftdic)));
-//sync:        return;
-//sync:    }
-
-//async:
+//async write:
     if (b->io.usb.tx_tc) {
         // there's previous pending async write
         if (b->io.usb.tx_tc->transfer) {
@@ -1117,9 +1078,6 @@ static void wou_send (board_t* b)
     }
 
     assert(b->io.usb.tx_tc == NULL);
-    
-#endif
-#endif
     
     if (dwBytesWritten) {
         clock_gettime(CLOCK_REALTIME, &time2);
