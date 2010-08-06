@@ -38,9 +38,6 @@ int main(void)
 
     /** WISHBONE REGISTERS **/
 
-    printf("debug: for BOOST... getchar ...\n");
-    getchar();
-
     //bug: can not give SOFT_RST w/o resetting b->wou->frame_id as 0
     //bug: // reset fpga
     //bug: value = GPIO_SOFT_RST;
@@ -54,27 +51,28 @@ int main(void)
     //bug: printf("send a wou-frame ... press key ...\n"); getchar();
 
     // switch LEDs to display servo pulse commands
-    value = 1;
+    value = 2;
     wou_cmd(&w_param, WB_WR_CMD, GPIO_LEDS_SEL, 1, &value);
     //debug: check if the first packet is correct?
     wou_flush(&w_param);
-    printf("send a wou-frame ... press key ...\n");
-    getchar();
+    // printf("send a wou-frame ... press key ...\n");
+    // getchar();
   
     value = 1;
     wou_cmd (&w_param, WB_WR_CMD, GPIO_OUT, 1, &value);
     //debug: check if the first packet is correct?
-    printf("about to switch SON on ... press enter ...\n"); getchar();
+    // printf("about to switch SON on ... press enter ...\n"); getchar();
     wou_flush(&w_param);
 
     // JCMD_CTRL: 
     //  [bit-0]: BasePeriod WOU Registers Update (1)enable (0)disable
     //  [bit-1]: SSIF_EN, servo/stepper interface enable
     //  [bit-2]: RST, reset JCMD_FIFO and JCMD_FSMs
-    data[0] = 3;
+    data[0] = 2;
     wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_CTRL), 1, data);
 
-    for (i = 0; i<10000; i++) {
+    // for (i = 0; i<10000; i++)
+    for (i = 0; ; i++) {
 	// prepare servo command for 4 axes
 	for (j = 0; j < 4; j++) {
             uint16_t sync_cmd;

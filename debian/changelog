@@ -1,3 +1,15 @@
+libwou (0.1-11) lucid; urgency=low
+
+  * bug fix for processing Un-Expected tidR at wouf_parse()
+
+ -- Yi-Shin Li <ysli@araisrobo.com>  Fri, 06 Aug 2010 04:11:04 +0800
+
+libwou (0.1-10) lucid; urgency=low
+
+  * re-enable usb failure assertion
+
+ -- Yi-Shin Li <ysli@araisrobo.com>  Tue, 03 Aug 2010 19:20:41 +0800
+
 libwou (0.1-9) lucid; urgency=low
 
   * switch from FTD2XX to LIBFTDI
