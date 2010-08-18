@@ -84,7 +84,14 @@ FILE *dptrace; // dptrace = fopen("dptrace.log","w");
 #endif
 
 #define TX_ERR_TEST 1
+#if TX_ERR_TEST
+static uint32_t count_tx = 0;
+#define WOU_BREAK_COUNT 20
+#endif
 #define RX_ERR_TEST 0
+#if RX_ERR_TEST
+static uint32_t count_rx = 0;
+#endif
 
 // for updating board_status:
 static struct timespec time_begin;
@@ -92,8 +99,7 @@ static struct timespec time_send_begin;
 
 static int prev_ss;
 
-#define TX_TIMEOUT 200000000
-static uint32_t count = 0;
+#define TX_TIMEOUT 10000000
 
 static int m7i43u_program_fpga(struct board *board, struct bitfile_chunk *ch);
 
@@ -669,8 +675,8 @@ static int wouf_parse (board_t* b, const uint8_t *buf_head)
             *Sb = tmp;
             DP ("adv(%d) Sm(%d) Sn(%d) Sb(%d) Sn.use(%d) clock(%d)\n", 
                 advance, *Sm, *Sn, *Sb, b->wou->woufs[*Sn].use, b->wou->clock);
-            if(advance >= 1)fprintf (stderr,"adv(%d) Sm(%d) Sn(%d) Sb(%d) Sn.use(%d) clock(%d) tidR(%d)\n",
-                            advance, *Sm, *Sn, *Sb, b->wou->woufs[*Sn].use, b->wou->clock,tidR);
+//            if(advance >= 1)fprintf (stderr,"adv(%d) Sm(%d) Sn(%d) Sb(%d) Sn.use(%d) clock(%d) tidR(%d)\n",
+//                            advance, *Sm, *Sn, *Sb, b->wou->woufs[*Sn].use, b->wou->clock,tidR);
         }
         *tidSb = tidR;
         
@@ -976,7 +982,7 @@ static void wou_send (board_t* b)
     dt = diff(time_send_begin,time2);
     if (dt.tv_sec > 0 || dt.tv_nsec > TX_TIMEOUT) { // TODO: deal with timeout value for GO-BACK-N
         DP ("dt.sec(%lu), dt.nsec(%lu)\n", dt.tv_sec, dt.tv_nsec);
-        ERRP("TX TIMEOUT, Sm(%d) Sn(%d) Sb(%d)\n", b->wou->Sm, b->wou->Sn, b->wou->Sb);
+//        ERRP("TX TIMEOUT, Sm(%d) Sn(%d) Sb(%d)\n", b->wou->Sm, b->wou->Sn, b->wou->Sb);
         // assert(0);
         // reset Sn to Sb
         // TODO: b->wou->Sn = b->wou->Sb;
@@ -992,7 +998,7 @@ static void wou_send (board_t* b)
 		//b->wou->rx_size = 0;
 		b->wou->Sn = b->wou->Sb;
 		//b->wou->tidSb = b->wou->Sb;
-		ERRP("TX TIMEOUT,Sm,Sn,Sb reconfig Sm(%d) Sn(%d) Sb(%d)\n", b->wou->Sm, b->wou->Sn, b->wou->Sb);
+//		ERRP("TX TIMEOUT,Sm,Sn,Sb reconfig Sm(%d) Sn(%d) Sb(%d)\n", b->wou->Sm, b->wou->Sn, b->wou->Sb);
     }
 
     tx_size = &(b->wou->tx_size);
@@ -1017,12 +1023,12 @@ static void wou_send (board_t* b)
                 buf_src = b->wou->woufs[i].buf;
                 memcpy (buf_tx + *tx_size, buf_src, b->wou->woufs[i].fsize);  
 #if TX_ERR_TEST
-                if(count > 10) {
-                	fprintf(stderr,"break tid(%d)\n",(buf_tx+*tx_size)[4]);
+                if(count_tx > WOU_BREAK_COUNT) {
+//                	fprintf(stderr,"break tid(%d)\n",(buf_tx+*tx_size)[4]);
 					(buf_tx+*tx_size)[3] = 0x00;
-					count = 0;
+					count_tx = 0;
 				}
-                count ++;
+                count_tx ++;
 #endif
                 *tx_size += b->wou->woufs[i].fsize;
                 *rx_req_size += (b->wou->woufs[i].pload_size_rx + WOUF_HDR_SIZE + 1/*TID*/ + CRC_SIZE);
@@ -1031,7 +1037,6 @@ static void wou_send (board_t* b)
 
             }
         }
-        count++;
     } else {
         if ((*Sn - *Sm) == 1) {
             // stop sending when exceening Max Window Boundary
@@ -1047,12 +1052,12 @@ static void wou_send (board_t* b)
                 buf_src = b->wou->woufs[i].buf;
                 memcpy (buf_tx + *tx_size, buf_src, b->wou->woufs[i].fsize);
 #if TX_ERR_TEST
-                if(count > 10) {
-                	fprintf(stderr,"break tid(%d)\n",(buf_tx+*tx_size)[4]);
+                if(count_tx > WOU_BREAK_COUNT) {
+//                	fprintf(stderr,"break tid(%d)\n",(buf_tx+*tx_size)[4]);
 					(buf_tx+*tx_size)[3] = 0x00;
-					count = 0;
+					count_tx = 0;
 				}
-                count ++;
+                count_tx ++;
 #endif
                 *tx_size += b->wou->woufs[i].fsize;
                 *rx_req_size += (b->wou->woufs[i].pload_size_rx + WOUF_HDR_SIZE + 1/*TID*/ + CRC_SIZE);
@@ -1069,12 +1074,12 @@ static void wou_send (board_t* b)
                     buf_src = b->wou->woufs[i].buf;
                     memcpy (buf_tx + *tx_size, buf_src, b->wou->woufs[i].fsize);  
 #if TX_ERR_TEST
-                if(count > 10) {
-                	fprintf(stderr,"break tid(%d)\n",(buf_tx+*tx_size)[4]);
+                if(count_tx > WOU_BREAK_COUNT) {
+//                	fprintf(stderr,"break tid(%d)\n",(buf_tx+*tx_size)[4]);
 					(buf_tx+*tx_size)[3] = 0x00;
-					count = 0;
+					count_tx = 0;
 				}
-                count ++;
+                count_tx ++;
 #endif
                     *tx_size += b->wou->woufs[i].fsize;
                     *rx_req_size += (b->wou->woufs[i].pload_size_rx + WOUF_HDR_SIZE + 1/*TID*/ + CRC_SIZE);
