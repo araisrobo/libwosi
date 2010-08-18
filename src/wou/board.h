@@ -212,7 +212,7 @@ int board_reset (board_t* board);
 void wou_append (board_t* b, const uint8_t func, const uint16_t wb_addr, 
                  const uint16_t dsize, const uint8_t* buf);
 void wou_recv (board_t* b);
-int wou_eof (board_t* b);
+int wou_eof (board_t* b, uint8_t wouf_cmd);
 void wouf_init (board_t* b);
 
 #endif  // __MESA_H__
