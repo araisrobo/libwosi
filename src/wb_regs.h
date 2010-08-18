@@ -149,8 +149,9 @@
 #define MAX_DSIZE       127     // Maximum WOU data size
 #define WB_RD_CMD       0x00
 #define WB_WR_CMD       0x80
-//default:  #define WB_AI_MODE      0x40    // ADDRESS INCREMENT MODE
-//obsulete: #define WB_FIFO_MODE    0x00    // FIFO MODE, const address
+// WOUF_COMMAND (5th byte of wou_frame)
+#define TYP_WOUF        0x00
+#define RST_TID         0x01
 
 // GPIO register space: (8-bit GPIO for LEDs, purpose: test Wishbone protocol)
 #define GPIO_BASE       0x0000
