@@ -77,7 +77,7 @@ information, go to www.linuxcnc.org.
 
 // to disable DP(): #define TRACE 1
 // to dump more info: #define TRACE 2
-#define TRACE 0
+#define TRACE 1
 #include "dptrace.h"
 #if (TRACE!=0)
 FILE *dptrace; // dptrace = fopen("dptrace.log","w");
@@ -86,11 +86,13 @@ FILE *dptrace; // dptrace = fopen("dptrace.log","w");
 #define TX_ERR_TEST 1
 #if TX_ERR_TEST
 static uint32_t count_tx = 0;
-#define WOU_BREAK_COUNT 20
+#define WOU_BREAK_COUNT 50
 #endif
-#define RX_ERR_TEST 0
+#define RX_ERR_TEST 1
 #if RX_ERR_TEST
 static uint32_t count_rx = 0;
+#define RX_ERR_COUNT 10
+#define RX_ERR_FRAME_NUM 1
 #endif
 
 // for updating board_status:
@@ -99,7 +101,7 @@ static struct timespec time_send_begin;
 
 static int prev_ss;
 
-#define TX_TIMEOUT 10000000
+#define TX_TIMEOUT 10000000  // 50ms
 
 static int m7i43u_program_fpga(struct board *board, struct bitfile_chunk *ch);
 
@@ -675,8 +677,8 @@ static int wouf_parse (board_t* b, const uint8_t *buf_head)
             *Sb = tmp;
             DP ("adv(%d) Sm(%d) Sn(%d) Sb(%d) Sn.use(%d) clock(%d)\n", 
                 advance, *Sm, *Sn, *Sb, b->wou->woufs[*Sn].use, b->wou->clock);
-//            if(advance >= 1)fprintf (stderr,"adv(%d) Sm(%d) Sn(%d) Sb(%d) Sn.use(%d) clock(%d) tidR(%d)\n",
-//                            advance, *Sm, *Sn, *Sb, b->wou->woufs[*Sn].use, b->wou->clock,tidR);
+            if(advance >= 1)fprintf (stderr,"adv(%d) Sm(%d) Sn(%d) Sb(%d) Sn.use(%d) clock(%d) tidR(%d)\n",
+                            advance, *Sm, *Sn, *Sb, b->wou->woufs[*Sn].use, b->wou->clock,tidR);
         }
         *tidSb = tidR;
         
@@ -884,7 +886,11 @@ void wou_recv (board_t* b)
             crc16 = crcFast(buf_head, (1/*PLOAD_SIZE_TX*/ + pload_size_tx)); 
             cmp = memcmp(buf_head + (1 + pload_size_tx), &crc16, CRC_SIZE);
 #if RX_ERR_TEST
-            if(count > 1000) cmp = 1;
+            if(count_rx > RX_ERR_COUNT + RX_ERR_FRAME_NUM) {
+            	count_rx = 0;
+            }
+            if(count_rx > RX_ERR_COUNT) cmp = 1;
+            count_rx++;
 #endif
             if (cmp == 0 ) {
                 // CRC pass; about to parse WOU_FRAME
@@ -906,11 +912,8 @@ void wou_recv (board_t* b)
                     immediate_state = 1;
                 }
                 *rx_state = SYNC;
-#if RX_ERR_TEST
-                if(count == 1030)count = 0;
-                else count ++;
+
                 // finished a WOU_FRAME
-#endif
             } else {
                 // CRC fail; throw buf_head back to SYNC state
                 if (buf_head != buf_rx) {
@@ -971,7 +974,6 @@ static void wou_send (board_t* b)
     int         *rx_req;
     struct ftdi_context     *ftdic;
     ftdic = &(b->io.usb.ftdic);
-        
     // clock_gettime(CLOCK_REALTIME, &time1);
     // clock_gettime(CLOCK_REALTIME, &time2);
     // dt = diff(time1,time2); 
@@ -980,25 +982,45 @@ static void wou_send (board_t* b)
 
     clock_gettime(CLOCK_REALTIME, &time2);
     dt = diff(time_send_begin,time2);
+
     if (dt.tv_sec > 0 || dt.tv_nsec > TX_TIMEOUT) { // TODO: deal with timeout value for GO-BACK-N
         DP ("dt.sec(%lu), dt.nsec(%lu)\n", dt.tv_sec, dt.tv_nsec);
 //        ERRP("TX TIMEOUT, Sm(%d) Sn(%d) Sb(%d)\n", b->wou->Sm, b->wou->Sn, b->wou->Sb);
-        // assert(0);
-        // reset Sn to Sb
-        // TODO: b->wou->Sn = b->wou->Sb;
+
         // RESET TX&RX Registers
 		if (b->io.usb.tx_tc) {
 			// finishing pending async write
 			ftdi_transfer_data_done (b->io.usb.tx_tc);
 			b->io.usb.tx_tc = NULL;
 		}
+		/*
+		while (b->io.usb.tx_tc) {
+			// there's previous pending async write
+			if (b->io.usb.tx_tc->transfer) {
+				const struct timeval poll_timeout = {0,0};
+				if (libusb_handle_events_timeout(ftdic->usb_ctx, &poll_timeout) < 0) {
+					ERRP("libusb_handle_events_timeout() (%s)\n", ftdi_get_error_string(ftdic));
+				}
+			}
+			if (b->io.usb.tx_tc->completed) {
+				dwBytesWritten = ftdi_transfer_data_done (b->io.usb.tx_tc);
+				if (dwBytesWritten < 0) {
+					ERRP("dwBytesWritten(%d) (%s)\n", dwBytesWritten, ftdi_get_error_string(ftdic));
+					dwBytesWritten = 0;  // to issue another ftdi_write_data_submit()
+				}
+				b->io.usb.tx_tc = NULL;
+			}
+		}
+		 */
+
+
 		b->wou->tx_size = 0;
 		//b->wou->rx_req_size = 0;
 		//b->wou->rx_req = 0;
 		//b->wou->rx_size = 0;
 		b->wou->Sn = b->wou->Sb;
 		//b->wou->tidSb = b->wou->Sb;
-//		ERRP("TX TIMEOUT,Sm,Sn,Sb reconfig Sm(%d) Sn(%d) Sb(%d)\n", b->wou->Sm, b->wou->Sn, b->wou->Sb);
+		ERRP("TX TIMEOUT,Sm,Sn,Sb reconfig Sm(%d) Sn(%d) Sb(%d)\n", b->wou->Sm, b->wou->Sn, b->wou->Sb);
     }
 
     tx_size = &(b->wou->tx_size);
@@ -1009,7 +1031,9 @@ static void wou_send (board_t* b)
     Sn = &(b->wou->Sn);
     DP ("Sm(0x%02X) Sn(0x%02X) Sb(0x%02X) use(%d) clock(%d)\n", 
         *Sm, *Sn, b->wou->Sb, b->wou->woufs[*Sn].use, b->wou->clock);
+
     if (*Sm >= *Sn) {
+
         if ((*Sm - *Sn) >= NR_OF_WIN) {
             // case: Sm(255), Sn(0): Sn is behind Sm
             // stop sending when exceening Max Window Boundary
@@ -1024,7 +1048,7 @@ static void wou_send (board_t* b)
                 memcpy (buf_tx + *tx_size, buf_src, b->wou->woufs[i].fsize);  
 #if TX_ERR_TEST
                 if(count_tx > WOU_BREAK_COUNT) {
-//                	fprintf(stderr,"break tid(%d)\n",(buf_tx+*tx_size)[4]);
+                	fprintf(stderr,"break tid(%d)\n",(buf_tx+*tx_size)[4]);
 					(buf_tx+*tx_size)[3] = 0x00;
 					count_tx = 0;
 				}
@@ -1053,7 +1077,7 @@ static void wou_send (board_t* b)
                 memcpy (buf_tx + *tx_size, buf_src, b->wou->woufs[i].fsize);
 #if TX_ERR_TEST
                 if(count_tx > WOU_BREAK_COUNT) {
-//                	fprintf(stderr,"break tid(%d)\n",(buf_tx+*tx_size)[4]);
+                	fprintf(stderr,"break tid(%d)\n",(buf_tx+*tx_size)[4]);
 					(buf_tx+*tx_size)[3] = 0x00;
 					count_tx = 0;
 				}
@@ -1075,7 +1099,7 @@ static void wou_send (board_t* b)
                     memcpy (buf_tx + *tx_size, buf_src, b->wou->woufs[i].fsize);  
 #if TX_ERR_TEST
                 if(count_tx > WOU_BREAK_COUNT) {
-//                	fprintf(stderr,"break tid(%d)\n",(buf_tx+*tx_size)[4]);
+                	fprintf(stderr,"break tid(%d)\n",(buf_tx+*tx_size)[4]);
 					(buf_tx+*tx_size)[3] = 0x00;
 					count_tx = 0;
 				}
@@ -1172,7 +1196,6 @@ static void wou_send (board_t* b)
     DPS ("\n");
 #endif
     
-        
     return;
 }
 
