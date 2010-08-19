@@ -83,16 +83,24 @@ information, go to www.linuxcnc.org.
 FILE *dptrace; // dptrace = fopen("dptrace.log","w");
 #endif
 
+
+// wou test config
 #define TX_ERR_TEST 0
 #if TX_ERR_TEST
 static uint32_t count_tx = 0;
-#define WOU_BREAK_COUNT 20
+#define WOU_BREAK_COUNT 12
 #endif
+
 #define RX_ERR_TEST 0
 #if RX_ERR_TEST
 static uint32_t count_rx = 0;
 #define RX_ERR_COUNT 10
-#define RX_ERR_FRAME_NUM 1
+#define RX_ERR_FRAME_NUM 1		//muse below NR_OF_WIN
+#endif
+
+#define TX_BREAK_SINGLE_TID 0  // enable this make device fail
+#if TX_BREAK_SINGLE_TID
+#define SINGLE_BREAK_TID 0
 #endif
 
 // for updating board_status:
@@ -102,7 +110,7 @@ static struct timespec time_send_begin;
 static int prev_ss;
 
 // #define TX_TIMEOUT 500000000
-#define TX_TIMEOUT 10000000
+#define TX_TIMEOUT 19000000
 
 static int m7i43u_program_fpga(struct board *board, struct bitfile_chunk *ch);
 
@@ -574,8 +582,10 @@ static int wouf_parse (board_t* b, const uint8_t *buf_head)
             *Sb = tmp;
             DP ("adv(%d) Sm(%d) Sn(%d) Sb(%d) Sn.use(%d) clock(%d)\n", 
                 advance, *Sm, *Sn, *Sb, b->wou->woufs[*Sn].use, b->wou->clock);
+#if (TX_ERR_TEST || RX_ERR_TEST || TX_BREAK_SINGLE_TID)
             if(advance >= 1)fprintf (stderr,"adv(%d) Sm(%d) Sn(%d) Sb(%d) Sn.use(%d) clock(%d) tidR(%d)\n",
                             advance, *Sm, *Sn, *Sb, b->wou->woufs[*Sn].use, b->wou->clock,tidR);
+#endif
         }
         *tidSb = tidR;
         
@@ -779,16 +789,19 @@ void wou_recv (board_t* b)
                 break;
             }
             // calc CRC for {PLOAD_SIZE_TX, TID, WOU_PACKETS}
-            crcInit();
-            crc16 = crcFast(buf_head, (1/*PLOAD_SIZE_TX*/ + pload_size_tx)); 
-            cmp = memcmp(buf_head + (1 + pload_size_tx), &crc16, CRC_SIZE);
 #if RX_ERR_TEST
             if(count_rx > RX_ERR_COUNT + RX_ERR_FRAME_NUM) {
             	count_rx = 0;
             }
-            if(count_rx > RX_ERR_COUNT) cmp = 1;
+            if(count_rx > RX_ERR_COUNT){
+            	(buf_head)[0] = ~(buf_head[0]);
+            }
             count_rx++;
 #endif
+            crcInit();
+            crc16 = crcFast(buf_head, (1/*PLOAD_SIZE_TX*/ + pload_size_tx));
+            cmp = memcmp(buf_head + (1 + pload_size_tx), &crc16, CRC_SIZE);
+
             if (cmp == 0 ) {
                 // CRC pass; about to parse WOU_FRAME
                 if (wouf_parse (b, buf_head)) {
@@ -863,7 +876,7 @@ static void wou_send (board_t* b)
     uint8_t *buf_src;
     uint8_t *Sm;
     uint8_t *Sn;
-    int     i;
+    int     i,j;
 
     int         dwBytesWritten;
     int         *tx_size;
@@ -946,11 +959,21 @@ static void wou_send (board_t* b)
                 memcpy (buf_tx + *tx_size, buf_src, b->wou->woufs[i].fsize);  
 #if TX_ERR_TEST
                 if(count_tx > WOU_BREAK_COUNT) {
-                	fprintf(stderr,"break tid(%d)\n",(buf_tx+*tx_size)[4]);
-					(buf_tx+*tx_size)[3] = 0x00;
+                	fprintf(stderr,"break tid(%d)\n",(buf_tx+*tx_size)[5]);
+                	for(j = 0 ; j < b->wou->woufs[i].fsize;j++) {
+						(buf_tx+*tx_size)[j] = ~(buf_tx+*tx_size)[j];
+					}
 					count_tx = 0;
 				}
                 count_tx ++;
+#endif
+#if TX_BREAK_SINGLE_TID
+                if((buf_tx+*tx_size)[4] ==  ((uint8_t)SINGLE_BREAK_TID) ) {
+                	(buf_tx+*tx_size)[3] = 0;//~(buf_tx+*tx_size)[3];;
+					fprintf(stderr,"break tid(%d)\n",(buf_tx+*tx_size)[5]);
+				}/*else {
+					fprintf(stderr,"append tid(%d)\n",(buf_tx+*tx_size)[4]);
+				}*/
 #endif
                 *tx_size += b->wou->woufs[i].fsize;
                 *rx_req_size += (b->wou->woufs[i].pload_size_rx + WOUF_HDR_SIZE + 1/*TID*/ + CRC_SIZE);
@@ -975,11 +998,22 @@ static void wou_send (board_t* b)
                 memcpy (buf_tx + *tx_size, buf_src, b->wou->woufs[i].fsize);
 #if TX_ERR_TEST
                 if(count_tx > WOU_BREAK_COUNT) {
-                	fprintf(stderr,"break tid(%d)\n",(buf_tx+*tx_size)[4]);
-					(buf_tx+*tx_size)[3] = 0x00;
+                	fprintf(stderr,"break tid(%d)\n",(buf_tx+*tx_size)[5]);
+                	for(j = 0 ; j < b->wou->woufs[i].fsize;j++) {
+                		(buf_tx+*tx_size)[j] = ~(buf_tx+*tx_size)[j];
+                	}
+
 					count_tx = 0;
 				}
                 count_tx ++;
+#endif
+#if TX_BREAK_SINGLE_TID
+                if((buf_tx+*tx_size)[4] == ((uint8_t)SINGLE_BREAK_TID) ) {
+                	(buf_tx+*tx_size)[3] = 0;// ~(buf_tx+*tx_size)[3];;
+                	fprintf(stderr,"break tid(%d)\n",(buf_tx+*tx_size)[5]);
+                }/*else {
+					fprintf(stderr,"append tid(%d)\n",(buf_tx+*tx_size)[4]);
+				}*/
 #endif
                 *tx_size += b->wou->woufs[i].fsize;
                 *rx_req_size += (b->wou->woufs[i].pload_size_rx + WOUF_HDR_SIZE + 1/*TID*/ + CRC_SIZE);
@@ -997,11 +1031,21 @@ static void wou_send (board_t* b)
                     memcpy (buf_tx + *tx_size, buf_src, b->wou->woufs[i].fsize);  
 #if TX_ERR_TEST
                 if(count_tx > WOU_BREAK_COUNT) {
-                	fprintf(stderr,"break tid(%d)\n",(buf_tx+*tx_size)[4]);
-					(buf_tx+*tx_size)[3] = 0x00;
+                	fprintf(stderr,"break tid(%d)\n",(buf_tx+*tx_size)[5]);
+                	for(j = 0 ; j < b->wou->woufs[i].fsize;j++) {
+						(buf_tx+*tx_size)[j] = ~(buf_tx+*tx_size)[j];
+					}
 					count_tx = 0;
 				}
                 count_tx ++;
+#endif
+#if TX_BREAK_SINGLE_TID
+                    if((buf_tx+*tx_size)[4] == ((uint8_t)SINGLE_BREAK_TID) ) {
+                    	(buf_tx+*tx_size)[3] = 0;//~(buf_tx+*tx_size)[3];
+						fprintf(stderr,"break tid(%d)\n",(buf_tx+*tx_size)[5]);
+					}/*else {
+						fprintf(stderr,"append tid(%d)\n",(buf_tx+*tx_size)[4]);
+					}*/
 #endif
                     *tx_size += b->wou->woufs[i].fsize;
                     *rx_req_size += (b->wou->woufs[i].pload_size_rx + WOUF_HDR_SIZE + 1/*TID*/ + CRC_SIZE);
