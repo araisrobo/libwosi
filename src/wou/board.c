@@ -85,6 +85,7 @@ FILE *dptrace; // dptrace = fopen("dptrace.log","w");
 
 
 // wou test config
+#define SHOW_RX_STATUS 0
 #define TX_ERR_TEST 0
 #if TX_ERR_TEST
 static uint32_t count_tx = 0;
@@ -102,6 +103,24 @@ static uint32_t count_rx = 0;
 #if TX_BREAK_SINGLE_TID
 #define SINGLE_BREAK_TID 0
 #endif
+
+#define TX_FAIL_TEST 0
+#if TX_FAIL_TEST
+static uint32_t count_tx_fail = 0;
+#define TX_FAIL_NUM_IN_ROW 10000
+#define TX_FAIL_COUNT 2  // 1: nothing will be sent
+#endif
+
+
+/*
+#define RX_FAIL_TEST 0
+#if TX_FAIL_TEST
+static uint32_t count_rx_fail = 0;
+#define RX_FAIL_NUM_IN_ROW 10000
+#define RX_FAIL_COUNT 2  // 1: nothing will be sent
+#endif
+*/
+
 
 // for updating board_status:
 static struct timespec time_begin;
@@ -582,7 +601,7 @@ static int wouf_parse (board_t* b, const uint8_t *buf_head)
             *Sb = tmp;
             DP ("adv(%d) Sm(%d) Sn(%d) Sb(%d) Sn.use(%d) clock(%d)\n", 
                 advance, *Sm, *Sn, *Sb, b->wou->woufs[*Sn].use, b->wou->clock);
-#if (TX_ERR_TEST || RX_ERR_TEST || TX_BREAK_SINGLE_TID)
+#if (TX_ERR_TEST || RX_ERR_TEST || TX_BREAK_SINGLE_TID || TX_FAIL_TEST || SHOW_RX_STATUS)
             if(advance >= 1)fprintf (stderr,"adv(%d) Sm(%d) Sn(%d) Sb(%d) Sn.use(%d) clock(%d) tidR(%d)\n",
                             advance, *Sm, *Sn, *Sb, b->wou->woufs[*Sn].use, b->wou->clock,tidR);
 #endif
@@ -846,7 +865,29 @@ void wou_recv (board_t* b)
        
     DP ("readbuffer_remaining(%u)\n",
         b->io.usb.ftdic.readbuffer_remaining);
-    
+#if RX_FAIL_TEST
+    count_rx_fail ++;
+    if(count_rx_fail < RX_FAIL_COUNT) {
+    	if (*rx_req) {
+			// issue async_read ...
+			if ((b->io.usb.rx_tc = ftdi_read_data_submit (
+									ftdic,
+									buf_rx + *rx_size,
+									// ftdic->readbuffer_remaining + 1))
+									// MAX(1, ftdic->readbuffer_remaining)))
+									MIN(RX_BURST_MIN, *rx_req)))
+									== NULL) {
+				ERRP("ftdi_read_data_submit(): %s\n",
+					 ftdi_get_error_string (ftdic));
+				ERRP("rx_size(%d) rx_req(%d)\n",
+					 *rx_size, *rx_req);
+				assert(0);
+			}
+			DP ("rx_req(%d)\n", *rx_req);
+		}
+    }
+    if(count_rx_fail < RX_FAIL_COUNT + RX_FAIL_NUM_IN_ROW) count_rx_fail = 0;
+#else
     if (*rx_req) {
         // issue async_read ...
         if ((b->io.usb.rx_tc = ftdi_read_data_submit (
@@ -860,10 +901,11 @@ void wou_recv (board_t* b)
                  ftdi_get_error_string (ftdic));
             ERRP("rx_size(%d) rx_req(%d)\n", 
                  *rx_size, *rx_req);
-            assert(0);
+//            assert(0);
         }
         DP ("rx_req(%d)\n", *rx_req);
     }
+#endif
     return;
 } // wou_recv()
 
@@ -896,7 +938,7 @@ static void wou_send (board_t* b)
     if (dt.tv_sec > 0 || dt.tv_nsec > TX_TIMEOUT) { // TODO: deal with timeout value for GO-BACK-N
         DP ("dt.sec(%lu), dt.nsec(%lu)\n", dt.tv_sec, dt.tv_nsec);
         DP ("TX TIMEOUT, Sm(%d) Sn(%d) Sb(%d)\n", b->wou->Sm, b->wou->Sn, b->wou->Sb);
-//        ERRP("TX TIMEOUT, Sm(%d) Sn(%d) Sb(%d)\n", b->wou->Sm, b->wou->Sn, b->wou->Sb);
+        ERRP("TX TIMEOUT, Sm(%d) Sn(%d) Sb(%d)\n", b->wou->Sm, b->wou->Sn, b->wou->Sb);
 
         // RESET TX&RX Registers
 		if (b->io.usb.tx_tc) {
@@ -926,8 +968,8 @@ static void wou_send (board_t* b)
 
 
 		b->wou->tx_size = 0;
-		//b->wou->rx_req_size = 0;
-		//b->wou->rx_req = 0;
+		b->wou->rx_req_size = 0;
+		b->wou->rx_req = 0;
 		//b->wou->rx_size = 0;
 		b->wou->Sn = b->wou->Sb;
 		//b->wou->tidSb = b->wou->Sb;
@@ -1108,8 +1150,26 @@ static void wou_send (board_t* b)
         return;
     }
 
-    clock_gettime(CLOCK_REALTIME, &time_send_begin);
+
     // issue async_write ...
+#if TX_FAIL_TEST
+    count_tx_fail++;
+    if(count_tx_fail < TX_FAIL_COUNT) {
+    	b->io.usb.tx_tc = ftdi_write_data_submit (
+                                ftdic,
+                                buf_tx,
+                                MIN(*tx_size, TX_BURST_MAX));
+        if (b->io.usb.tx_tc == NULL) {
+            ERRP("ftdi_write_data_submit(): %s\n",
+                 ftdi_get_error_string (ftdic));
+           // assert(0);
+        }
+        clock_gettime(CLOCK_REALTIME, &time_send_begin);
+    }
+    if(count_tx_fail > TX_FAIL_COUNT + TX_FAIL_NUM_IN_ROW) count_tx_fail = 0;
+
+#else
+
     b->io.usb.tx_tc = ftdi_write_data_submit (
                             ftdic, 
                             buf_tx, 
@@ -1117,8 +1177,10 @@ static void wou_send (board_t* b)
     if (b->io.usb.tx_tc == NULL) {
         ERRP("ftdi_write_data_submit(): %s\n", 
              ftdi_get_error_string (ftdic));
-        assert(0);
+      //  assert(0);
     }
+    clock_gettime(CLOCK_REALTIME, &time_send_begin);
+#endif
     // request for rx
     *rx_req += *rx_req_size;    
     DP ("dwBytesWritten(%d) tx_size(%d) rx_req(%d), rx_req_size(%d)\n", 
