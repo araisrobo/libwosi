@@ -85,7 +85,7 @@ FILE *dptrace; // dptrace = fopen("dptrace.log","w");
 
 
 // wou test config
-#define SHOW_RX_STATUS 0
+#define SHOW_RX_STATUS 1
 #define TX_ERR_TEST 0
 #if TX_ERR_TEST
 static uint32_t count_tx = 0;
@@ -111,7 +111,7 @@ static uint32_t count_tx_fail = 0;
 #define TX_FAIL_COUNT 2  // 1: nothing will be sent
 #endif
 
-
+static uint32_t timeout_count = 0;
 /*
 #define RX_FAIL_TEST 0
 #if TX_FAIL_TEST
@@ -338,7 +338,60 @@ int board_init (board_t* board, const char* device_type, const int device_id,
     return 0;
 }
 
+int board_reconnect(board_t* board) {
+	int ret;
+	struct ftdi_context *ftdic;
 
+    ftdic = &(board->io.usb.ftdic);
+    if ((ret = ftdi_usb_close(ftdic)) < 0)
+    {
+        ERRP("unable to close ftdi device: %d (%s)\n", ret, ftdi_get_error_string(ftdic));
+        return EXIT_FAILURE;
+    }
+    ftdi_deinit(ftdic);
+
+	board->io.usb.rx_tc = NULL;    // init transfer_control for async-read
+	board->io.usb.tx_tc = NULL;    // init transfer_control for async-write
+	ftdic = &(board->io.usb.ftdic);
+	if (ftdi_init(ftdic) < 0)
+	{
+		ERRP("ftdi_init failed\n");
+		return EXIT_FAILURE;
+	}
+	ftdic->usb_read_timeout = 1000;
+	ftdic->usb_write_timeout = 1000;
+	ftdic->writebuffer_chunksize = TX_CHUNK_SIZE;
+	if (ret = ftdi_read_data_set_chunksize(ftdic, RX_CHUNK_SIZE) < 0) {
+		ERRP("ftdi_read_data_set_chunksize(): %d (%s)\n",
+			  ret, ftdi_get_error_string(ftdic));
+		return EXIT_FAILURE;
+	}
+
+	if ((ret = ftdi_usb_open(ftdic, 0x0403, 0x6001)) < 0)
+	{
+		ERRP("unable to open ftdi device: %d (%s)\n", ret, ftdi_get_error_string(ftdic));
+		return EXIT_FAILURE;
+	}
+
+	if ((ret = ftdi_set_latency_timer(ftdic, 1)) < 0)
+	{
+		ERRP("ftdi_set_latency_timer(): %d (%s)\n", ret, ftdi_get_error_string(ftdic));
+		return EXIT_FAILURE;
+	}
+
+	if ((ret = ftdi_usb_reset (ftdic)) < 0)
+	{
+		ERRP ("ftdi_usb_reset() failed: %d", ret);
+		return EXIT_FAILURE;
+	}
+
+	/*if ((ret = ftdi_usb_purge_buffers (ftdic)) < 0)
+	{
+		ERRP ("ftdi_usb_purge_buffers() failed: %d", ret);
+		return EXIT_FAILURE;
+	}*/
+	return 0;
+}
 int board_connect (board_t* board)
 {
     int ret;
@@ -834,6 +887,7 @@ void wou_recv (board_t* b)
                     // expected Rn
                     *rx_size -= (1 + pload_size_tx + CRC_SIZE);
                     buf_head += (1 + pload_size_tx + CRC_SIZE);
+                    timeout_count = 0;
 
                 }
                 if (*rx_size) {
@@ -852,6 +906,7 @@ void wou_recv (board_t* b)
                 immediate_state = 1;
                 ERRP ("RX_CRC(0x%04X) pload_size_tx(%d)\n", crc16, pload_size_tx);
                 ERRP ("buf_rx(%p) buf_head(%p) rx_size(%d)\n", buf_rx, buf_head, *rx_size);
+                board_reconnect(b);
                 // assert(0);
             }
             break;  // rx_state == PLOAD_CRC
@@ -924,6 +979,7 @@ static void wou_send (board_t* b)
     int         *tx_size;
     int         *rx_req_size;
     int         *rx_req;
+    unsigned short status;
     struct ftdi_context     *ftdic;
     ftdic = &(b->io.usb.ftdic);
     // clock_gettime(CLOCK_REALTIME, &time1);
@@ -966,15 +1022,21 @@ static void wou_send (board_t* b)
 		}
 		 */
 
-
+		/*timeout_count++;
+		if(timeout_count > NR_OF_WIN) {
+			timeout_count = 0;
+			b->wou->Sb += 1;
+		}*/
 		b->wou->tx_size = 0;
 		b->wou->rx_req_size = 0;
 		b->wou->rx_req = 0;
 		//b->wou->rx_size = 0;
+
 		b->wou->Sn = b->wou->Sb;
 		//b->wou->tidSb = b->wou->Sb;
 		ERRP("TX TIMEOUT,Sm,Sn,Sb reconfig Sm(%d) Sn(%d) Sb(%d)\n", b->wou->Sm, b->wou->Sn, b->wou->Sb);
-    }
+
+     }
 
     tx_size = &(b->wou->tx_size);
     rx_req_size = &(b->wou->rx_req_size);
@@ -1169,17 +1231,24 @@ static void wou_send (board_t* b)
     if(count_tx_fail > TX_FAIL_COUNT + TX_FAIL_NUM_IN_ROW) count_tx_fail = 0;
 
 #else
-
+    /*fprintf(stderr,"ftdi_poll_modem_status() = %d\n",
+            		ftdi_poll_modem_status(ftdic, &status));
+	fprintf(stderr,"ftdi_poll_modem_status() status (%0X)\n",status);*/
     b->io.usb.tx_tc = ftdi_write_data_submit (
                             ftdic, 
                             buf_tx, 
                             MIN(*tx_size, TX_BURST_MAX));
     if (b->io.usb.tx_tc == NULL) {
+
         ERRP("ftdi_write_data_submit(): %s\n", 
              ftdi_get_error_string (ftdic));
+
       //  assert(0);
+        board_reconnect(b);
+    } else {
+    	clock_gettime(CLOCK_REALTIME, &time_send_begin);
     }
-    clock_gettime(CLOCK_REALTIME, &time_send_begin);
+
 #endif
     // request for rx
     *rx_req += *rx_req_size;    
