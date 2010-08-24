@@ -341,7 +341,7 @@ int board_init (board_t* board, const char* device_type, const int device_id,
 int board_reconnect(board_t* board) {
 	int ret;
 	struct ftdi_context *ftdic;
-
+	uint8_t cBufWrite;
     ftdic = &(board->io.usb.ftdic);
     if ((ret = ftdi_usb_close(ftdic)) < 0)
     {
@@ -349,7 +349,9 @@ int board_reconnect(board_t* board) {
         return EXIT_FAILURE;
     }
     ftdi_deinit(ftdic);
-
+    TODO:
+    if(board->io.usb.rx_tc) free(board->io.usb.rx_tc);
+    if(board->io.usb.tx_tc) free(board->io.usb.tx_tc);
 	board->io.usb.rx_tc = NULL;    // init transfer_control for async-read
 	board->io.usb.tx_tc = NULL;    // init transfer_control for async-write
 	ftdic = &(board->io.usb.ftdic);
@@ -370,6 +372,11 @@ int board_reconnect(board_t* board) {
 	if ((ret = ftdi_usb_open(ftdic, 0x0403, 0x6001)) < 0)
 	{
 		ERRP("unable to open ftdi device: %d (%s)\n", ret, ftdi_get_error_string(ftdic));
+//		fprintf(stderr,"call to fresh new board_connect()\n");
+//		if(ret == -12) board_connect(board);
+		if(ret == -12) {
+			fprintf(stderr,"get_list_failed\n");
+		}
 		return EXIT_FAILURE;
 	}
 
@@ -379,17 +386,29 @@ int board_reconnect(board_t* board) {
 		return EXIT_FAILURE;
 	}
 
-	if ((ret = ftdi_usb_reset (ftdic)) < 0)
+/*	if ((ret = ftdi_usb_reset (ftdic)) < 0)
 	{
 		ERRP ("ftdi_usb_reset() failed: %d", ret);
 		return EXIT_FAILURE;
-	}
+	}*/
 
 	/*if ((ret = ftdi_usb_purge_buffers (ftdic)) < 0)
 	{
 		ERRP ("ftdi_usb_purge_buffers() failed: %d", ret);
 		return EXIT_FAILURE;
 	}*/
+	fprintf(stderr,"board_reconnect succeed\n");
+/*   would not necessary to flush rx // to flush rx queue
+    while (ret = ftdi_read_data (ftdic, &cBufWrite, 1) > 0) {
+        printf ("flush %d byte\n", ret);
+        if (ftdic->readbuffer_remaining) {
+            printf ("flush %u byte\n", ftdic->readbuffer_remaining);
+            ftdi_read_data (ftdic,
+                            board->wou->buf_tx,
+                            ftdic->readbuffer_remaining);
+
+        }
+    }*/
 	return 0;
 }
 int board_connect (board_t* board)
@@ -906,7 +925,7 @@ void wou_recv (board_t* b)
                 immediate_state = 1;
                 ERRP ("RX_CRC(0x%04X) pload_size_tx(%d)\n", crc16, pload_size_tx);
                 ERRP ("buf_rx(%p) buf_head(%p) rx_size(%d)\n", buf_rx, buf_head, *rx_size);
-                board_reconnect(b);
+
                 // assert(0);
             }
             break;  // rx_state == PLOAD_CRC
@@ -957,6 +976,10 @@ void wou_recv (board_t* b)
             ERRP("rx_size(%d) rx_req(%d)\n", 
                  *rx_size, *rx_req);
 //            assert(0);
+            TODO: check if no device
+            board_reconnect(b);
+			/*wou_eof(board, RST_TID);
+			board->wou->tid = 0;*/
         }
         DP ("rx_req(%d)\n", *rx_req);
     }
@@ -1244,7 +1267,7 @@ static void wou_send (board_t* b)
              ftdi_get_error_string (ftdic));
 
       //  assert(0);
-        board_reconnect(b);
+
     } else {
     	clock_gettime(CLOCK_REALTIME, &time_send_begin);
     }
