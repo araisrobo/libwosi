@@ -339,7 +339,7 @@ int board_init (board_t* board, const char* device_type, const int device_id,
 }
 
 int board_reconnect(board_t* board) {
-	int ret;
+	int ret, cfg;
 	struct ftdi_context *ftdic;
 	uint8_t cBufWrite;
     ftdic = &(board->io.usb.ftdic);
@@ -349,7 +349,7 @@ int board_reconnect(board_t* board) {
         return EXIT_FAILURE;
     }
     ftdi_deinit(ftdic);
-    TODO:
+//    TODO:
     if(board->io.usb.rx_tc) free(board->io.usb.rx_tc);
     if(board->io.usb.tx_tc) free(board->io.usb.tx_tc);
 	board->io.usb.rx_tc = NULL;    // init transfer_control for async-read
@@ -971,15 +971,20 @@ void wou_recv (board_t* b)
                                 // MAX(1, ftdic->readbuffer_remaining))) 
                                 MIN(RX_BURST_MIN, *rx_req))) 
                                 == NULL) {
+
+        	int r;
+
             ERRP("ftdi_read_data_submit(): %s\n", 
                  ftdi_get_error_string (ftdic));
             ERRP("rx_size(%d) rx_req(%d)\n", 
                  *rx_size, *rx_req);
-//            assert(0);
-            TODO: check if no device
-            board_reconnect(b);
-			/*wou_eof(board, RST_TID);
-			board->wou->tid = 0;*/
+
+           if(!strcmp(ftdi_get_error_string(ftdic),"cancel transfer failed (-5:libusb_error_not_found)"))
+        	   board_reconnect(b);
+           else if(!strcmp(ftdi_get_error_string(ftdic),"invalid ftdi context OR invalid usb device"))
+			   board_reconnect(b);
+
+
         }
         DP ("rx_req(%d)\n", *rx_req);
     }
