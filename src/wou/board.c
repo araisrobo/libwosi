@@ -350,8 +350,30 @@ int board_reconnect(board_t* board) {
     }
     ftdi_deinit(ftdic);
 //    TODO:
-    if(board->io.usb.rx_tc) free(board->io.usb.rx_tc);
-    if(board->io.usb.tx_tc) free(board->io.usb.tx_tc);
+    if(board->io.usb.rx_tc) {
+    	if(board->io.usb.rx_tc) {
+    		libusb_cancel_transfer(board->io.usb.rx_tc);
+    		while (!board->io.usb.rx_tc->completed) {
+//    			assert(0);
+				if (libusb_handle_events(board->io.usb.rx_tc->ftdi->usb_ctx) < 0)
+					break;
+			}
+    		libusb_free_transfer(board->io.usb.rx_tc->transfer);
+    	}
+    	free(board->io.usb.rx_tc);
+    }
+    if(board->io.usb.tx_tc){
+    	if(board->io.usb.tx_tc) {
+			libusb_cancel_transfer(board->io.usb.tx_tc->transfer);
+			while (!board->io.usb.tx_tc->completed) {
+//				assert(0);
+				if (libusb_handle_events(board->io.usb.tx_tc->ftdi->usb_ctx) < 0)
+					break;
+			}
+			libusb_free_transfer(board->io.usb.rx_tc->transfer);
+		}
+    	free(board->io.usb.tx_tc);
+    }
 	board->io.usb.rx_tc = NULL;    // init transfer_control for async-read
 	board->io.usb.tx_tc = NULL;    // init transfer_control for async-write
 	ftdic = &(board->io.usb.ftdic);
@@ -372,11 +394,6 @@ int board_reconnect(board_t* board) {
 	if ((ret = ftdi_usb_open(ftdic, 0x0403, 0x6001)) < 0)
 	{
 		ERRP("unable to open ftdi device: %d (%s)\n", ret, ftdi_get_error_string(ftdic));
-//		fprintf(stderr,"call to fresh new board_connect()\n");
-//		if(ret == -12) board_connect(board);
-		if(ret == -12) {
-			fprintf(stderr,"get_list_failed\n");
-		}
 		return EXIT_FAILURE;
 	}
 
@@ -979,11 +996,12 @@ void wou_recv (board_t* b)
             ERRP("rx_size(%d) rx_req(%d)\n", 
                  *rx_size, *rx_req);
 
-           if(!strcmp(ftdi_get_error_string(ftdic),"cancel transfer failed (-5:libusb_error_not_found)"))
-        	   board_reconnect(b);
-           else if(!strcmp(ftdi_get_error_string(ftdic),"invalid ftdi context OR invalid usb device"))
-			   board_reconnect(b);
+           if(!strcmp(ftdi_get_error_string(ftdic),"cancel transfer failed (-5:libusb_error_not_found)")) {
+        	   if(board_reconnect(b) == 0 ) assert(0);
 
+           } else if(!strcmp(ftdi_get_error_string(ftdic),"invalid ftdi context OR invalid usb device")){
+			   board_reconnect(b);
+           }
 
         }
         DP ("rx_req(%d)\n", *rx_req);
