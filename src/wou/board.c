@@ -85,7 +85,7 @@ FILE *dptrace; // dptrace = fopen("dptrace.log","w");
 
 
 // wou test config
-#define SHOW_RX_STATUS 1
+#define SHOW_RX_STATUS 0
 #define TX_ERR_TEST 0
 #if TX_ERR_TEST
 static uint32_t count_tx = 0;
@@ -114,7 +114,7 @@ static uint32_t count_tx_fail = 0;
 #define RECONNECT_TEST 0
 #if RECONNECT_TEST
 static uint32_t count_reconnect = 0;
-#define RECONNECT_COUNT 10
+#define RECONNECT_COUNT 5
 #endif
 
 static uint32_t timeout_count = 0;
@@ -696,7 +696,7 @@ static int wouf_parse (board_t* b, const uint8_t *buf_head)
             *Sb = tmp;
             DP ("adv(%d) Sm(%d) Sn(%d) Sb(%d) Sn.use(%d) clock(%d)\n", 
                 advance, *Sm, *Sn, *Sb, b->wou->woufs[*Sn].use, b->wou->clock);
-#if (TX_ERR_TEST || RX_ERR_TEST || TX_BREAK_SINGLE_TID || TX_FAIL_TEST || SHOW_RX_STATUS)
+#if (TX_ERR_TEST || RX_ERR_TEST || TX_BREAK_SINGLE_TID || TX_FAIL_TEST || SHOW_RX_STATUS || RECONNECT_TEST)
             if(advance >= 1)fprintf (stderr,"adv(%d) Sm(%d) Sn(%d) Sb(%d) Sn.use(%d) clock(%d) tidR(%d)\n",
                             advance, *Sm, *Sn, *Sb, b->wou->woufs[*Sn].use, b->wou->clock,tidR);
 #endif
