@@ -111,6 +111,12 @@ static uint32_t count_tx_fail = 0;
 #define TX_FAIL_COUNT 2  // 1: nothing will be sent
 #endif
 
+#define RECONNECT_TEST 0
+#if RECONNECT_TEST
+static uint32_t count_reconnect = 0;
+#define RECONNECT_COUNT 10
+#endif
+
 static uint32_t timeout_count = 0;
 /*
 #define RX_FAIL_TEST 0
@@ -351,7 +357,7 @@ int board_reconnect(board_t* board) {
     ftdi_deinit(ftdic);
 //    TODO:
     if(board->io.usb.rx_tc) {
-    	if(board->io.usb.rx_tc) {
+    	/*if(board->io.usb.rx_tc) {
     		libusb_cancel_transfer(board->io.usb.rx_tc);
     		while (!board->io.usb.rx_tc->completed) {
 //    			assert(0);
@@ -359,11 +365,11 @@ int board_reconnect(board_t* board) {
 					break;
 			}
     		libusb_free_transfer(board->io.usb.rx_tc->transfer);
-    	}
+    	}*/
     	free(board->io.usb.rx_tc);
     }
     if(board->io.usb.tx_tc){
-    	if(board->io.usb.tx_tc) {
+    	/*if(board->io.usb.tx_tc) {
 			libusb_cancel_transfer(board->io.usb.tx_tc->transfer);
 			while (!board->io.usb.tx_tc->completed) {
 //				assert(0);
@@ -371,7 +377,7 @@ int board_reconnect(board_t* board) {
 					break;
 			}
 			libusb_free_transfer(board->io.usb.rx_tc->transfer);
-		}
+		}*/
     	free(board->io.usb.tx_tc);
     }
 	board->io.usb.rx_tc = NULL;    // init transfer_control for async-read
@@ -978,7 +984,37 @@ void wou_recv (board_t* b)
 		}
     }
     if(count_rx_fail < RX_FAIL_COUNT + RX_FAIL_NUM_IN_ROW) count_rx_fail = 0;
+#elif RECONNECT_TEST
+    count_reconnect ++;
+    if (*rx_req) {
+        // issue async_read ...
+        if ((count_reconnect > RECONNECT_COUNT)||(b->io.usb.rx_tc = ftdi_read_data_submit (
+                                ftdic,
+                                buf_rx + *rx_size,
+                                // ftdic->readbuffer_remaining + 1))
+                                // MAX(1, ftdic->readbuffer_remaining)))
+                                MIN(RX_BURST_MIN, *rx_req)))
+                                == NULL) {
+
+        	int r;
+        	count_reconnect=0;
+            ERRP("ftdi_read_data_submit(): %s\n",
+                 ftdi_get_error_string (ftdic));
+            ERRP("rx_size(%d) rx_req(%d)\n",
+                 *rx_size, *rx_req);
+
+           /*if(!strcmp(ftdi_get_error_string(ftdic),"cancel transfer failed (-5:libusb_error_not_found)")) {
+        	   if(board_reconnect(b) == 0 ) assert(0);
+
+           } else if(!strcmp(ftdi_get_error_string(ftdic),"invalid ftdi context OR invalid usb device")){
+			   board_reconnect(b);
+           }*/
+            board_reconnect(b);
+        }
+        DP ("rx_req(%d)\n", *rx_req);
+    }
 #else
+
     if (*rx_req) {
         // issue async_read ...
         if ((b->io.usb.rx_tc = ftdi_read_data_submit (
