@@ -101,6 +101,9 @@ static uint32_t count_rx = 0;
 
 #define TX_BREAK_SINGLE_TID 0  // enable this make device fail
 #if TX_BREAK_SINGLE_TID
+static uint32_t count_single_break = 0;
+#define COUNT_START_BREAK 20
+#define COUNT_LEN 1
 #define SINGLE_BREAK_TID 0
 #endif
 
@@ -694,8 +697,8 @@ static int wouf_parse (board_t* b, const uint8_t *buf_head)
                 tmp -= NR_OF_CLK;
             }
             *Sb = tmp;
-            DP ("adv(%d) Sm(%d) Sn(%d) Sb(%d) Sn.use(%d) clock(%d)\n", 
-                advance, *Sm, *Sn, *Sb, b->wou->woufs[*Sn].use, b->wou->clock);
+            DP ("adv(%d) Sm(0x%02X) Sn(0x%02X) Sb(0x%02X) Sn.use(%d) clock(0x%02X) tidR(0x%02X)\n",
+                advance, *Sm, *Sn, *Sb, b->wou->woufs[*Sn].use, b->wou->clock, tidR);
 #if (TX_ERR_TEST || RX_ERR_TEST || TX_BREAK_SINGLE_TID || TX_FAIL_TEST || SHOW_RX_STATUS || RECONNECT_TEST)
             if(advance >= 1)fprintf (stderr,"adv(%d) Sm(%d) Sn(%d) Sb(%d) Sn.use(%d) clock(%d) tidR(%d)\n",
                             advance, *Sm, *Sn, *Sb, b->wou->woufs[*Sn].use, b->wou->clock,tidR);
@@ -1072,7 +1075,7 @@ static void wou_send (board_t* b)
 
     clock_gettime(CLOCK_REALTIME, &time2);
     dt = diff(time_send_begin,time2);
-
+//    fprintf(stderr,"wou_send \n");
     if (dt.tv_sec > 0 || dt.tv_nsec > TX_TIMEOUT) { // TODO: deal with timeout value for GO-BACK-N
         DP ("dt.sec(%lu), dt.nsec(%lu)\n", dt.tv_sec, dt.tv_nsec);
         DP ("TX TIMEOUT, Sm(%d) Sn(%d) Sb(%d)\n", b->wou->Sm, b->wou->Sn, b->wou->Sb);
@@ -1154,12 +1157,15 @@ static void wou_send (board_t* b)
                 count_tx ++;
 #endif
 #if TX_BREAK_SINGLE_TID
-                if((buf_tx+*tx_size)[4] ==  ((uint8_t)SINGLE_BREAK_TID) ) {
-                	(buf_tx+*tx_size)[3] = 0;//~(buf_tx+*tx_size)[3];;
-					fprintf(stderr,"break tid(%d)\n",(buf_tx+*tx_size)[5]);
-				}/*else {
-					fprintf(stderr,"append tid(%d)\n",(buf_tx+*tx_size)[4]);
-				}*/
+            //    if((buf_tx+*tx_size)[4] ==  ((uint8_t)SINGLE_BREAK_TID) ) {
+                if( count_single_break > COUNT_START_BREAK && (buf_tx+*tx_size)[4] ==  ((uint8_t)SINGLE_BREAK_TID)) {
+					(buf_tx+*tx_size)[3] = 0;//~(buf_tx+*tx_size)[3];;
+					DP("break tid(0x%02X) sn(0x%02X)\n", (buf_tx+*tx_size)[5], *Sn);
+					if(count_single_break > COUNT_START_BREAK + COUNT_LEN) count_single_break = 0;
+				}else {
+					DP("sent tid(0x%02X) sn(0x%02X)\n", (buf_tx+*tx_size)[5], *Sn);
+				}
+                count_single_break++;
 #endif
                 *tx_size += b->wou->woufs[i].fsize;
                 *rx_req_size += (b->wou->woufs[i].pload_size_rx + WOUF_HDR_SIZE + 1/*TID*/ + CRC_SIZE);
@@ -1194,12 +1200,14 @@ static void wou_send (board_t* b)
                 count_tx ++;
 #endif
 #if TX_BREAK_SINGLE_TID
-                if((buf_tx+*tx_size)[4] == ((uint8_t)SINGLE_BREAK_TID) ) {
-                	(buf_tx+*tx_size)[3] = 0;// ~(buf_tx+*tx_size)[3];;
-                	fprintf(stderr,"break tid(%d)\n",(buf_tx+*tx_size)[5]);
-                }/*else {
-					fprintf(stderr,"append tid(%d)\n",(buf_tx+*tx_size)[4]);
-				}*/
+                if( count_single_break > COUNT_START_BREAK && (buf_tx+*tx_size)[4] ==  ((uint8_t)SINGLE_BREAK_TID)) {
+					(buf_tx+*tx_size)[3] = 0;//~(buf_tx+*tx_size)[3];;
+					DP("break tid(0x%02X) sn(0x%02X)\n", (buf_tx+*tx_size)[5], *Sn);
+					if(count_single_break > COUNT_START_BREAK + COUNT_LEN) count_single_break = 0;
+				}else {
+					DP("sent tid(0x%02X) sn(0x%02X)\n", (buf_tx+*tx_size)[5], *Sn);
+				}
+				   count_single_break++;
 #endif
                 *tx_size += b->wou->woufs[i].fsize;
                 *rx_req_size += (b->wou->woufs[i].pload_size_rx + WOUF_HDR_SIZE + 1/*TID*/ + CRC_SIZE);
@@ -1226,12 +1234,14 @@ static void wou_send (board_t* b)
                 count_tx ++;
 #endif
 #if TX_BREAK_SINGLE_TID
-                    if((buf_tx+*tx_size)[4] == ((uint8_t)SINGLE_BREAK_TID) ) {
-                    	(buf_tx+*tx_size)[3] = 0;//~(buf_tx+*tx_size)[3];
-						fprintf(stderr,"break tid(%d)\n",(buf_tx+*tx_size)[5]);
-					}/*else {
-						fprintf(stderr,"append tid(%d)\n",(buf_tx+*tx_size)[4]);
-					}*/
+                if( count_single_break > COUNT_START_BREAK && (buf_tx+*tx_size)[4] ==  ((uint8_t)SINGLE_BREAK_TID)) {
+					(buf_tx+*tx_size)[3] = 0;//~(buf_tx+*tx_size)[3];;
+					DP("break tid(0x%02X) sn(0x%02X)\n", (buf_tx+*tx_size)[5], *Sn);
+					if(count_single_break > COUNT_START_BREAK + COUNT_LEN) count_single_break = 0;
+				}else {
+					DP("sent tid(0x%02X) sn(0x%02X)\n", (buf_tx+*tx_size)[5], *Sn);
+				}
+				   count_single_break++;
 #endif
                     *tx_size += b->wou->woufs[i].fsize;
                     *rx_req_size += (b->wou->woufs[i].pload_size_rx + WOUF_HDR_SIZE + 1/*TID*/ + CRC_SIZE);
@@ -1259,6 +1269,7 @@ static void wou_send (board_t* b)
             if (libusb_handle_events_timeout(ftdic->usb_ctx, &poll_timeout) < 0) {
                 ERRP("libusb_handle_events_timeout() (%s)\n", ftdi_get_error_string(ftdic));
             }
+            DP ("toggle USB\n");
         }
         if (b->io.usb.tx_tc->completed) {
             dwBytesWritten = ftdi_transfer_data_done (b->io.usb.tx_tc);
