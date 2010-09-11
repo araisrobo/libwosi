@@ -86,35 +86,43 @@ FILE *dptrace; // dptrace = fopen("dptrace.log","w");
 
 // wou test config
 #define SHOW_RX_STATUS 0
+
 #define TX_ERR_TEST 0
+#define RX_ERR_TEST 0
+#define TX_BREAK_SINGLE_TID 0  // enable this make device fail
+#define TX_FAIL_TEST 0
+#define RECONNECT_TEST 0
+
 #if TX_ERR_TEST
 static uint32_t count_tx = 0;
 #define WOU_BREAK_COUNT 12
 #endif
 
-#define RX_ERR_TEST 0
+
 #if RX_ERR_TEST
 static uint32_t count_rx = 0;
-#define RX_ERR_COUNT 10
+#define RX_ERR_COUNT 100
 #define RX_ERR_FRAME_NUM 1		//muse below NR_OF_WIN
 #endif
 
-#define TX_BREAK_SINGLE_TID 0  // enable this make device fail
+
 #if TX_BREAK_SINGLE_TID
+static uint32_t count_single_break = 0;
+#define COUNT_START_BREAK 200
+#define COUNT_LEN 1
 #define SINGLE_BREAK_TID 0
 #endif
 
-#define TX_FAIL_TEST 0
+
 #if TX_FAIL_TEST
 static uint32_t count_tx_fail = 0;
 #define TX_FAIL_NUM_IN_ROW 10000
-#define TX_FAIL_COUNT 2  // 1: nothing will be sent
+#define TX_FAIL_COUNT 20  // 1: nothing will be sent
 #endif
 
-#define RECONNECT_TEST 0
 #if RECONNECT_TEST
 static uint32_t count_reconnect = 0;
-#define RECONNECT_COUNT 5
+#define RECONNECT_COUNT 10
 #endif
 
 static uint32_t timeout_count = 0;
@@ -355,29 +363,11 @@ int board_reconnect(board_t* board) {
         return EXIT_FAILURE;
     }
     ftdi_deinit(ftdic);
-//    TODO:
     if(board->io.usb.rx_tc) {
-    	/*if(board->io.usb.rx_tc) {
-    		libusb_cancel_transfer(board->io.usb.rx_tc);
-    		while (!board->io.usb.rx_tc->completed) {
-//    			assert(0);
-				if (libusb_handle_events(board->io.usb.rx_tc->ftdi->usb_ctx) < 0)
-					break;
-			}
-    		libusb_free_transfer(board->io.usb.rx_tc->transfer);
-    	}*/
     	free(board->io.usb.rx_tc);
     }
     if(board->io.usb.tx_tc){
-    	/*if(board->io.usb.tx_tc) {
-			libusb_cancel_transfer(board->io.usb.tx_tc->transfer);
-			while (!board->io.usb.tx_tc->completed) {
-//				assert(0);
-				if (libusb_handle_events(board->io.usb.tx_tc->ftdi->usb_ctx) < 0)
-					break;
-			}
-			libusb_free_transfer(board->io.usb.rx_tc->transfer);
-		}*/
+
     	free(board->io.usb.tx_tc);
     }
 	board->io.usb.rx_tc = NULL;    // init transfer_control for async-read
@@ -408,30 +398,19 @@ int board_reconnect(board_t* board) {
 		ERRP("ftdi_set_latency_timer(): %d (%s)\n", ret, ftdi_get_error_string(ftdic));
 		return EXIT_FAILURE;
 	}
+	// RESET TX&RX Registers
+	if (board->io.usb.tx_tc) {
+		// finishing pending async write
+		ftdi_transfer_data_done (board->io.usb.tx_tc);
+		board->io.usb.tx_tc = NULL;
+	}
+	board->wou->tx_size = 0;
+	board->wou->rx_req_size = 0;
+	board->wou->rx_req = 0;
 
-/*	if ((ret = ftdi_usb_reset (ftdic)) < 0)
-	{
-		ERRP ("ftdi_usb_reset() failed: %d", ret);
-		return EXIT_FAILURE;
-	}*/
+	board->wou->Sn = board->wou->Sb;
+	DP("board_reconnect\n");
 
-	/*if ((ret = ftdi_usb_purge_buffers (ftdic)) < 0)
-	{
-		ERRP ("ftdi_usb_purge_buffers() failed: %d", ret);
-		return EXIT_FAILURE;
-	}*/
-	fprintf(stderr,"board_reconnect succeed\n");
-/*   would not necessary to flush rx // to flush rx queue
-    while (ret = ftdi_read_data (ftdic, &cBufWrite, 1) > 0) {
-        printf ("flush %d byte\n", ret);
-        if (ftdic->readbuffer_remaining) {
-            printf ("flush %u byte\n", ftdic->readbuffer_remaining);
-            ftdi_read_data (ftdic,
-                            board->wou->buf_tx,
-                            ftdic->readbuffer_remaining);
-
-        }
-    }*/
 	return 0;
 }
 int board_connect (board_t* board)
@@ -694,8 +673,8 @@ static int wouf_parse (board_t* b, const uint8_t *buf_head)
                 tmp -= NR_OF_CLK;
             }
             *Sb = tmp;
-            DP ("adv(%d) Sm(%d) Sn(%d) Sb(%d) Sn.use(%d) clock(%d)\n", 
-                advance, *Sm, *Sn, *Sb, b->wou->woufs[*Sn].use, b->wou->clock);
+            DP ("adv(%d) Sm(0x%02X) Sn(0x%02X) Sb(0x%02X) Sn.use(%d) clock(0x%02X) tidR(0x%02X)\n",
+                advance, *Sm, *Sn, *Sb, b->wou->woufs[*Sn].use, b->wou->clock, tidR);
 #if (TX_ERR_TEST || RX_ERR_TEST || TX_BREAK_SINGLE_TID || TX_FAIL_TEST || SHOW_RX_STATUS || RECONNECT_TEST)
             if(advance >= 1)fprintf (stderr,"adv(%d) Sm(%d) Sn(%d) Sb(%d) Sn.use(%d) clock(%d) tidR(%d)\n",
                             advance, *Sm, *Sn, *Sb, b->wou->woufs[*Sn].use, b->wou->clock,tidR);
@@ -862,10 +841,11 @@ void wou_recv (board_t* b)
 #endif
 
             // locate {PREAMBLE_0, PREAMBLE_1, SOFD}
-            for (i=0; i<(*rx_size - (WOUF_HDR_SIZE - 1)); i++) {
+            for (i=0; i<(*rx_size - (WOUF_HDR_SIZE)); i++) {
                 cmp = memcmp (buf_rx + i, sync_words, 3);
-                if (cmp == 0) {
-                    // we got {PREAMBLE_0, PREAMBLE_1, SOFD}
+                // *(buf_rx+i+3);    // PLOAD_SIZE_TX must not be 0
+                if ((cmp == 0) && (*(buf_rx+i+3) != 0)) {
+                    // we got {PREAMBLE_0, PREAMBLE_1, SOFD} and a non-zero PLOAD_SIZE_TX
                     break; // break the for-loop
                 }
             }
@@ -998,10 +978,10 @@ void wou_recv (board_t* b)
 
         	int r;
         	count_reconnect=0;
-            ERRP("ftdi_read_data_submit(): %s\n",
-                 ftdi_get_error_string (ftdic));
-            ERRP("rx_size(%d) rx_req(%d)\n",
-                 *rx_size, *rx_req);
+//            ERRP("ftdi_read_data_submit(): %s\n",
+//                 ftdi_get_error_string (ftdic));
+//            ERRP("rx_size(%d) rx_req(%d)\n",
+//                 *rx_size, *rx_req);
 
            /*if(!strcmp(ftdi_get_error_string(ftdic),"cancel transfer failed (-5:libusb_error_not_found)")) {
         	   if(board_reconnect(b) == 0 ) assert(0);
@@ -1072,11 +1052,11 @@ static void wou_send (board_t* b)
 
     clock_gettime(CLOCK_REALTIME, &time2);
     dt = diff(time_send_begin,time2);
-
+//    fprintf(stderr,"wou_send \n");
     if (dt.tv_sec > 0 || dt.tv_nsec > TX_TIMEOUT) { // TODO: deal with timeout value for GO-BACK-N
         DP ("dt.sec(%lu), dt.nsec(%lu)\n", dt.tv_sec, dt.tv_nsec);
         DP ("TX TIMEOUT, Sm(%d) Sn(%d) Sb(%d)\n", b->wou->Sm, b->wou->Sn, b->wou->Sb);
-        ERRP("TX TIMEOUT, Sm(%d) Sn(%d) Sb(%d)\n", b->wou->Sm, b->wou->Sn, b->wou->Sb);
+//        ERRP("TX TIMEOUT, Sm(%d) Sn(%d) Sb(%d)\n", b->wou->Sm, b->wou->Sn, b->wou->Sb);
 
         // RESET TX&RX Registers
 		if (b->io.usb.tx_tc) {
@@ -1116,7 +1096,7 @@ static void wou_send (board_t* b)
 
 		b->wou->Sn = b->wou->Sb;
 		//b->wou->tidSb = b->wou->Sb;
-		ERRP("TX TIMEOUT,Sm,Sn,Sb reconfig Sm(%d) Sn(%d) Sb(%d)\n", b->wou->Sm, b->wou->Sn, b->wou->Sb);
+//		ERRP("TX TIMEOUT,Sm,Sn,Sb reconfig Sm(%d) Sn(%d) Sb(%d)\n", b->wou->Sm, b->wou->Sn, b->wou->Sb);
 
      }
 
@@ -1145,7 +1125,7 @@ static void wou_send (board_t* b)
                 memcpy (buf_tx + *tx_size, buf_src, b->wou->woufs[i].fsize);  
 #if TX_ERR_TEST
                 if(count_tx > WOU_BREAK_COUNT) {
-                	fprintf(stderr,"break tid(%d)\n",(buf_tx+*tx_size)[5]);
+                	DP("break tid(%d)\n",(buf_tx+*tx_size)[5]);
                 	for(j = 0 ; j < b->wou->woufs[i].fsize;j++) {
 						(buf_tx+*tx_size)[j] = ~(buf_tx+*tx_size)[j];
 					}
@@ -1154,12 +1134,15 @@ static void wou_send (board_t* b)
                 count_tx ++;
 #endif
 #if TX_BREAK_SINGLE_TID
-                if((buf_tx+*tx_size)[4] ==  ((uint8_t)SINGLE_BREAK_TID) ) {
-                	(buf_tx+*tx_size)[3] = 0;//~(buf_tx+*tx_size)[3];;
-					fprintf(stderr,"break tid(%d)\n",(buf_tx+*tx_size)[5]);
-				}/*else {
-					fprintf(stderr,"append tid(%d)\n",(buf_tx+*tx_size)[4]);
-				}*/
+            //    if((buf_tx+*tx_size)[4] ==  ((uint8_t)SINGLE_BREAK_TID) ) {
+                if( count_single_break > COUNT_START_BREAK && (buf_tx+*tx_size)[4] ==  ((uint8_t)SINGLE_BREAK_TID)) {
+					(buf_tx+*tx_size)[3] = 0;//~(buf_tx+*tx_size)[3];;
+					DP("break tid(0x%02X) sn(0x%02X)\n", (buf_tx+*tx_size)[5], *Sn);
+					if(count_single_break > COUNT_START_BREAK + COUNT_LEN) count_single_break = 0;
+				}else {
+					DP("sent tid(0x%02X) sn(0x%02X)\n", (buf_tx+*tx_size)[5], *Sn);
+				}
+                count_single_break++;
 #endif
                 *tx_size += b->wou->woufs[i].fsize;
                 *rx_req_size += (b->wou->woufs[i].pload_size_rx + WOUF_HDR_SIZE + 1/*TID*/ + CRC_SIZE);
@@ -1184,7 +1167,7 @@ static void wou_send (board_t* b)
                 memcpy (buf_tx + *tx_size, buf_src, b->wou->woufs[i].fsize);
 #if TX_ERR_TEST
                 if(count_tx > WOU_BREAK_COUNT) {
-                	fprintf(stderr,"break tid(%d)\n",(buf_tx+*tx_size)[5]);
+                	DP("break tid(%d)\n",(buf_tx+*tx_size)[5]);
                 	for(j = 0 ; j < b->wou->woufs[i].fsize;j++) {
                 		(buf_tx+*tx_size)[j] = ~(buf_tx+*tx_size)[j];
                 	}
@@ -1194,12 +1177,14 @@ static void wou_send (board_t* b)
                 count_tx ++;
 #endif
 #if TX_BREAK_SINGLE_TID
-                if((buf_tx+*tx_size)[4] == ((uint8_t)SINGLE_BREAK_TID) ) {
-                	(buf_tx+*tx_size)[3] = 0;// ~(buf_tx+*tx_size)[3];;
-                	fprintf(stderr,"break tid(%d)\n",(buf_tx+*tx_size)[5]);
-                }/*else {
-					fprintf(stderr,"append tid(%d)\n",(buf_tx+*tx_size)[4]);
-				}*/
+                if( count_single_break > COUNT_START_BREAK && (buf_tx+*tx_size)[4] ==  ((uint8_t)SINGLE_BREAK_TID)) {
+					(buf_tx+*tx_size)[3] = 0;//~(buf_tx+*tx_size)[3];;
+					DP("break tid(0x%02X) sn(0x%02X)\n", (buf_tx+*tx_size)[5], *Sn);
+					if(count_single_break > COUNT_START_BREAK + COUNT_LEN) count_single_break = 0;
+				}else {
+					DP("sent tid(0x%02X) sn(0x%02X)\n", (buf_tx+*tx_size)[5], *Sn);
+				}
+				   count_single_break++;
 #endif
                 *tx_size += b->wou->woufs[i].fsize;
                 *rx_req_size += (b->wou->woufs[i].pload_size_rx + WOUF_HDR_SIZE + 1/*TID*/ + CRC_SIZE);
@@ -1217,7 +1202,7 @@ static void wou_send (board_t* b)
                     memcpy (buf_tx + *tx_size, buf_src, b->wou->woufs[i].fsize);  
 #if TX_ERR_TEST
                 if(count_tx > WOU_BREAK_COUNT) {
-                	fprintf(stderr,"break tid(%d)\n",(buf_tx+*tx_size)[5]);
+                	DP("break tid(%d)\n",(buf_tx+*tx_size)[5]);
                 	for(j = 0 ; j < b->wou->woufs[i].fsize;j++) {
 						(buf_tx+*tx_size)[j] = ~(buf_tx+*tx_size)[j];
 					}
@@ -1226,12 +1211,14 @@ static void wou_send (board_t* b)
                 count_tx ++;
 #endif
 #if TX_BREAK_SINGLE_TID
-                    if((buf_tx+*tx_size)[4] == ((uint8_t)SINGLE_BREAK_TID) ) {
-                    	(buf_tx+*tx_size)[3] = 0;//~(buf_tx+*tx_size)[3];
-						fprintf(stderr,"break tid(%d)\n",(buf_tx+*tx_size)[5]);
-					}/*else {
-						fprintf(stderr,"append tid(%d)\n",(buf_tx+*tx_size)[4]);
-					}*/
+                if( count_single_break > COUNT_START_BREAK && (buf_tx+*tx_size)[4] ==  ((uint8_t)SINGLE_BREAK_TID)) {
+					(buf_tx+*tx_size)[3] = 0;//~(buf_tx+*tx_size)[3];;
+					DP("break tid(0x%02X) sn(0x%02X)\n", (buf_tx+*tx_size)[5], *Sn);
+					if(count_single_break > COUNT_START_BREAK + COUNT_LEN) count_single_break = 0;
+				}else {
+					DP("sent tid(0x%02X) sn(0x%02X)\n", (buf_tx+*tx_size)[5], *Sn);
+				}
+				   count_single_break++;
 #endif
                     *tx_size += b->wou->woufs[i].fsize;
                     *rx_req_size += (b->wou->woufs[i].pload_size_rx + WOUF_HDR_SIZE + 1/*TID*/ + CRC_SIZE);
@@ -1259,6 +1246,7 @@ static void wou_send (board_t* b)
             if (libusb_handle_events_timeout(ftdic->usb_ctx, &poll_timeout) < 0) {
                 ERRP("libusb_handle_events_timeout() (%s)\n", ftdi_get_error_string(ftdic));
             }
+            DP ("toggle USB\n");
         }
         if (b->io.usb.tx_tc->completed) {
             dwBytesWritten = ftdi_transfer_data_done (b->io.usb.tx_tc);
