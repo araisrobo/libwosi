@@ -106,7 +106,7 @@ int main(void)
 		   4);
 	}
 	memcpy(&switch_in,
-	       wou_reg_ptr(&w_param, SSIF_BASE + SSIF_SWITCH_IN), 2);
+	       wou_reg_ptr(&w_param, GPIO_BASE + GPIO_IN), 2);
 
         wou_status (&w_param);  // print out tx/rx data rate
         
@@ -120,7 +120,7 @@ int main(void)
         
         wou_cmd (&w_param,
                  WB_RD_CMD,
-                 (SSIF_BASE | SSIF_SWITCH_IN),
+                 (GPIO_BASE | GPIO_IN),
                  2,
                  data);
 
