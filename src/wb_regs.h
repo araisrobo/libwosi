@@ -33,20 +33,31 @@
  * JCMD_BASE            0x1000
  *******************************************************************************
  * REG_NAME             ADDR_OFFSET   ACCESS  DESCRIPTION
- * RESERVED             0x0000        
- *                      0x0001        
- * JCMD_WATCHDOG        0x0002        W       watchdog timeout limit (unit: 100ms)
- * RESERVED    [ 7: 0]  0x0003
- * RESERVED    [ 7: 0]  0x0004
- *
- * JCMD_CTRL   [ 7: 0]  0x0005
- *    WDOG_EN  [    0]  0x0005        W       WatchDOG timer (1)enable (0)disable
+ * OR32_CTRL            0x00          
+ *    OR32_EN           0x00.0        W       (1)enable OR32 
+ *                                            (0)keep resetting OR32
+ * RESERVED             0x01          
+ * JCMD_WATCHDOG        0x02          W       watchdog timeout limit (unit: 100ms)
+ * RESERVED             0x03
+ * RESERVED             0x04
+ * JCMD_CTRL            0x05
+ *    WDOG_EN           0x05.0        W       WatchDOG timer (1)enable (0)disable
  *                                            FPGA will reset if there's no WOU packets comming from HOST
- *    SSIF_EN  [    1]  0x0005        W       Servo/Stepper Interface Enable
- *    RST      [    2]  0x0005        W       Reset JCMD (TODO: seems not necessary)
- * SYNC_CMD             0x0010        W       Synchronizing command to JCMD_FIFO
- *                        ~
- *                      0x001F
+ *    SSIF_EN           0x05.1        W       Servo/Stepper Interface Enable
+ *    RST               0x05.2        W       Reset JCMD (TODO: seems not necessary)
+ * RESERVED             0x06 
+ * RESERVED               ~ 
+ * RESERVED             0x17
+ * OR32_PROG            0x18          W       0x18 ~ 0x1F, 4 bytes of ADDR and 4 bytes of DATA
+ *                                            Write to 0x1F to program OR32.SRAM when (OR32_EN == 0)
+ * SYNC_CMD             0x20          W       2-bytes of SYNC commands to JCMD FIFO
+ *                                            0x20 ~ 0x3F, size up to 32-bytes
+ * OR32_MAILBOX         0x40          R       Mailbox to receive mails from OR32
+ *                                            0x40 ~ 0x7F, size up to 64-bytes
+ *                                            Usage: check and fetch a mail from MAILBOX
+ *                                            0x40:  size in bytes for the mail
+ *                                                   0 means MAILBOX is empty
+ * SYNC_CMD Format:
  *    NAME        OP_CODE[15:14]  OPERAND[13:0]   Description
  *    SYNC_JNT    2'b00           {DIR_W, POS_W}  DIR_W[13]:    Direction, (positive(1), negative(0))
  *                                                POS_W[12:0]:  Relative Angle Distance (0 ~ 8191)
@@ -88,8 +99,8 @@
  *                                                            update INDEX_POS when ((INDEX_LOCK == 0) && (posedge of INDEX))
  *                                                            reset to 0 when INDEX_EN[i] is 0
  * SSIF_MAX_PWM         0x000C        W       (0x0C ~ 0x17)   JNT_0 ~ JNT_11, 8-bits, Max PWM Ratio (Stepper Current Limit)
- * SSIF_PULSE_CMD       0X0018        W       (0X18 ~ 0X2F)   JNT_0 ~ JNT_11, PULSE-Position CMD for next BP(Base Period)
- *                                                            JNT_ format:    {2'b00, {DIR_W[13], POS_W[12:0]}}
+ * (OR32): SSIF_PULSE_CMD       0X0018        W       (0X18 ~ 0X2F)   JNT_0 ~ JNT_11, PULSE-Position CMD for next BP(Base Period)
+ * (OR32):                                                            JNT_ format:    {2'b00, {DIR_W[13], POS_W[12:0]}}
  * SSIF_PULSE_POS       0X0030        R       (0X30 ~ 0X5F)   JNT_0 ~ JNT_11, Current PULSE-Position to Driver
  * SSIF_ENC_POS         0X0060        R       (0X60 ~ 0X8F)   JNT_0 ~ JNT_11, ENCODER-POSITION FROM SERVO DRIVER
  * SSIF_SWITCH_POS      0X0090        R       (0X90 ~ 0XBF)   JNT_0 ~ JNT_11, HOME-SWITCH-POSITION 
@@ -104,6 +115,23 @@
  *                set SSIF_MAX_PWM as 180
  * JNT_3:         current limit: 3.0A/phase (DST86EM82A)
  *                set SSIF_MAX_PWM as 255
+ *******************************************************************************
+ 
+ *******************************************************************************
+ * @REGISTERS FOR SPI Devices
+ *******************************************************************************
+ * SPI_BASE             0x3000
+ *******************************************************************************
+ * REG_NAME             ADDR_OFFSET   ACCESS  DESCRIPTION
+ * ADC_SPI_CTRL             0x0008        RW      ADC_SPI Control Register
+ *     SPI_CMD              0x0008.[4:0]  W       SPI Command to ADC
+ *     SPI_DRDY             0x0008.5      R       (1)DATA_READY_FLAG
+ *                                                Reset to 0 when write into ADC_SPI_CTRL
+ *     SPI_LOOP             0x0008.6      W       (1)LOOPING
+ *     SPI_EN               0x0008.7      W       (1)Enable
+ * ADC_SPI_SCK_NR           0x0009.[4:0]  W       Number of SCK to generate
+ * ADC_SPI_OUTPUT           0x000A        R       [ 7:0] 12-bits ADC result
+ *                          0x000B        R       [11:8]
  *******************************************************************************
  **/
 
@@ -146,6 +174,7 @@
 // WOUF_COMMAND (5th byte of wou_frame)
 #define TYP_WOUF        0x00
 #define RST_TID         0x01
+#define MAILBOX         0x02
 
 // GPIO register space: (8-bit GPIO for LEDs, purpose: test Wishbone protocol)
 #define GPIO_BASE       0x0000
@@ -166,14 +195,25 @@
 // JCMD register space:
 #define JCMD_BASE       0x1000  // 
 // offset to JCMD registers
-#define JCMD_SYNC_IN_TO 0x0000  // 2-bytes, sync_in timeout (unit: 100ms), up to 109 minutes
+#define OR32_CTRL       0x0000          
+#define OR32_EN_MASK      0x01  // OR32_EN(0x00.0) (1)enable (0)keep resetting OR32
+// #define RESERVED     0x0001  
 #define JCMD_WATCHDOG   0x0002  // watchdog timeout limit (unit: 100ms)
                                 // default value: 30 (3 seconds)
 // #define RESERVED     0x0003  
 // #define RESERVED     0x0004  
 #define JCMD_CTRL       0x0005  // [2:0]: {RST, SSIF_EN, WDOG_EN}
-
-#define JCMD_SYNC_CMD   0x0010  // 2-bytes command to JCMD FIFO 
+// #define RESERVED     0x0006  ~  0x0017
+#define OR32_PROG       0x0018  // 0x18 ~ 0x1F, 4 bytes of ADDR and 4 bytes of DATA
+                                // Write to 0x1F to program OR32.SRAM when (OR32_EN == 0)
+#define JCMD_SYNC_CMD   0x0020  // 2-bytes of SYNC commands to JCMD FIFO 
+                                // 0x20 ~ 0x3F, size up to 32-bytes
+#define OR32_MAILBOX    0x0040  // Mailbox to receive mails from OR32
+                                // 0x40 ~ 0x7F, size up to 64-bytes
+                                // Usage: check and fetch a mail from MAILBOX
+                                // 0x40:  size in bytes for the mail
+                                //        0 means MAILBOX is empty
+// begin: SYNC_CMD format
 #define SYNC_JNT        0x0000  // [15:14]
 #define DIR_P           0x2000  // + SYNC_JNT: [13] positive direction
 #define DIR_N           0x0000  // + SYNC_JNT: [13] negative direction
@@ -181,12 +221,12 @@
 #define SYNC_DOUT       0x4000
 #define SYNC_DIN        0x5000
 #define SYNC_ST         0x6000
+#define SYNC_TIMEOUT_MASK    0x0FFF  // mask for valid bits timeout
 //#define SYNC_AOUT       0x6000 // or 0x7000
 //#define SYNC_AIN        0xE000
-#define SYNC_IO_ID(i)   ((i & 0x3F) << 3)
+#define SYNC_IO_ID(i)   ((i & 0x3F) << 6)
 #define SYNC_DO_VAL(v)  ((v & 0x01) << 0)
 #define SYNC_DI_TYPE(t) ((t & 0x07) << 0) // support LOW and HIGH ONLY, TODO: support FALL and RISE
-#define SYNC_TIMTOUT(t) ((t & 0x07) << 3)
 //    NAME        OP_CODE[15:12]  OPERAND[11:0]   Description
 //    SYNC_DOUT   4'b0100          {ID, VAL}       ID[11:6]: Output PIN ID
 //                                                VAL[0]:   ON(1), OFF(0)
@@ -196,8 +236,9 @@
 //                                                           TODO HIGH_TIMEOUT(101)
 //                                                           TODO FALL_TIMEOUT(110)
 //                                                           TODO RISE_TIMEOUT(111)
-#define SYNC_ST_VAL(t)  ((t & FFF) << 0)
+#define SYNC_ST_VAL(t)  ((t & 0x0FFF) << 0)
 //    SYNC_ST     4'b0110         {VAL}           VAL[12:0] timeout ticks
+// end: SYNC_CMD format
 
 // (0x40 ~ 0x7F) RESERVED
 
@@ -233,5 +274,17 @@
                                 //                  servo: based on ENC_POS
                                 //                  stepper: based on PULSE_POS
 // end: registers for SSIF (Servo/Stepper InterFace)
+
+// begin: registers for SPI devices
+#define SPI_BASE        0x3000
+//      REGISTERS       OFFSET  // DESCRIPTION
+#define ADC_SPI_CTRL    0x0008  // (8-bits)ADC_SPI Control Register
+#define ADC_SPI_CMD_MASK  0x1F  // 0x08.[4:0] SPI Command to ADC
+#define ADC_SPI_DRDY_MASK 0x20  // 0x08.5 (1)DATA_READY
+#define ADC_SPI_LOOP_MASK 0x40  // 0x08.6 (1)LOOPING
+#define ADC_SPI_EN_MASK   0x80  // 0x08.7 (1)Enable
+#define ADC_SPI_SCK_NR  0x0009  // [4:0] Number of SCK to generate
+#define ADC_SPI_OUTPUT  0x000A  // 0x0A ~ 0x0B (12-bits) ADC result
+// end: registers for SPI devices
 
 #endif // __wb_regs_h__
