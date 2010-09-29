@@ -127,7 +127,12 @@ void wou_init (wou_param_t *w_param, const char *device_type,
     wouf_init(w_param->board);
 }
 
-
+int wou_prog_risc(wou_param_t *w_param, const char *binfile)
+{
+	int ret;
+	ret = board_risc_prog(w_param->board, binfile);
+	return ret;
+}
 
 /**
  * wou_connect_usb - Establishes a wou USB connection 

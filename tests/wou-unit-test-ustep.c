@@ -91,69 +91,7 @@ int main(void)
     }
     printf("after programming FPGA with ./stepper_top.bit ...\n");
 
-    
-    // or32 disable 
-    value = 0x00;
-    wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | OR32_CTRL), 1, &value);
-    wou_flush(&w_param);
-
-    // begin: write OR32 iamge
-    fd = fopen("plasma.bin", "r" );
-    fseek(fd, 0, SEEK_END);
-    image_size = ftell(fd);
-    fseek(fd,0,SEEK_SET);
-
-    // Now we should have the size of the file in bytes.
-    // Let's ensure it's a word(4-bytes) multiple
-    assert ((image_size%4) == 0);
-
-    // Now write out the image size
-    printf("plasma.bin: image_size(%8x)\n", image_size);
-
-    current_addr = 0;
-    byte_counter = 0;
-    word_counter = 0;
-    // Now write out the binary data to VMEM format: @ADDRESSS XXXXXXXX XXXXXXXX XXXXXXXX XXXXXXXX
-    while ((c = fgetc(fd)) != EOF) {
-        if (byte_counter == 0) {
-            printf("\n@%08x: ", current_addr);
-            memcpy (data+sizeof(uint32_t), &current_addr, sizeof(uint32_t));
-        }
-        printf("%.2x", (unsigned int) c); // now print the actual char
-        current_addr++;
-        byte_counter++;
-        // convert big-endian to little-endian
-        data[BYTES_PER_WORD - byte_counter] = (uint8_t) c;
-
-        if (byte_counter == BYTES_PER_WORD) {
-            word_counter++;
-            byte_counter=0;
-            for (i=0; i<8; i++) {
-                printf (" %02x", (unsigned int) data[i]);
-            }
-            // issue an OR32_PROG command
-            wou_cmd (&w_param, WB_WR_CMD, /*(uint16_t) */(JCMD_BASE | OR32_PROG),
-                     (uint16_t) 2*sizeof(uint32_t), data);
-        }
-        if (word_counter == WORDS_PER_LINE) {
-                word_counter = 0;
-//			send_frame(TYP_WOUF);  // send a WOU_FRAME to FT245
-                wou_flush(&w_param);
-        }
-    }
-
-    if (word_counter != 0) {
-        // terminate pending WOU commands
-//        send_frame(TYP_WOUF);  // send a WOU_FRAME to FT245
-    	wou_flush(&w_param);
-    }
-    printf("after programming OR32 with ./plasma.bin ....\n");
-    // enable OR32 again
-    value = 0x01;
-    wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | OR32_CTRL), 1, &value);
-    wou_flush(&w_param);
-//end write OR32 image
-
+    wou_prog_risc(&w_param, "./plasma.bin");
 
     printf("** UNIT TESTING **\n");
 

@@ -211,7 +211,85 @@ struct bitfile *open_bitfile_or_die(const char *filename)
 
     return bf;
 }
+#define WORDS_PER_LINE 8
+#define BYTES_PER_WORD 4
 
+int board_risc_prog(struct board* board, const char* binfile)
+{
+	int value;
+	uint8_t data[MAX_DSIZE];
+	FILE  *fd;
+	int c;
+	uint32_t image_size;
+
+	// Counters keeping track of what we've printed
+	uint32_t current_addr;
+	uint32_t byte_counter;
+	uint32_t word_counter;
+
+	if (board->io_type == IO_TYPE_USB) {
+		board->io.usb.bitfile = binfile;
+	} else {
+		return -1;
+	}
+
+    // or32 disable
+    value = 0x00;
+    wou_append (board, (const uint8_t) WB_WR_CMD, (const uint16_t)(JCMD_BASE | OR32_CTRL),
+    		(const uint16_t)1, (const uint8_t*)&value); //wou_cmd
+    wou_eof (board, TYP_WOUF); //wou_flush(&w_param);
+
+
+    // begin: write OR32 iamge
+    fd = fopen(binfile/*"plasma.bin"*/, "r" );
+    fseek(fd, 0, SEEK_END);
+    image_size = ftell(fd);
+    fseek(fd,0,SEEK_SET);
+
+    // Now we should have the size of the file in bytes.
+    // Let's ensure it's a word(4-bytes) multiple
+    assert ((image_size%4) == 0);
+
+    // Now write out the image size
+    current_addr = 0;
+    byte_counter = 0;
+    word_counter = 0;
+    // Now write out the binary data to VMEM format: @ADDRESSS XXXXXXXX XXXXXXXX XXXXXXXX XXXXXXXX
+    while ((c = fgetc(fd)) != EOF) {
+        if (byte_counter == 0) {
+            memcpy (data+sizeof(uint32_t), &current_addr, sizeof(uint32_t));
+        }
+        current_addr++;
+        byte_counter++;
+        // convert big-endian to little-endian
+        data[BYTES_PER_WORD - byte_counter] = (uint8_t) c;
+
+        if (byte_counter == BYTES_PER_WORD) {
+            word_counter++;
+            byte_counter=0;
+            // issue an OR32_PROG command
+            wou_append (board, (const uint8_t)WB_WR_CMD, (const uint16_t)(JCMD_BASE | OR32_PROG),
+            		(const uint16_t) 2*sizeof(uint32_t),  (const uint8_t*)data);//wou_cmd
+        }
+        if (word_counter == WORDS_PER_LINE) {
+                word_counter = 0;
+                wou_eof (board, TYP_WOUF); //wou_flush(&w_param);
+        }
+    }
+
+    if (word_counter != 0) {
+        // terminate pending WOU commands
+//        send_frame(TYP_WOUF);  // send a WOU_FRAME to FT245
+    	wou_eof (board, TYP_WOUF); //wou_flush(&w_param);
+    }
+    // enable OR32 again
+    value = 0x01;
+    wou_append(board, (const uint8_t)WB_WR_CMD, (const uint16_t)(JCMD_BASE | OR32_CTRL),
+    		(const uint16_t)1, (const uint8_t*)&value); //wou_cmd
+    wou_eof (board, TYP_WOUF); //wou_flush(&w_param);
+//end write OR32 image
+	return 0;
+}
 
 static int board_prog (struct board* board) 
 {
