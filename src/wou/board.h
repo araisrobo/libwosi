@@ -186,6 +186,7 @@ typedef struct board {
 #ifdef HAVE_LIBFTDI
 #endif  // HAVE_LIBFTDI
 #endif  // HAVE_LIBFTD2XX
+            const char* 	binfile;
         } usb;
     } io;
     
@@ -200,7 +201,7 @@ typedef struct board {
     
     int (*program_funct) (struct board *bd, struct bitfile_chunk *ch);
 } board_t;
-
+int board_risc_prog(board_t* board, const char* binfile);
 int board_init (board_t* board, const char* device_type, const int device_id,
                 const char* bitfile);
 int board_connect (board_t* board);

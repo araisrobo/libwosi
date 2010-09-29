@@ -85,6 +85,8 @@ int wou_connect (wou_param_t *w_param);
 /* Closes a wou connection */
 void wou_close (wou_param_t *w_param);
 
+/* prog risc core */
+int wou_prog_risc(wou_param_t *w_param, const char *binfile);
 #ifdef __cplusplus
 }
 #endif
