@@ -8,6 +8,8 @@
 
 #include "wou.h"
 #include "wb_regs.h"
+#define WORDS_PER_LINE 8
+#define BYTES_PER_WORD 4
 
 static void diff_time(struct timespec *start, struct timespec *end,
 		      struct timespec *diff)
@@ -68,16 +70,90 @@ int main(void)
     struct timespec time1, time2, dt;
     int ss, mm, hh, prev_ss;
 
-    // wou_init(): setting fpga board parameters
-    wou_init(&w_param, "7i43u", 0, "./stepper_top.bit");
+    /* for prog or32 */
+    FILE  *fd;
+    int c/*, i*/;
+    uint32_t image_size;
 
+    // Counters keeping track of what we've printed
+    uint32_t current_addr;
+    uint32_t byte_counter;
+    uint32_t word_counter;
+
+    // wou_init(): setting fpga board parameters
+//    wou_init(&w_param, "7i43u", 0, "./stepper_top.bit");
+
+    wou_init(&w_param, "7i43u", 0, "./plasma_top.bit");
     // wou_connect(): programe fpga with given "<fpga>.bit"
     if (wou_connect(&w_param) == -1) {
 	printf("ERROR Connection failed\n");
 	exit(1);
     }
     printf("after programming FPGA with ./stepper_top.bit ...\n");
-    // getchar();
+
+    
+    // or32 disable 
+    value = 0x00;
+    wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | OR32_CTRL), 1, &value);
+    wou_flush(&w_param);
+
+    // begin: write OR32 iamge
+    fd = fopen("plasma.bin", "r" );
+    fseek(fd, 0, SEEK_END);
+    image_size = ftell(fd);
+    fseek(fd,0,SEEK_SET);
+
+    // Now we should have the size of the file in bytes.
+    // Let's ensure it's a word(4-bytes) multiple
+    assert ((image_size%4) == 0);
+
+    // Now write out the image size
+    printf("plasma.bin: image_size(%8x)\n", image_size);
+
+    current_addr = 0;
+    byte_counter = 0;
+    word_counter = 0;
+    // Now write out the binary data to VMEM format: @ADDRESSS XXXXXXXX XXXXXXXX XXXXXXXX XXXXXXXX
+    while ((c = fgetc(fd)) != EOF) {
+        if (byte_counter == 0) {
+            printf("\n@%08x: ", current_addr);
+            memcpy (data+sizeof(uint32_t), &current_addr, sizeof(uint32_t));
+        }
+        printf("%.2x", (unsigned int) c); // now print the actual char
+        current_addr++;
+        byte_counter++;
+        // convert big-endian to little-endian
+        data[BYTES_PER_WORD - byte_counter] = (uint8_t) c;
+
+        if (byte_counter == BYTES_PER_WORD) {
+            word_counter++;
+            byte_counter=0;
+            for (i=0; i<8; i++) {
+                printf (" %02x", (unsigned int) data[i]);
+            }
+            // issue an OR32_PROG command
+            wou_cmd (&w_param, WB_WR_CMD, /*(uint16_t) */(JCMD_BASE | OR32_PROG),
+                     (uint16_t) 2*sizeof(uint32_t), data);
+        }
+        if (word_counter == WORDS_PER_LINE) {
+                word_counter = 0;
+//			send_frame(TYP_WOUF);  // send a WOU_FRAME to FT245
+                wou_flush(&w_param);
+        }
+    }
+
+    if (word_counter != 0) {
+        // terminate pending WOU commands
+//        send_frame(TYP_WOUF);  // send a WOU_FRAME to FT245
+    	wou_flush(&w_param);
+    }
+    printf("after programming OR32 with ./plasma.bin ....\n");
+    // enable OR32 again
+    value = 0x01;
+    wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | OR32_CTRL), 1, &value);
+    wou_flush(&w_param);
+//end write OR32 image
+
 
     printf("** UNIT TESTING **\n");
 
@@ -134,11 +210,12 @@ int main(void)
     data[3] = 150;  // JNT_3
     wou_cmd(&w_param, WB_WR_CMD, (SSIF_BASE | SSIF_MAX_PWM), 4, data);
     wou_flush(&w_param);
-            
-    // JCMD_CTRL: 
-    //  [bit-0]: BasePeriod WOU Registers Update (1)enable (0)disable
-    //  [bit-1]: SSIF_EN, servo interface enable
-    //  [bit-2]: RST, reset JCMD_FIFO and JCMD_FSMs
+    
+    //  JCMD_CTRL            0x05
+    //     WDOG_EN           0x05.0        W       WatchDOG timer (1)enable (0)disable
+    //                                             FPGA will reset if there's no WOU packets comming from HOST
+    //     SSIF_EN           0x05.1        W       Servo/Stepper Interface Enable
+    //     RST               0x05.2        W       Reset JCMD (TODO: seems not necessary)
     data[0] = 2;
     wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_CTRL), 1, data);
     wou_flush(&w_param);
@@ -185,15 +262,27 @@ int main(void)
                   / (1000/0.65535); // base_period is 0.65535ms
     accel[2] = 0.01;
     
-    // rev[3] = 0;
-    rev[3] = 10         // 10 revolution
-             * 200      // 200 full stepper pulse per revolution
-             / 4        // 4 full stepper pulse == 1 sine/cosine cycle (2PI)
-             * 1024;    // sine/cosine LUT theta resolution
+//7i32:    rev[3] = 10         // 10 revolution
+//7i32:             * 200      // 200 full stepper pulse per revolution
+//7i32:             / 4        // 4 full stepper pulse == 1 sine/cosine cycle (2PI)
+//7i32:             * 1024;    // sine/cosine LUT theta resolution
+//7i32:    // speed[3] = 1050   // K=168,MAX_PWM=126: 1050 full stepper pulse per seconds
+//7i32:    speed[3] = 100      // MAX_PWM=200, stable@800, unstable@900 full stepper pulse per seconds
+//7i32:             / 4        // 4 full stepper pulse == 1 sine/cosine cycle (2PI)
+//7i32:             * 1024     // sine/cosine LUT theta resolution
+//7i32:             / (1000/0.65535); // base_period is 0.65535ms
+//7i32:    accel[3] = 0.01;
+
+    // for servo_if:
+    //rev[3] = 10         // 10 revolution
+    //         * 200      // 200 full stepper pulse per revolution
+    //         * 16       // microStepping #
+    //         * 4;       
     // speed[3] = 1050   // K=168,MAX_PWM=126: 1050 full stepper pulse per seconds
-    speed[3] = 100      // MAX_PWM=200, stable@800, unstable@900 full stepper pulse per seconds
-             / 4        // 4 full stepper pulse == 1 sine/cosine cycle (2PI)
-             * 1024     // sine/cosine LUT theta resolution
+    rev[3] = -65535;
+    speed[3] = 50       // MAX_PWM=200, stable@800, unstable@900 full stepper pulse per seconds
+             * 16         // microStepping #
+             * 4
              / (1000/0.65535); // base_period is 0.65535ms
     accel[3] = 0.01;
     
