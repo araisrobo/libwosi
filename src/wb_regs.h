@@ -81,6 +81,7 @@
  * SFIFO_BASE           0x2000
  *******************************************************************************
  * REG_NAME             ADDR_OFFSET   ACCESS  DESCRIPTION
+ * SSIF_PULSE_TYPE      0x0000        W       (0x00       )   (0)AB_PHASE  (1)STEP_DIR
  * SSIF_LOAD_POS        0x0002        W       (0x02 ~ 0x03)   load SWITCH & INDEX with PULSE(stepper) or ENC(servo) 
  *                                                            positions for homing
  *                                                (11:0)[i]   set to 1 by SW to load SWITCH and INDEX position
@@ -245,6 +246,9 @@
 // begin: registers for SSIF (Servo/Stepper InterFace)
 #define SSIF_BASE       0x2000
 //      REGISTERS       OFFSET  // DESCRIPTION
+#define SSIF_PULSE_TYPE 0x0000  // W(0x00       )   (0)AB_PHASE  (1)STEP_DIR
+#define PTYPE_AB_PHASE    0x00
+#define PTYPE_STEP_DIR    0x01
 #define SSIF_LOAD_POS   0x0002  // W(0x02 ~ 0x03)   load SWITCH & INDEX with PULSE(stepper) or ENC(servo) 
                                 //                  positions for homing
                                 //      (11:0)[i]   set to 1 by SW to load SWITCH and INDEX position
