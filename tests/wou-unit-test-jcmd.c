@@ -50,7 +50,7 @@ int main(void)
     //bug: wou_flush(&w_param);
     //bug: printf("send a wou-frame ... press key ...\n"); getchar();
 
-    // switch LEDs to display servo pulse commands
+    // LEDS_SEL(2): switch LEDs to display debug port
     value = 2;
     wou_cmd(&w_param, WB_WR_CMD, GPIO_LEDS_SEL, 1, &value);
     //debug: check if the first packet is correct?
