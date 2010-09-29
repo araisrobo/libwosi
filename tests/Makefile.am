@@ -9,7 +9,8 @@ EXTRA_DIST = README
 
 noinst_PROGRAMS = \
 	wou-unit-test-jcmd \
-  	wou-unit-test-ustep
+  	wou-unit-test-ustep \
+	wou-unit-test-prog
 
 
 # common_ldflags = \
@@ -40,6 +41,9 @@ wou_unit_test_jcmd_LDADD = $(common_ldflags)
 
 wou_unit_test_ustep_SOURCES = wou-unit-test-ustep.c
 wou_unit_test_ustep_LDADD = $(common_ldflags)
+
+wou_unit_test_prog_SOURCES = wou-unit-test-prog.c
+wou_unit_test_prog_LDADD = $(common_ldflags)
 
 INCLUDES = -I$(top_srcdir) -I$(top_srcdir)/src
 CLEANFILES = *~
