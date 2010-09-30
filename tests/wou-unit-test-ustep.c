@@ -89,7 +89,7 @@ int main(void)
 	printf("ERROR Connection failed\n");
 	exit(1);
     }
-    printf("after programming FPGA with ./stepper_top.bit ...\n");
+    printf("after programming FPGA with ./plasma_top.bit ...\n");
 
     wou_prog_risc(&w_param, "./plasma.bin");
 
