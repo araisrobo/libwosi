@@ -126,7 +126,12 @@ int main(void)
     // printf("send a wou-frame ... press key ...\n");
     // getchar();
 
-
+    //begin: set SSIF_PULSE_TYPE as STEP_DIR (default is AB_PHASE)
+    value = PTYPE_STEP_DIR;
+    wou_cmd (&w_param, WB_WR_CMD, (uint16_t) (SSIF_BASE | SSIF_PULSE_TYPE), 
+                        (uint8_t) 1, &value);
+    //end: set SSIF_PULSE_TYPE as STEP_DIR
+ 
     // set MAX_PWM ratio for each joints
     //  * for 華谷：
     //  * JNT_0 ~ JNT_2: current limit: 2.12A/phase (DST56EX43A)
@@ -212,18 +217,23 @@ int main(void)
 //7i32:    accel[3] = 0.01;
 
     // for servo_if:
-    //rev[3] = 10         // 10 revolution
-    //         * 200      // 200 full stepper pulse per revolution
-    //         * 16       // microStepping #
-    //         * 4;       
-    // speed[3] = 1050   // K=168,MAX_PWM=126: 1050 full stepper pulse per seconds
-    rev[3] = -65535;
-    speed[3] = 50       // MAX_PWM=200, stable@800, unstable@900 full stepper pulse per seconds
+    rev[3] = 1         // 10 revolution
+             * 200      // 200 full stepper pulse per revolution
+             * 16       // microStepping #
+             ;       
+    //rev[3] = -65535; // 不停的轉
+    // speed
+    // 200*16 pulse/rev *0.65535/1000,  1 cycle/time
+    // 以每秒一圈來算 每秒要送幾個pulse
+    // 一圈pulse數量16*200
+    // 就是每秒要送3200
+    // 那每個 servo time 0.65535ms 送出的pulse數為
+    // 200*16*1000/0.65535
+    speed[3] = 400       // MAX_PWM=200, stable@800, unstable@900 full stepper pulse per seconds
              * 16         // microStepping #
-             * 4
              / (1000/0.65535); // base_period is 0.65535ms
+ 
     accel[3] = 0.01;
-    
     for (j=0; j<4; j++) {
         acc_usteps[j] = 0;
         cur_speed[j] = 0;
