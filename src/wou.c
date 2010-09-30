@@ -1,6 +1,5 @@
 /*
- * Copyright © 2001-2008 Stéphane Raimbault <stephane.raimbault@gmail.com>
- * Copyright © 2009 Yishin Li <yishin.li@gmail.com>
+ * Copyright © 2009-2010 Yishin Li <ysli@araisrobo.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser Public License as published by

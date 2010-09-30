@@ -725,111 +725,130 @@ static int wouf_parse (board_t* b, const uint8_t *buf_head)
     uint8_t advance;        // Sb advance number (woufs to be flushed)
     wouf_t  *wou_frame_;
     int     i;
+    
+    // CRC pass; about to check WOUF_COMMAND type
+    if (buf_head[1] == TYP_WOUF) {
+        // typical WOU_FRAME
 
-    Sm = &(b->wou->Sm);
-    Sb = &(b->wou->Sb);
-    Sn = &(b->wou->Sn);
-    tidSb = &(b->wou->tidSb);
-    tidR = buf_head[1];     
-    advance = tidR - *tidSb;
+        Sm = &(b->wou->Sm);
+        Sb = &(b->wou->Sb);
+        Sn = &(b->wou->Sn);
+        tidSb = &(b->wou->tidSb);
+        tidR = buf_head[2];     
+        advance = tidR - *tidSb;
 
-    // CRC pass; about to update Rn
-    if ((advance > 0) && (advance < NR_OF_WIN)) {
-        // If you receive a request number where Rn > Sb
-        // Sm = Sm + (Rn – Sb)
-        tmp = *Sm + advance;
-        if (tmp >= NR_OF_CLK) {
-            tmp -= NR_OF_CLK;
-        }
-        *Sm = (uint8_t) tmp;
-        // Sb = Rn
-        for (i=0; i<advance; i++) {
-            wou_frame_ = &(b->wou->woufs[*Sb]);
-            wou_frame_->use = 0;
-            tmp = *Sb + 1;
+        // about to update Rn
+        if ((advance > 0) && (advance < NR_OF_WIN)) {
+            // If you receive a request number where Rn > Sb
+            // Sm = Sm + (Rn – Sb)
+            tmp = *Sm + advance;
             if (tmp >= NR_OF_CLK) {
                 tmp -= NR_OF_CLK;
             }
-            *Sb = tmp;
-            DP ("adv(%d) Sm(0x%02X) Sn(0x%02X) Sb(0x%02X) Sn.use(%d) clock(0x%02X) tidR(0x%02X)\n",
-                advance, *Sm, *Sn, *Sb, b->wou->woufs[*Sn].use, b->wou->clock, tidR);
+            *Sm = (uint8_t) tmp;
+            // Sb = Rn
+            for (i=0; i<advance; i++) {
+                wou_frame_ = &(b->wou->woufs[*Sb]);
+                wou_frame_->use = 0;
+                tmp = *Sb + 1;
+                if (tmp >= NR_OF_CLK) {
+                    tmp -= NR_OF_CLK;
+                }
+                *Sb = tmp;
+                DP ("adv(%d) Sm(0x%02X) Sn(0x%02X) Sb(0x%02X) Sn.use(%d) clock(0x%02X) tidR(0x%02X)\n",
+                    advance, *Sm, *Sn, *Sb, b->wou->woufs[*Sn].use, b->wou->clock, tidR);
 #if (TX_ERR_TEST || RX_ERR_TEST || TX_BREAK_SINGLE_TID || TX_FAIL_TEST || SHOW_RX_STATUS || RECONNECT_TEST)
-            if(advance >= 1)fprintf (stderr,"adv(%d) Sm(%d) Sn(%d) Sb(%d) Sn.use(%d) clock(%d) tidR(%d)\n",
-                            advance, *Sm, *Sn, *Sb, b->wou->woufs[*Sn].use, b->wou->clock,tidR);
+                if(advance >= 1)fprintf (stderr,"adv(%d) Sm(%d) Sn(%d) Sb(%d) Sn.use(%d) clock(%d) tidR(%d)\n",
+                                advance, *Sm, *Sn, *Sb, b->wou->woufs[*Sn].use, b->wou->clock,tidR);
 #endif
-        }
-        *tidSb = tidR;
-        
-    } else {
-        // re-transmit wou_frames where Sb <= Sn <= Sm
-        int ret;
-        struct ftdi_context     *ftdic;
-        ftdic = &(b->io.usb.ftdic);
-        ERRP("We won't meet a NAK\n");
+            }
+            *tidSb = tidR;
+            
+        } else {
+            // re-transmit wou_frames where Sb <= Sn <= Sm
+            int ret;
+            struct ftdi_context     *ftdic;
+            ftdic = &(b->io.usb.ftdic);
+            ERRP("We won't meet a NAK\n");
 
-        DP ("got an un-expected tidR: advance(%d)\n", advance);
-        DP ("tidR(%02X), tidSb(%02X), Sb(%02X), Sn(%02X), Sm(%02X)\n",
-               tidR, *tidSb, *Sb, *Sn, *Sm);
-        ERRP ("got an un-expected tidR: advance(%d)\n", advance);
-        ERRP ("tidR(%02X), tidSb(%02X), Sb(%02X), Sn(%02X), Sm(%02X)\n",
-               tidR, *tidSb, *Sb, *Sn, *Sm);
-        assert(0);
-        // DEBUG:
-        fprintf (stderr, "DEBUG: buf_head: ");
+            DP ("got an un-expected tidR: advance(%d)\n", advance);
+            DP ("tidR(%02X), tidSb(%02X), Sb(%02X), Sn(%02X), Sm(%02X)\n",
+                   tidR, *tidSb, *Sb, *Sn, *Sm);
+            ERRP ("got an un-expected tidR: advance(%d)\n", advance);
+            ERRP ("tidR(%02X), tidSb(%02X), Sb(%02X), Sn(%02X), Sm(%02X)\n",
+                   tidR, *tidSb, *Sb, *Sn, *Sm);
+            assert(0);
+            // DEBUG:
+            fprintf (stderr, "DEBUG: buf_head: ");
+            for (i=0; i < (1 + buf_head[0] + CRC_SIZE); i++) {
+                fprintf (stderr, "<%.2X>", buf_head[i]);
+            }
+            fprintf (stderr, "\n");
+
+            *Sn = *Sb;
+            *tidSb = tidR;
+
+            //bug: b->wou->tid = tidR;
+            
+            // RESET TX&RX Registers
+            if (b->io.usb.tx_tc) {
+                // finishing pending async write
+                ftdi_transfer_data_done (b->io.usb.tx_tc);
+                b->io.usb.tx_tc = NULL;
+            }
+            b->wou->tx_size = 0;
+            b->wou->rx_req_size = 0;
+            b->wou->rx_req = 0;
+            b->wou->rx_size = 0;
+            // flushing RX buffer
+            // // to clear tx and rx queue
+            // if ((ret = ftdi_usb_purge_buffers (ftdic)) < 0)
+            // {
+            //     ERRP ("ftdi_usb_purge_buffers() failed: %d", ret);
+            //     return;
+            // }
+            // to flush rx queue
+            while (ret = ftdi_read_data (ftdic, b->wou->buf_tx, 1) > 0) { 
+                printf ("flush %d byte\n", ret);
+                if (ftdic->readbuffer_remaining) {
+                    printf ("flush %u byte\n", ftdic->readbuffer_remaining);
+                    ftdi_read_data (ftdic, 
+                                    b->wou->buf_tx,
+                                    ftdic->readbuffer_remaining);
+                }
+            }
+
+            
+            return (-1);    // about to flush buf_rx[]
+        }
+        
+        // about to parse [WOU][WOU]...
+        pload_size_tx = buf_head[0];
+        pload_size_tx -= 2;     // TYP_WOUF and TID
+        buf_head += 3;          // point to [WOU]
+        while (pload_size_tx > 0) {
+            wou_dsize = wb_reg_update (b, buf_head);
+            pload_size_tx -= (WOU_HDR_SIZE + wou_dsize);
+            assert ((pload_size_tx & 0x8000) == 0);   // no negative pload_size_tx
+            buf_head += (WOU_HDR_SIZE + wou_dsize);
+        }
+        DP ("TODO: return parsed pload_size_tx for assertion\n");
+        return (0);
+        // (buf_head[1] == TYP_WOUF)
+    } else if (buf_head[1] == MAILBOX) {
+        // TODO: implement a callback function that could process 
+        //       buf_head[] for MAILBOX
+
+        fprintf (stderr, "DEBUG: MAILBOX: ");
         for (i=0; i < (1 + buf_head[0] + CRC_SIZE); i++) {
             fprintf (stderr, "<%.2X>", buf_head[i]);
         }
         fprintf (stderr, "\n");
 
-        *Sn = *Sb;
-        *tidSb = tidR;
-
-        //bug: b->wou->tid = tidR;
-        
-        // RESET TX&RX Registers
-        if (b->io.usb.tx_tc) {
-            // finishing pending async write
-            ftdi_transfer_data_done (b->io.usb.tx_tc);
-            b->io.usb.tx_tc = NULL;
-        }
-        b->wou->tx_size = 0;
-        b->wou->rx_req_size = 0;
-        b->wou->rx_req = 0;
-        b->wou->rx_size = 0;
-        // flushing RX buffer
-        // // to clear tx and rx queue
-        // if ((ret = ftdi_usb_purge_buffers (ftdic)) < 0)
-        // {
-        //     ERRP ("ftdi_usb_purge_buffers() failed: %d", ret);
-        //     return;
-        // }
-        // to flush rx queue
-        while (ret = ftdi_read_data (ftdic, b->wou->buf_tx, 1) > 0) { 
-            printf ("flush %d byte\n", ret);
-            if (ftdic->readbuffer_remaining) {
-                printf ("flush %u byte\n", ftdic->readbuffer_remaining);
-                ftdi_read_data (ftdic, 
-                                b->wou->buf_tx,
-                                ftdic->readbuffer_remaining);
-            }
-        }
+        return (0);
+    }
 
         
-        return (-1);    // about to flush buf_rx[]
-    }
-    
-    // about to parse [WOU][WOU]...
-    pload_size_tx = buf_head[0];
-    pload_size_tx -= 1;     // TID
-    buf_head += 2;          // point to [WOU]
-    while (pload_size_tx > 0) {
-        wou_dsize = wb_reg_update (b, buf_head);
-        pload_size_tx -= (WOU_HDR_SIZE + wou_dsize);
-        assert ((pload_size_tx & 0x8000) == 0);   // no negative pload_size_tx
-        buf_head += (WOU_HDR_SIZE + wou_dsize);
-    }
-    DP ("TODO: return parsed pload_size_tx for assertion\n");
-    return (0);
 
 } // wouf_parse()
 
@@ -904,7 +923,8 @@ void wou_recv (board_t* b)
         immediate_state = 0;
         switch (*rx_state) {
         case SYNC:
-            if (*rx_size < (WOUF_HDR_SIZE + 1/*TID_SIZE*/ + CRC_SIZE)) {
+            // locate for {PREAMBLE_0, PREAMBLE_1, SOFD}
+            if (*rx_size < (WOUF_HDR_SIZE + 2/*{WOUF_COMMAND, TID/MAIL_TAG}*/ + CRC_SIZE)) {
                 // block until receiving enough data
                 DP ("block until receiving enough data\n");
                 // return; 
@@ -936,6 +956,7 @@ void wou_recv (board_t* b)
                 *rx_state = PLOAD_CRC;
                 immediate_state = 1;    // switch to PLOAD_CRC state ASAP
             } else {
+                // not {PREAMBLE_0, PREAMBLE_1, SOFD}
                 buf_head = buf_rx + i;
                 *rx_size -= i;
                 memmove (buf_rx, buf_head, *rx_size);
@@ -978,11 +999,6 @@ void wou_recv (board_t* b)
                 // CRC pass; about to parse WOU_FRAME
                 if (wouf_parse (b, buf_head)) {
                     // un-expected Rn
-                    // invalidate buf_rx[]
-                    // // *rx_size = 0;
-                    // *rx_size -= (1 + pload_size_tx + CRC_SIZE);
-                    // buf_head += (1 + pload_size_tx + CRC_SIZE);
-
                 } else {
                     // expected Rn
                     *rx_size -= (1 + pload_size_tx + CRC_SIZE);
@@ -1489,7 +1505,8 @@ void wouf_init (board_t* b)
     wou_frame_->buf[5]          = 0xFF;         // TID
     wou_frame_->buf[6]          = 0xFF;         // PLOAD_SIZE_RX
     wou_frame_->fsize           = 7;
-    wou_frame_->pload_size_rx   = 1;            // there would be no PLOAD_SIZE_RX in response WOU_FRAME
+    wou_frame_->pload_size_rx   = 2;            // there would be no PAYLOAD in response WOU_FRAME,
+                                                // in this case the response frame would be composed of {PLOAD_SIZE_TX, WOUF_COMMAND, TID/MAIL_TAG}
     wou_frame_->use             = 0;
 
     return ;

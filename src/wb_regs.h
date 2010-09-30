@@ -52,11 +52,12 @@
  *                                            Write to 0x1F to program OR32.SRAM when (OR32_EN == 0)
  * SYNC_CMD             0x20          W       2-bytes of SYNC commands to JCMD FIFO
  *                                            0x20 ~ 0x3F, size up to 32-bytes
- * OR32_MAILBOX         0x40          R       Mailbox to receive mails from OR32
- *                                            0x40 ~ 0x7F, size up to 64-bytes
- *                                            Usage: check and fetch a mail from MAILBOX
- *                                            0x40:  size in bytes for the mail
- *                                                   0 means MAILBOX is empty
+ * // move MAILBOX to WOU protocol
+ * //not necessary? OR32_MAILBOX         0x40          R       Mailbox to receive mails from OR32
+ * //not necessary?                                            0x40 ~ 0x7F, size up to 64-bytes
+ * //not necessary?                                            Usage: check and fetch a mail from MAILBOX
+ * //not necessary?                                            0x40:  size in bytes for the mail
+ * //not necessary?                                                   0 means MAILBOX is empty
  * SYNC_CMD Format:
  *    NAME        OP_CODE[15:14]  OPERAND[13:0]   Description
  *    SYNC_JNT    2'b00           {DIR_W, POS_W}  DIR_W[13]:    Direction, (positive(1), negative(0))
