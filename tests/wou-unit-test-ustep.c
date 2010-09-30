@@ -98,6 +98,11 @@ int main(void)
     printf("\nTEST JCMD WRITE/READ:\n");
 
     /** WISHBONE REGISTERS **/
+    
+    // GPIO: mask for input bits [7:0] [15:8]
+    value = 0xFF;
+    wou_cmd(&w_param, WB_WR_CMD, (GPIO_BASE | GPIO_MASK_IN0), 1, &value);
+    wou_cmd(&w_param, WB_WR_CMD, (GPIO_BASE | GPIO_MASK_IN1), 1, &value);
 
     // switch LEDs to display servo pulse commands
     value = 2;
@@ -217,11 +222,11 @@ int main(void)
 //7i32:    accel[3] = 0.01;
 
     // for servo_if:
-    rev[3] = 1         // 10 revolution
+    /*rev[3] = 10         // 10 revolution
              * 200      // 200 full stepper pulse per revolution
              * 16       // microStepping #
-             ;       
-    //rev[3] = -65535; // 不停的轉
+             ;       */
+    rev[3] = -65535; // 不停的轉
     // speed
     // 200*16 pulse/rev *0.65535/1000,  1 cycle/time
     // 以每秒一圈來算 每秒要送幾個pulse
@@ -314,6 +319,7 @@ int main(void)
 	memcpy(&switch_in,
 	       wou_reg_ptr(&w_param, GPIO_BASE + GPIO_IN), 2);
 
+        printf("switch_in(0x%02X\n",switch_in);
         wou_status (&w_param);  // print out tx/rx data rate
 
 	// if ((i % 4) == 0) {
