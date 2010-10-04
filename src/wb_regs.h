@@ -14,11 +14,14 @@
  *                                                let CPLD control the USB ports.
  * RESERVED       [ 7: 2]   0x0000
  * GPIO_LEDS      [ 7: 0]   0x0001        W       drive the 7i43 LEDS
- * GPIO_LEDS_SEL  [ 1: 0]   0x0002        W       LED source selection
- *                                                GPIO_LEDS_SEL.[1:0] :
- *                                                2'b00: gpio_leds[7:0]
- *                                                2'b01: servo_if pulse output
- *                                                2'b10: debug_port_0
+ * GPIO_LEDS_SEL  [ 2: 0]   0x0002        W       LED source selection
+ *                                                GPIO_LEDS_SEL.[2:0] :
+ *                                                3'h0: gpio_leds[7:0]
+ *                                                3'h1: servo_if pulse output
+ *                                                3'h2: debug_port_0
+ *                                                3'h3: gpio_out[7:0]
+ *                                                3'h4: gpio_in[7:0]
+ *                                                4'h5: gpio_in[15:8]
  * GPIO_OUT       [ 7: 0]   0x0003        W       drive the 7i37 out ports
  * GPIO_MASK_IN0  [ 7: 0]   0x0004        W       mask for input bits [7:0]
  * GPIO_MASK_IN1  [ 7: 0]   0x0005        W       mask for input bits [15:8]
@@ -83,6 +86,7 @@
  *******************************************************************************
  * REG_NAME             ADDR_OFFSET   ACCESS  DESCRIPTION
  * SSIF_PULSE_TYPE      0x0000        W       (0x00       )   (0)AB_PHASE  (1)STEP_DIR
+ * SSIF_ENC_TYPE        0x0001        W       (0x01       )   (0)w/o (1)with encoder
  * SSIF_LOAD_POS        0x0002        W       (0x02 ~ 0x03)   load SWITCH & INDEX with PULSE(stepper) or ENC(servo) 
  *                                                            positions for homing
  *                                                (11:0)[i]   set to 1 by SW to load SWITCH and INDEX position
@@ -185,10 +189,13 @@
 #define GPIO_SOFT_RST   0x01    // GPIO_SYSTEM.[0]
 #define GPIO_RECONFIG   0x02    // GPIO_SYSTEM.[1]
 #define GPIO_LEDS       0x0001  // GPIO_LEDS.[7:0]
-#define GPIO_LEDS_SEL   0x0002  // GPIO_LEDS_SEL.[1:0] :
-                                //  2'b00: select gpio_leds[7:0]
-                                //  2'b01: select servo_if pulse output
-                                //  2'b10: select debug_port_0
+#define GPIO_LEDS_SEL   0x0002  // GPIO_LEDS_SEL.[2:0] :
+                                //  3'h0: gpio_leds[7:0]
+                                //  3'h1: servo_if pulse output
+                                //  3'h2: debug_port_0
+                                //  3'h3: gpio_out[7:0]
+                                //  3'h4: gpio_in[7:0]
+                                //  4'h5: gpio_in[15:8]
 #define GPIO_OUT        0x0003  // GPIO_OUT.[7:0]
 #define GPIO_MASK_IN0   0x0004  // mask for input bits [7:0], reset to 0x00
 #define GPIO_MASK_IN1   0x0005  // mask for input bits [15:8], reset to 0x00
@@ -250,6 +257,7 @@
 #define SSIF_PULSE_TYPE 0x0000  // W(0x00       )   (0)AB_PHASE  (1)STEP_DIR
 #define PTYPE_AB_PHASE    0x00
 #define PTYPE_STEP_DIR    0x01
+#define SSIF_ENC_TYPE   0x0001  // W(0x01       )   (0)w/o  (1)with encoder
 #define SSIF_LOAD_POS   0x0002  // W(0x02 ~ 0x03)   load SWITCH & INDEX with PULSE(stepper) or ENC(servo) 
                                 //                  positions for homing
                                 //      (11:0)[i]   set to 1 by SW to load SWITCH and INDEX position
