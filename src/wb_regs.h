@@ -47,7 +47,6 @@
  *    WDOG_EN           0x05.0        W       WatchDOG timer (1)enable (0)disable
  *                                            FPGA will reset if there's no WOU packets comming from HOST
  *    SSIF_EN           0x05.1        W       Servo/Stepper Interface Enable
- *    RST               0x05.2        W       Reset JCMD (TODO: seems not necessary)
  * RESERVED             0x06 
  * RESERVED               ~ 
  * RESERVED             0x17
@@ -73,6 +72,7 @@
  *                                                LOW(000), HIGH(001), FALL(010), RISE(011)
  *                                                LOW_TIMEOUT(100),HIGH_TIMEOUT(101), FALL_TIMEOUT(110),RISE_TIMEOUT(111)
  *    SYNC_ST     4'b0110         {VAL}           VAL[12:0] timeout ticks
+ *    SYNC_PC     4'b1000
  *    SYNC_AIO    4'b011.          ... TODO      
  *    NUM_JNT                      ... TODO
  *    Write 2nd byte of SYNC_CMD[] will push it into JCMD_FIFO. 
@@ -211,7 +211,7 @@
                                 // default value: 30 (3 seconds)
 // #define RESERVED     0x0003  
 // #define RESERVED     0x0004  
-#define JCMD_CTRL       0x0005  // [2:0]: {RST, SSIF_EN, WDOG_EN}
+#define JCMD_CTRL       0x0005  // [1:0]: {SSIF_EN, WDOG_EN}
 // #define RESERVED     0x0006  ~  0x0017
 #define OR32_PROG       0x0018  // 0x18 ~ 0x1F, 4 bytes of ADDR and 4 bytes of DATA
                                 // Write to 0x1F to program OR32.SRAM when (OR32_EN == 0)
@@ -231,6 +231,8 @@
 #define SYNC_DIN        0x5000
 #define SYNC_ST         0x6000
 #define SYNC_TIMEOUT_MASK    0x0FFF  // mask for valid bits timeout
+#define SYNC_PC         0x8000
+#define SYNC_POS_COMP_EN(i) (0x0001&i)
 //#define SYNC_AOUT       0x6000 // or 0x7000
 //#define SYNC_AIN        0xE000
 #define SYNC_IO_ID(i)   ((i & 0x3F) << 6)
