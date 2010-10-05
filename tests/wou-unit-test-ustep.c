@@ -248,7 +248,7 @@ int main(void)
     for (i = 0;; i++) {
         // enable position compensation  control
         //
-        sync_cmd[0] = SYNC_PC | SYNC_POS_COMP_EN(1);
+        sync_cmd[0] = SYNC_PC| POS_COMP_REF(1500) | SYNC_COMP_EN(1);
         wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD),
                     sizeof(uint16_t), sync_cmd);
 	// JCMD_POS and JCMD_DIR (little-endian, byte-0 is LSB)

@@ -232,9 +232,10 @@
 #define SYNC_ST         0x6000
 #define SYNC_TIMEOUT_MASK    0x0FFF  // mask for valid bits timeout
 #define SYNC_PC         0x8000
-#define SYNC_POS_COMP_EN(i) (0x0001&i)
+#define SYNC_COMP_EN(i) (0x0001&i)
 //#define SYNC_AOUT       0x6000 // or 0x7000
 //#define SYNC_AIN        0xE000
+#define POS_COMP_REF(t) ((0x07FF&t) << 1)
 #define SYNC_IO_ID(i)   ((i & 0x3F) << 6)
 #define SYNC_DO_VAL(v)  ((v & 0x01) << 0)
 #define SYNC_DI_TYPE(t) ((t & 0x07) << 0) // support LOW and HIGH ONLY, TODO: support FALL and RISE
