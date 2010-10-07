@@ -11,6 +11,48 @@
 #define WORDS_PER_LINE 8
 #define BYTES_PER_WORD 4
 
+FILE *mbox_fp;
+static uint32_t pulse_pos_tmp[4];
+static uint32_t enc_pos_tmp[4];
+static void mailbox_cb(const uint8_t *buf_head)
+{
+    int i;
+    uint16_t mail_tag;
+    uint32_t pos;
+    uint32_t *p;
+
+    // fprintf (stderr, "USTEP::MAILBOX: ");
+    // for (i=0; i < (1 + buf_head[0] + CRC_SIZE); i++) {
+    //     fprintf (stderr, "<%.2X>", buf_head[i]);
+    // }
+    // fprintf (stderr, "\n");
+
+    memcpy(&mail_tag, (buf_head + 2), sizeof(uint16_t));
+    fprintf (mbox_fp, "mail_tag(0x%04X)\n", mail_tag);
+    if (mail_tag == 0x0001) {
+        // for (i=4; i<(1 + buf_head[0] + CRC_SIZE - 4); i+=8) {
+        //     // memcpy(&pos, (buf_head + i), sizeof(uint32_t));
+        //     // fprintf (stderr, "J[%d]: pulse_pos(0x%08X) ", (i-4)/8, pos);
+        //     p = (uint32_t *) (buf_head + i);
+        //     fprintf (mbox_fp, "J[%d]: pulse_pos(0x%08X) ", (i-4)/8, *p);
+        //     memcpy(&pos, (buf_head + i + 4), sizeof(uint32_t));
+        //     fprintf (mbox_fp, "enc_pos(0x%08X)\n", pos);
+        // }
+
+        for (i=0; i<4; i++) {
+            p = (uint32_t *) (buf_head + 4 + i*8);
+            fprintf (mbox_fp, "J[%d]: pulse_pos(0x%08X) ", i, *p);
+            pulse_pos_tmp[i] = *p;
+            p = (uint32_t *) (buf_head + 4 + i*8 + 4);
+            fprintf (mbox_fp, "enc_pos(0x%08X)\n", *p);
+            enc_pos_tmp[i] = *p;
+        }
+
+    }
+
+}
+
+
 static void diff_time(struct timespec *start, struct timespec *end,
 		      struct timespec *diff)
 {
@@ -83,7 +125,8 @@ int main(void)
     // wou_init(): setting fpga board parameters
 //    wou_init(&w_param, "7i43u", 0, "./stepper_top.bit");
 
-    wou_init(&w_param, "7i43u", 0, "./plasma_top.bit");
+    // wou_init(&w_param, "7i43u", 0, "./plasma_top.bit");
+    wou_init(&w_param, "7i43u", 0, "./servo_top.bit");
     // wou_connect(): programe fpga with given "<fpga>.bit"
     if (wou_connect(&w_param) == -1) {
 	printf("ERROR Connection failed\n");
@@ -92,6 +135,10 @@ int main(void)
     printf("after programming FPGA with ./plasma_top.bit ...\n");
 
     wou_prog_risc(&w_param, "./plasma.bin");
+    // wou_prog_risc(&w_param, "./mailbox.bin");
+    
+    mbox_fp = fopen ("./mbox.log", "w");
+    wou_set_mbox_cb (&w_param, mailbox_cb);
 
     printf("** UNIT TESTING **\n");
 
@@ -130,6 +177,28 @@ int main(void)
     wou_flush(&w_param);
     // printf("send a wou-frame ... press key ...\n");
     // getchar();
+
+
+
+    //begin: ADC_SPI
+    // set ADC_SPI_SCK_NR to generate 19 SPI_SCK pulses
+    data[0] = 19; 
+    wou_cmd (&w_param, WB_WR_CMD, (uint16_t) (SPI_BASE | ADC_SPI_SCK_NR), 
+                        (uint8_t) 1, data);
+    
+    // enable ADC_SPI with LOOP mode
+    // ADC_SPI_CMD: 0x10: { (1)START_BIT,
+    //                      (0)Differential mode,
+    //                      (0)D2 ... dont care,
+    //                      (0)D1 ... Ch0 = IN+,
+    //                      (0)D2 ... CH1 = IN-   }
+    data[0] = ADC_SPI_EN_MASK | ADC_SPI_LOOP_MASK | (ADC_SPI_CMD_MASK & 0x10);
+    wou_cmd (&w_param, WB_WR_CMD, (uint16_t) (SPI_BASE | ADC_SPI_CTRL), 
+                        (uint8_t) 1, data);
+    //end: ADC_SPI
+    
+
+
 
     //begin: set SSIF_PULSE_TYPE as STEP_DIR (default is AB_PHASE)
     value = PTYPE_STEP_DIR;
@@ -319,40 +388,45 @@ int main(void)
 	memcpy(&switch_in,
 	       wou_reg_ptr(&w_param, GPIO_BASE + GPIO_IN), 2);
 
-        printf("switch_in(0x%02X\n",switch_in);
+        // printf("switch_in(0x%02X\n",switch_in);
         wou_status (&w_param);  // print out tx/rx data rate
 
-	// if ((i % 4) == 0) {
-            // replace "bp_reg_update":
-            // send WB_RD_CMD to read registers back
-            wou_cmd (&w_param,
-                     WB_RD_CMD,
-                     (SSIF_BASE | SSIF_PULSE_POS),
-                     16,
-                     data);
-            
-            wou_cmd (&w_param,
-                     WB_RD_CMD,
-                     (GPIO_BASE | GPIO_IN),
-                     2,
-                     data);
+ 	if ((i % 2) == 0) {
+             // replace "bp_reg_update":
+             // send WB_RD_CMD to read registers back
+             wou_cmd (&w_param,
+                      WB_RD_CMD,
+                      (SSIF_BASE | SSIF_PULSE_POS),
+                      16,
+                      data);
+             
+             wou_cmd (&w_param,
+                      WB_RD_CMD,
+                      (GPIO_BASE | GPIO_IN),
+                      2,
+                      data);
+ 
+             wou_cmd (&w_param,
+                      WB_RD_CMD,
+                      (SSIF_BASE | SSIF_SWITCH_POS),
+                      16,
+                      data);
+             
+             wou_cmd (&w_param,
+                      WB_RD_CMD,
+                      (SSIF_BASE | SSIF_INDEX_POS),
+                      16,
+                      data);
+ 	
+ 	    // wou_flush(&w_param);
+ 	    // debug:
+ 	    // printf("send a wou-frame ... press key ...\n"); getchar();
+ 	}
 
-            wou_cmd (&w_param,
-                     WB_RD_CMD,
-                     (SSIF_BASE | SSIF_SWITCH_POS),
-                     16,
-                     data);
-            
-            wou_cmd (&w_param,
-                     WB_RD_CMD,
-                     (SSIF_BASE | SSIF_INDEX_POS),
-                     16,
-                     data);
-	
-	    // wou_flush(&w_param);
-	    // debug:
-	    // printf("send a wou-frame ... press key ...\n"); getchar();
-	// }
+        // we NEED this wou_flush(), otherwise libwou will get into
+        // grid-lock state easily. (one possible reason is that tx-size
+        // getting too big)
+        wou_flush(&w_param);
     }
 
     wou_flush(&w_param);

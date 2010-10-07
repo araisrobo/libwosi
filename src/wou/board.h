@@ -110,6 +110,8 @@ typedef struct wouf_struct {
     uint8_t     use;
 } wouf_t;
 
+// typedef void (*wou_mailbox_cb_fn)(const uint8_t *buf_head);
+
 /**
  * wou_t - circular buffer to keep track of wou packets
  * //obsolete: @frame_id:     // frame_id (appeared at 1st WOU packet: FF00<frame_id>00)
@@ -149,6 +151,8 @@ typedef struct wou_struct {
   uint8_t     Sn;
   uint8_t     Sb;    
   uint8_t     Sm;    
+  // MAILBOX callback functional pointer
+  libwou_mailbox_cb_fn mbox_callback;
 } wou_t;
 
 //

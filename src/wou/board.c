@@ -73,6 +73,7 @@ information, go to www.linuxcnc.org.
 
 #include "wb_regs.h"
 #include "bitfile.h"
+#include "wou.h"
 #include "board.h"
 
 // to disable DP(): #define TRACE 1
@@ -422,7 +423,8 @@ int board_init (board_t* board, const char* device_type, const int device_id,
     DP ("chip_type(%s)\n", board->chip_type);
    
     board->wou = (wou_t *) malloc (sizeof(wou_t));
-    
+    board->wou->mbox_callback = NULL;
+
     // for calculating TX_TIMEOUT:
     clock_gettime(CLOCK_REALTIME, &time_send_begin);
     gbn_init (board);
@@ -839,11 +841,15 @@ static int wouf_parse (board_t* b, const uint8_t *buf_head)
         // TODO: implement a callback function that could process 
         //       buf_head[] for MAILBOX
 
-        fprintf (stderr, "DEBUG: MAILBOX: ");
-        for (i=0; i < (1 + buf_head[0] + CRC_SIZE); i++) {
-            fprintf (stderr, "<%.2X>", buf_head[i]);
+        // fprintf (stderr, "DEBUG: MAILBOX: ");
+        // for (i=0; i < (1 + buf_head[0] + CRC_SIZE); i++) {
+        //     fprintf (stderr, "<%.2X>", buf_head[i]);
+        // }
+        // fprintf (stderr, "\n");
+
+        if (b->wou->mbox_callback) {
+            b->wou->mbox_callback(buf_head);
         }
-        fprintf (stderr, "\n");
 
         return (0);
     }

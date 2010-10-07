@@ -133,6 +133,14 @@ int wou_prog_risc(wou_param_t *w_param, const char *binfile)
 	return ret;
 }
 
+/* set wou mailbox callback function */
+void wou_set_mbox_cb (wou_param_t *w_param, libwou_mailbox_cb_fn callback)
+{
+    w_param->board->wou->mbox_callback = callback;
+    return;
+}
+
+
 /**
  * wou_connect_usb - Establishes a wou USB connection 
  *                   Program FPGA via USB if bitfile is provided

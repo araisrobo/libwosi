@@ -41,6 +41,8 @@ typedef struct {
         struct board* board;
 } wou_param_t;
 
+typedef void (*libwou_mailbox_cb_fn)(const uint8_t *buf_head);
+
 /**
  * type: READ/WRITE, AI/FIFO
  **/
@@ -87,6 +89,11 @@ void wou_close (wou_param_t *w_param);
 
 /* prog risc core */
 int wou_prog_risc(wou_param_t *w_param, const char *binfile);
+
+/* set wou mailbox callback function */
+void wou_set_mbox_cb (wou_param_t *w_param, libwou_mailbox_cb_fn callback);
+
+
 #ifdef __cplusplus
 }
 #endif
