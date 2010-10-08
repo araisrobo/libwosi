@@ -336,6 +336,10 @@ int main(void)
             // DIR_P: Direction, (positive(1), negative(0))
             // POS_MASK: relative position mask
             sync_cmd[j] = SYNC_JNT | DIR_P | (POS_MASK & k);
+            // for THC test, make Z axis at the same position
+            if(j==2 ) {
+                sync_cmd[j] = SYNC_JNT | DIR_P | (POS_MASK & 0);
+            }
             memcpy (data+j*sizeof(uint16_t), &(sync_cmd[j]), sizeof(uint16_t));
 	}
 
