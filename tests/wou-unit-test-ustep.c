@@ -107,25 +107,25 @@ int main(void)
                 sizeof(uint16_t), data);
     }
     // position compensation enable
-    {
-        uint16_t sync_cmd;
-        uint32_t immediate_data;
-        uint32_t i;
-        immediate_data = 2200; // ref voltage 2.2 V
-        // transmit immediate data
-        for(i=0; i<sizeof(uint32_t); i++) {
-            sync_cmd = SYNC_DATA | ((uint8_t *)&immediate_data)[i];
-            memcpy(data, &sync_cmd, sizeof(uint16_t));
-            wou_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), 
-                    sizeof(uint16_t), data);
-        }
-        sync_cmd = SYNC_PC | SYNC_COMP_EN(1);
-        memcpy(data, &sync_cmd, sizeof(uint16_t));
-        wou_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), 
-                sizeof(uint16_t), data);
-    }
+   //plasma pid: {
+   //plasma pid:     uint16_t sync_cmd;
+   //plasma pid:     uint32_t immediate_data;
+   //plasma pid:     uint32_t i;
+   //plasma pid:     immediate_data = 0x000006f4; // ref voltage 2.2 V
+   //plasma pid:     // transmit immediate data
+   //plasma pid:     for(i=0; i<sizeof(uint32_t); i++) {
+   //plasma pid:         sync_cmd = SYNC_DATA | ((uint8_t *)&immediate_data)[i];
+   //plasma pid:         memcpy(data, &sync_cmd, sizeof(uint16_t));
+   //plasma pid:         wou_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), 
+   //plasma pid:                 sizeof(uint16_t), data);
+   //plasma pid:     }
+   //plasma pid:     sync_cmd = SYNC_PC | SYNC_COMP_EN(1);
+   //plasma pid:     memcpy(data, &sync_cmd, sizeof(uint16_t));
+   //plasma pid:     wou_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), 
+   //plasma pid:             sizeof(uint16_t), data);
+   //plasma pid: }
 
-// end: setup risc
+// //end: setup risc
 
     printf("** UNIT TESTING **\n");
 
@@ -235,14 +235,36 @@ int main(void)
                         
     accel[1] = 0.01;
     
-    // rev[2] = 0;
-    rev[2]      = -65535;       // RUN-forever
-    speed[2]    = 100           // 100 full stepper pulse per seconds
-                  / 4           // 4 full stepper pulse == 1 sine/cosine cycle (2PI)
-                  * 1024        // sine/cosine LUT theta resolution
-                  / (1000/0.65535); // base_period is 0.65535ms
+   // // rev[2] = 0;
+   // rev[2]      = -65535;       // RUN-forever
+   // speed[2]    = 100           // 100 full stepper pulse per seconds
+   //               / 4           // 4 full stepper pulse == 1 sine/cosine cycle (2PI)
+   //               * 1024        // sine/cosine LUT theta resolution
+   //               / (1000/0.65535); // base_period is 0.65535ms
+   // accel[2] = 0.01;
+   
+
+
+    /*rev[2] = 10         // 10 revolution
+             * 200      // 200 full stepper pulse per revolution
+             * 16       // microStepping #
+             ;       */
+    rev[2] = -65535; // 不停的轉
+    // speed
+    // 200*16 pulse/rev *0.65535/1000,  1 cycle/time
+    // 以每秒一圈來算 每秒要送幾個pulse
+    // 一圈pulse數量16*200
+    // 就是每秒要送3200
+    // 那每個 servo time 0.65535ms 送出的pulse數為
+    // 200*16*1000/0.65535
+    speed[2] = 0       // MAX_PWM=200, stable@800, unstable@900 full stepper pulse per seconds
+             * 16         // microStepping #
+             / (1000/0.65535); // base_period is 0.65535ms
+ 
     accel[2] = 0.01;
-    
+
+
+
 //7i32:    rev[3] = 10         // 10 revolution
 //7i32:             * 200      // 200 full stepper pulse per revolution
 //7i32:             / 4        // 4 full stepper pulse == 1 sine/cosine cycle (2PI)
@@ -336,13 +358,12 @@ int main(void)
             // DIR_P: Direction, (positive(1), negative(0))
             // POS_MASK: relative position mask
             sync_cmd[j] = SYNC_JNT | DIR_P | (POS_MASK & k);
-            // for THC test, make Z axis at the same position
-            if(j==2 ) {
-                sync_cmd[j] = SYNC_JNT | DIR_P | (POS_MASK & 0);
-            }
+            //plasma pid:// for THC test, make Z axis at the same position
+            //plasma pid:if(j==2 ) {
+            //plasma pid:    sync_cmd[j] = SYNC_JNT | DIR_P | (POS_MASK & 0);
+            //plasma pid:}
             memcpy (data+j*sizeof(uint16_t), &(sync_cmd[j]), sizeof(uint16_t));
 	}
-
 	wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD), 
                 j*sizeof(uint16_t), data); // j axes
 	
@@ -358,14 +379,15 @@ int main(void)
 		   wou_reg_ptr(&w_param, SSIF_BASE + SSIF_ENC_POS + j * 4),
 		   4);
 	}
-        for (j =0; j < 4; j++) {
-            fprintf(stderr,"enc_pos[%d](%11u)", j, enc_pos[j]);
-        }
-        fprintf(stderr,"\n");
+
+        //plasma pid:for (j =0; j < 4; j++) {
+        //plasma pid:    fprintf(stderr,"pulse_pos[%d](%04X) ", j, pulse_cmd[j]);
+        //plasma pid:}
+        //plasma pid:fprintf(stderr,"\n");
 	memcpy(&switch_in,
 	       wou_reg_ptr(&w_param, GPIO_BASE + GPIO_IN), 2);
 
-        printf("switch_in(0x%02X\n",switch_in);
+        //printf("switch_in(0x%02X\n",switch_in);
         wou_status (&w_param);  // print out tx/rx data rate
 
 	// if ((i % 4) == 0) {
@@ -376,7 +398,6 @@ int main(void)
                      (SSIF_BASE | SSIF_PULSE_POS),
                      16,
                      data);
-            
             wou_cmd (&w_param,
                      WB_RD_CMD,
                      (GPIO_BASE | GPIO_IN),
