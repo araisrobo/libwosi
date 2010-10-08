@@ -14,7 +14,7 @@
 FILE *mbox_fp;
 static uint32_t pulse_pos_tmp[4];
 static uint32_t enc_pos_tmp[4];
-static void mailbox_cb(const uint8_t *buf_head)
+static void fetchmail(const uint8_t *buf_head)
 {
     int i;
     uint16_t mail_tag;
@@ -38,7 +38,8 @@ static void mailbox_cb(const uint8_t *buf_head)
         //     memcpy(&pos, (buf_head + i + 4), sizeof(uint32_t));
         //     fprintf (mbox_fp, "enc_pos(0x%08X)\n", pos);
         // }
-
+        
+        // PULSE_POS and ENC_POS
         for (i=0; i<4; i++) {
             p = (uint32_t *) (buf_head + 4 + i*8);
             fprintf (mbox_fp, "J[%d]: pulse_pos(0x%08X) ", i, *p);
@@ -47,7 +48,10 @@ static void mailbox_cb(const uint8_t *buf_head)
             fprintf (mbox_fp, "enc_pos(0x%08X)\n", *p);
             enc_pos_tmp[i] = *p;
         }
-
+        
+        // ADC_SPI
+        p = (uint32_t *) (buf_head + 4 + 4*8);
+        fprintf (mbox_fp, "adc_spi(0x%08X)\n", *p);
     }
 
 }
@@ -125,8 +129,9 @@ int main(void)
     // wou_init(): setting fpga board parameters
 //    wou_init(&w_param, "7i43u", 0, "./stepper_top.bit");
 
-    // wou_init(&w_param, "7i43u", 0, "./plasma_top.bit");
-    wou_init(&w_param, "7i43u", 0, "./servo_top.bit");
+    wou_init(&w_param, "7i43u", 0, "./plasma_top.bit");
+    // wou_init(&w_param, "7i43u", 0, "./servo_top.bit");
+
     // wou_connect(): programe fpga with given "<fpga>.bit"
     if (wou_connect(&w_param) == -1) {
 	printf("ERROR Connection failed\n");
@@ -138,7 +143,7 @@ int main(void)
     // wou_prog_risc(&w_param, "./mailbox.bin");
     
     mbox_fp = fopen ("./mbox.log", "w");
-    wou_set_mbox_cb (&w_param, mailbox_cb);
+    wou_set_mbox_cb (&w_param, fetchmail);
 
     printf("** UNIT TESTING **\n");
 
