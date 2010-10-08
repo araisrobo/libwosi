@@ -446,14 +446,14 @@ int main(void)
 	// obtain base_period updated wou registers
 	wou_update(&w_param);
 
-	for (j = 0; j < 4; j++) {
-	    memcpy((pulse_cmd + j),
-		   wou_reg_ptr(&w_param,
-			       SSIF_BASE + SSIF_PULSE_POS + j * 4), 4);
-	    memcpy((enc_pos + j),
-		   wou_reg_ptr(&w_param, SSIF_BASE + SSIF_ENC_POS + j * 4),
-		   4);
-	}
+	// for (j = 0; j < 4; j++) {
+	//     memcpy((pulse_cmd + j),
+	// 	   wou_reg_ptr(&w_param,
+	// 		       SSIF_BASE + SSIF_PULSE_POS + j * 4), 4);
+	//     memcpy((enc_pos + j),
+	// 	   wou_reg_ptr(&w_param, SSIF_BASE + SSIF_ENC_POS + j * 4),
+	// 	   4);
+	// }
 
         //plasma pid:for (j =0; j < 4; j++) {
         //plasma pid:    fprintf(stderr,"pulse_pos[%d](%04X) ", j, pulse_cmd[j]);
@@ -468,11 +468,11 @@ int main(void)
  	if ((i % 2) == 0) {
              // replace "bp_reg_update":
              // send WB_RD_CMD to read registers back
-             wou_cmd (&w_param,
-                      WB_RD_CMD,
-                      (SSIF_BASE | SSIF_PULSE_POS),
-                      16,
-                      data);
+             //replaced by MAILBOX: wou_cmd (&w_param,
+             //replaced by MAILBOX:          WB_RD_CMD,
+             //replaced by MAILBOX:          (SSIF_BASE | SSIF_PULSE_POS),
+             //replaced by MAILBOX:          16,
+             //replaced by MAILBOX:          data);
              
              wou_cmd (&w_param,
                       WB_RD_CMD,

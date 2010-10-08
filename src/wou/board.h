@@ -86,7 +86,8 @@ static const _Ftstat Ftstat[] = {
 // to prevent from pending because of too large RX_CHUNK_SIZE: 
 //will_kill_mailbox: #define RX_CHUNK_SIZE   512
 //will_kill_mailbox: #define RX_BURST_MIN    256
-#define RX_CHUNK_SIZE   2048
+//kill_mailbox? #define RX_CHUNK_SIZE   2048
+#define RX_CHUNK_SIZE   512
 #define RX_BURST_MIN    32
 // #define RX_CHUNK_SIZE   4096
 // #define RX_BURST_MIN    512
