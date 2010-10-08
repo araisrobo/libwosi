@@ -70,11 +70,6 @@ int main(void)
     struct timespec time1, time2, dt;
     int ss, mm, hh, prev_ss;
 
-    /* for prog or32 */
-    FILE  *fd;
-    int c/*, i*/;
-    uint32_t image_size;
-
     // Counters keeping track of what we've printed
     uint32_t current_addr;
     uint32_t byte_counter;
@@ -92,11 +87,49 @@ int main(void)
     printf("after programming FPGA with ./plasma_top.bit ...\n");
 
     wou_prog_risc(&w_param, "./plasma.bin");
+// begin: setup risc
+   // setup sync timeout
+    {
+        uint16_t sync_cmd;
+        uint32_t immediate_data;
+        uint32_t i;
+        immediate_data = 153*1000; // ticks about 0.6 sec
+        // transmit immediate data
+        for(i=0; i<sizeof(uint32_t); i++) {
+            sync_cmd = SYNC_DATA | ((uint8_t *)&immediate_data)[i];
+            memcpy(data, &sync_cmd, sizeof(uint16_t));
+            wou_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), 
+                    sizeof(uint16_t), data);
+        }
+        sync_cmd = SYNC_ST; 
+        memcpy(data, &sync_cmd, sizeof(uint16_t));
+        wou_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), 
+                sizeof(uint16_t), data);
+    }
+    // position compensation enable
+    {
+        uint16_t sync_cmd;
+        uint32_t immediate_data;
+        uint32_t i;
+        immediate_data = 2200; // ref voltage 2.2 V
+        // transmit immediate data
+        for(i=0; i<sizeof(uint32_t); i++) {
+            sync_cmd = SYNC_DATA | ((uint8_t *)&immediate_data)[i];
+            memcpy(data, &sync_cmd, sizeof(uint16_t));
+            wou_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), 
+                    sizeof(uint16_t), data);
+        }
+        sync_cmd = SYNC_PC | SYNC_COMP_EN(1);
+        memcpy(data, &sync_cmd, sizeof(uint16_t));
+        wou_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), 
+                sizeof(uint16_t), data);
+    }
+
+// end: setup risc
 
     printf("** UNIT TESTING **\n");
 
     printf("\nTEST JCMD WRITE/READ:\n");
-
     /** WISHBONE REGISTERS **/
     
     // GPIO: mask for input bits [7:0] [15:8]
@@ -246,11 +279,11 @@ int main(void)
     
     sync_do_val = 0;
     for (i = 0;; i++) {
-        // enable position compensation  control
-        //
-        sync_cmd[0] = SYNC_PC| POS_COMP_REF(1500) | SYNC_COMP_EN(1);
-        wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD),
-                    sizeof(uint16_t), sync_cmd);
+// wait fix:       // enable position compensation  control
+// wait fix        //
+// wait fix        sync_cmd[0] = SYNC_PC| POS_COMP_REF(1500) | SYNC_COMP_EN(1);
+// wait fix        wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD),
+// wait fix                    sizeof(uint16_t), sync_cmd);
 	// JCMD_POS and JCMD_DIR (little-endian, byte-0 is LSB)
         
         // SYNC_DOUT
@@ -321,6 +354,10 @@ int main(void)
 		   wou_reg_ptr(&w_param, SSIF_BASE + SSIF_ENC_POS + j * 4),
 		   4);
 	}
+        for (j =0; j < 4; j++) {
+            fprintf(stderr,"enc_pos[%d](%11u)", j, enc_pos[j]);
+        }
+        fprintf(stderr,"\n");
 	memcpy(&switch_in,
 	       wou_reg_ptr(&w_param, GPIO_BASE + GPIO_IN), 2);
 
