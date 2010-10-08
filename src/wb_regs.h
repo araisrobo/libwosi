@@ -71,8 +71,10 @@
  *                                                TYPE[2:0]: 
  *                                                LOW(000), HIGH(001), FALL(010), RISE(011)
  *                                                LOW_TIMEOUT(100),HIGH_TIMEOUT(101), FALL_TIMEOUT(110),RISE_TIMEOUT(111)
- *    SYNC_ST     4'b0110         {VAL}           VAL[12:0] timeout ticks
- *    SYNC_PC     4'b1000
+ *    SYNC_ST     4'b0110         {}              Acknowledge of timeout modified.
+ *                                                Parser should load immediate data as the timeout.
+ *    SYNC_PC     4'b1000         {EN}            EN[0]: 1: enable 0: disable  position compensation
+ *    SYNC_DATA   4'b1100         {VAL}           VAL[7:0]
  *    SYNC_AIO    4'b011.          ... TODO      
  *    NUM_JNT                      ... TODO
  *    Write 2nd byte of SYNC_CMD[] will push it into JCMD_FIFO. 
@@ -229,13 +231,13 @@
 #define POS_MASK        0x1FFF  // + SYNC_JNT: [12:0] relative position mask
 #define SYNC_DOUT       0x4000
 #define SYNC_DIN        0x5000
-#define SYNC_ST         0x6000
-#define SYNC_TIMEOUT_MASK    0x0FFF  // mask for valid bits timeout
-#define SYNC_PC         0x8000
+#define SYNC_ST         0x6000  // Set timeout
+#define SYNC_PC         0x8000  // Set position compensation enable
+#define SYNC_DATA       0xC000  // Transmit immediate data
 #define SYNC_COMP_EN(i) (0x0001&i)
 //#define SYNC_AOUT       0x6000 // or 0x7000
 //#define SYNC_AIN        0xE000
-#define POS_COMP_REF(t) ((0x07FF&t) << 1)
+//#define POS_COMP_REF(t) ((0x07FF&t) << 1)
 #define SYNC_IO_ID(i)   ((i & 0x3F) << 6)
 #define SYNC_DO_VAL(v)  ((v & 0x01) << 0)
 #define SYNC_DI_TYPE(t) ((t & 0x07) << 0) // support LOW and HIGH ONLY, TODO: support FALL and RISE
@@ -248,8 +250,12 @@
 //                                                           TODO HIGH_TIMEOUT(101)
 //                                                           TODO FALL_TIMEOUT(110)
 //                                                           TODO RISE_TIMEOUT(111)
-#define SYNC_ST_VAL(t)  ((t & 0x0FFF) << 0)
-//    SYNC_ST     4'b0110         {VAL}           VAL[12:0] timeout ticks
+#define WAIT_LOW  0x04
+#define WAIT_HIGH 0x05
+#define WAIT_FALL 0x06
+#define WAIT_RISE 0x07
+
+#define SYNC_DATA_VAL(t) ((t & 0xFF) << 0)
 // end: SYNC_CMD format
 
 // (0x40 ~ 0x7F) RESERVED
