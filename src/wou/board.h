@@ -84,7 +84,8 @@ static const _Ftstat Ftstat[] = {
 #define TX_BURST_MAX    512
 #define TX_CHUNK_SIZE   512
 // to prevent from pending because of too large RX_CHUNK_SIZE: 
-#define RX_CHUNK_SIZE   512
+// #define RX_CHUNK_SIZE   512
+#define RX_CHUNK_SIZE   2048
 #define RX_BURST_MIN    256
 // #define RX_CHUNK_SIZE   4096
 // #define RX_BURST_MIN    512
