@@ -30,27 +30,22 @@ static void fetchmail(const uint8_t *buf_head)
     memcpy(&mail_tag, (buf_head + 2), sizeof(uint16_t));
     fprintf (mbox_fp, "mail_tag(0x%04X)\n", mail_tag);
     if (mail_tag == 0x0001) {
-        // for (i=4; i<(1 + buf_head[0] + CRC_SIZE - 4); i+=8) {
-        //     // memcpy(&pos, (buf_head + i), sizeof(uint32_t));
-        //     // fprintf (stderr, "J[%d]: pulse_pos(0x%08X) ", (i-4)/8, pos);
-        //     p = (uint32_t *) (buf_head + i);
-        //     fprintf (mbox_fp, "J[%d]: pulse_pos(0x%08X) ", (i-4)/8, *p);
-        //     memcpy(&pos, (buf_head + i + 4), sizeof(uint32_t));
-        //     fprintf (mbox_fp, "enc_pos(0x%08X)\n", pos);
-        // }
+        // BP_TICK
+        p = (uint32_t *) (buf_head + 4);
+        fprintf (mbox_fp, "BP(%d),  ", *p);
         
         // PULSE_POS and ENC_POS
         for (i=0; i<4; i++) {
-            p = (uint32_t *) (buf_head + 4 + i*8);
+            p = (uint32_t *) (buf_head + 8 + i*8);
             fprintf (mbox_fp, "J[%d]: pulse_pos(0x%08X) ", i, *p);
             pulse_pos_tmp[i] = *p;
-            p = (uint32_t *) (buf_head + 4 + i*8 + 4);
+            p = (uint32_t *) (buf_head + 8 + i*8 + 4);
             fprintf (mbox_fp, "enc_pos(0x%08X)\n", *p);
             enc_pos_tmp[i] = *p;
         }
         
         // ADC_SPI
-        p = (uint32_t *) (buf_head + 4 + 4*8);
+        p = (uint32_t *) (buf_head + 8 + 4*8);
         fprintf (mbox_fp, "adc_spi(0x%08X)\n", *p);
     }
 
