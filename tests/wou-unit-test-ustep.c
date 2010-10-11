@@ -32,7 +32,7 @@ static void fetchmail(const uint8_t *buf_head)
     if (mail_tag == 0x0001) {
         // BP_TICK
         p = (uint32_t *) (buf_head + 4);
-        fprintf (mbox_fp, "BP(%d),  ", *p);
+        fprintf (mbox_fp, "BP_TICK(%d)\n", *p);
         
         // PULSE_POS and ENC_POS
         for (i=0; i<4; i++) {
