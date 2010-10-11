@@ -43,6 +43,8 @@ static void fetchmail(const uint8_t *buf_head)
             //fprintf (mbox_fp, "J[%d]: pulse_pos(0x%08X) ", i, *p);
             fprintf (mbox_fp, "%15u", *p);
             pulse_pos_tmp[i] = *p;
+        }
+        for (i=0; i<4; i++) {
             p = (uint32_t *) (buf_head + 8 + i*8 + 4);
             fprintf(mbox_fp, "%15u", *p);
             //fprintf (mbox_fp, "enc_pos(0x%08X)\n", *p);
