@@ -14,6 +14,7 @@
 FILE *mbox_fp;
 static uint32_t pulse_pos_tmp[4];
 static uint32_t enc_pos_tmp[4];
+static uint32_t _dt = 0;
 static void fetchmail(const uint8_t *buf_head)
 {
     int i;
@@ -28,7 +29,8 @@ static void fetchmail(const uint8_t *buf_head)
     // fprintf (stderr, "\n");
 
     memcpy(&mail_tag, (buf_head + 2), sizeof(uint16_t));
-    fprintf (mbox_fp, "mail_tag(0x%04X)\n", mail_tag);
+   // fprintf (mbox_fp, "mail_tag(0x%04X)\n", mail_tag);
+    fprintf(mbox_fp,"%11u",_dt++);
     if (mail_tag == 0x0001) {
         // for (i=4; i<(1 + buf_head[0] + CRC_SIZE - 4); i+=8) {
         //     // memcpy(&pos, (buf_head + i), sizeof(uint32_t));
@@ -42,16 +44,25 @@ static void fetchmail(const uint8_t *buf_head)
         // PULSE_POS and ENC_POS
         for (i=0; i<4; i++) {
             p = (uint32_t *) (buf_head + 4 + i*8);
-            fprintf (mbox_fp, "J[%d]: pulse_pos(0x%08X) ", i, *p);
-            pulse_pos_tmp[i] = *p;
-            p = (uint32_t *) (buf_head + 4 + i*8 + 4);
-            fprintf (mbox_fp, "enc_pos(0x%08X)\n", *p);
-            enc_pos_tmp[i] = *p;
+          //  fprintf (mbox_fp, "J[%d]: pulse_pos(0x%08X) ", i, *p);
+            fprintf (mbox_fp, "%15u", *p);
+          //  pulse_pos_tmp[i] = *p;
         }
-        
+        for (i=0; i<4; i++) {
+            p = (uint32_t *) (buf_head + 4 + i*8 + 4);
+            //fprintf (mbox_fp, "enc_pos(0x%08X)\n", *p);
+            fprintf(mbox_fp, "%15u", *p);
+          //  enc_pos_tmp[i] = *p;
+        }
+
+        //DPS ("%11s%15s%15s%15s%15s%15s%15s%15s\n",
+        //                "#dt", "newaccel", "newvel", "cur_vel", "progress", "target", "dist_to_go", "tolerance");
+        //DPS("%11u%15.5f%15.5f%15.5f%15.5f%15.5f%15.5f%15.5f\n",
+                    //_dt, newaccel, newvel, tc->currentvel, tc->progress, tc->target, tc->distance_to_go, tc->toleranc
         // ADC_SPI
         p = (uint32_t *) (buf_head + 4 + 4*8);
-        fprintf (mbox_fp, "adc_spi(0x%08X)\n", *p);
+        //fprintf (mbox_fp, "adc_spi(0x%08X)\n", *p);
+        fprintf(mbox_fp,"%15u\n", p);
     }
 
 }
@@ -139,6 +150,7 @@ int main(void)
     // wou_prog_risc(&w_param, "./mailbox.bin");
     
     mbox_fp = fopen ("./mbox.log", "w");
+    fprintf(mbox_fp,"%11s%15s%15s%15s%15s%15s%15s%15s%15s%15s","#dt","j0","j1","j2","j3","e0","e1","e2","e3","adc_spi");
     wou_set_mbox_cb (&w_param, fetchmail);
 
    // setup sync timeout
@@ -160,23 +172,23 @@ int main(void)
                 sizeof(uint16_t), data);
     }
     // position compensation enable
-   //plasma pid: {
-   //plasma pid:     uint16_t sync_cmd;
-   //plasma pid:     uint32_t immediate_data;
-   //plasma pid:     uint32_t i;
-   //plasma pid:     immediate_data = 0x000006f4; // ref voltage 2.2 V
-   //plasma pid:     // transmit immediate data
-   //plasma pid:     for(i=0; i<sizeof(uint32_t); i++) {
-   //plasma pid:         sync_cmd = SYNC_DATA | ((uint8_t *)&immediate_data)[i];
-   //plasma pid:         memcpy(data, &sync_cmd, sizeof(uint16_t));
-   //plasma pid:         wou_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), 
-   //plasma pid:                 sizeof(uint16_t), data);
-   //plasma pid:     }
-   //plasma pid:     sync_cmd = SYNC_PC | SYNC_COMP_EN(1);
-   //plasma pid:     memcpy(data, &sync_cmd, sizeof(uint16_t));
-   //plasma pid:     wou_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), 
-   //plasma pid:             sizeof(uint16_t), data);
-   //plasma pid: }
+    {
+        uint16_t sync_cmd;
+        uint32_t immediate_data;
+        uint32_t i;
+        immediate_data = 0xA00; // ref voltage 2.2 V
+        // transmit immediate data
+        for(i=0; i<sizeof(uint32_t); i++) {
+            sync_cmd = SYNC_DATA | ((uint8_t *)&immediate_data)[i];
+            memcpy(data, &sync_cmd, sizeof(uint16_t));
+            wou_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), 
+                    sizeof(uint16_t), data);
+        }
+        sync_cmd = SYNC_PC | SYNC_COMP_EN(1);
+        memcpy(data, &sync_cmd, sizeof(uint16_t));
+        wou_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), 
+                sizeof(uint16_t), data);
+    }
 
 // //end: setup risc
 
@@ -376,13 +388,6 @@ int main(void)
     
     sync_do_val = 0;
     for (i = 0;; i++) {
-// wait fix:       // enable position compensation  control
-// wait fix        //
-// wait fix        sync_cmd[0] = SYNC_PC| POS_COMP_REF(1500) | SYNC_COMP_EN(1);
-// wait fix        wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD),
-// wait fix                    sizeof(uint16_t), sync_cmd);
-	// JCMD_POS and JCMD_DIR (little-endian, byte-0 is LSB)
-        
         // SYNC_DOUT
         if ((i % 1000) == 0) {
             // SYNC_DOUT:
@@ -391,7 +396,7 @@ int main(void)
             sync_cmd[0] = SYNC_DOUT | SYNC_IO_ID(1) | SYNC_DO_VAL(sync_do_val);
             memcpy (data, sync_cmd, sizeof(uint16_t));
 	    wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD), 
-                    sizeof(uint16_t), sync_cmd);
+                    sizeof(uint16_t), data);
             
             // // SYNC_DIN:
             // // // wait for EPP_I[0](ext_pad_i[0]) to be ON
@@ -433,10 +438,10 @@ int main(void)
             // DIR_P: Direction, (positive(1), negative(0))
             // POS_MASK: relative position mask
             sync_cmd[j] = SYNC_JNT | DIR_P | (POS_MASK & k);
-            //plasma pid:// for THC test, make Z axis at the same position
-            //plasma pid:if(j==2 ) {
-            //plasma pid:    sync_cmd[j] = SYNC_JNT | DIR_P | (POS_MASK & 0);
-            //plasma pid:}
+            // for THC test, make Z axis at the same position
+            if(j==2 ) {
+                sync_cmd[j] = SYNC_JNT | DIR_P | (POS_MASK & 0);
+            }
             memcpy (data+j*sizeof(uint16_t), &(sync_cmd[j]), sizeof(uint16_t));
 	}
 	wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD), 
@@ -446,19 +451,19 @@ int main(void)
 	// obtain base_period updated wou registers
 	wou_update(&w_param);
 
-	for (j = 0; j < 4; j++) {
-	    memcpy((pulse_cmd + j),
-		   wou_reg_ptr(&w_param,
-			       SSIF_BASE + SSIF_PULSE_POS + j * 4), 4);
-	    memcpy((enc_pos + j),
-		   wou_reg_ptr(&w_param, SSIF_BASE + SSIF_ENC_POS + j * 4),
-		   4);
-	}
+//	for (j = 0; j < 4; j++) {
+//	    memcpy((pulse_cmd + j),
+//		   wou_reg_ptr(&w_param,
+//			       SSIF_BASE + SSIF_PULSE_POS + j * 4), 4);
+//	    memcpy((enc_pos + j),
+//		   wou_reg_ptr(&w_param, SSIF_BASE + SSIF_ENC_POS + j * 4),
+//		   4);
+//	}
 
-        //plasma pid:for (j =0; j < 4; j++) {
-        //plasma pid:    fprintf(stderr,"pulse_pos[%d](%04X) ", j, pulse_cmd[j]);
-        //plasma pid:}
-        //plasma pid:fprintf(stderr,"\n");
+       // for (j =0; j < 4; j++) {
+       //     fprintf(stderr,"pulse_pos[%d](%04X) ", j, pulse_cmd[j]);
+       // }
+       // fprintf(stderr,"\n");
 	memcpy(&switch_in,
 	       wou_reg_ptr(&w_param, GPIO_BASE + GPIO_IN), 2);
 
