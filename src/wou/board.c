@@ -677,8 +677,6 @@ static struct timespec diff(struct timespec start, struct timespec end)
 
 static uint8_t wb_reg_update (board_t* b, const uint8_t *buf)
 {
-    //obsolete: FT_STATUS   ftStatus;
-    //obsolete: DWORD       recvd;
     uint8_t*    wb_regp;   // wb_reg_map pointer
     uint8_t     dsize;
     uint16_t    wb_addr;
