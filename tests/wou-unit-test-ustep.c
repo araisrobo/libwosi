@@ -195,7 +195,7 @@ int main(void)
     
     // this will create a CRC ERROR:
     wou_flush(&w_param);
-    wou_cmd (&w_param, WB_RD_CMD, (SSIF_BASE + SSIF_PULSE_POS), 34, data);
+    wou_cmd (&w_param, WB_RD_CMD, (GPIO_BASE + GPIO_IN), 2, data);
     wou_flush(&w_param);
 
     
