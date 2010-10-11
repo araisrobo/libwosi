@@ -9,8 +9,7 @@ EXTRA_DIST = README
 
 noinst_PROGRAMS = \
 	wou-unit-test-jcmd \
-  	wou-unit-test-ustep \
-	wou-unit-test-prog
+  	wou-unit-test-ustep
 
 
 # common_ldflags = \
