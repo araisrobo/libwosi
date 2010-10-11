@@ -1053,8 +1053,8 @@ void wou_recv (board_t* b)
                                                         buf_rx + *rx_size,
                                                         // ftdic->readbuffer_remaining + 1))
                                                         // MAX(1, ftdic->readbuffer_remaining)))
-                                                        // obxolete: MIN(RX_BURST_MIN, *rx_req)))
-                                                        RX_BURST_MIN))
+                                                        // obsolete: MIN(RX_BURST_MIN, *rx_req)))
+                                                        MIN(RX_BURST_MIN + ftdic->readbuffer_remaining, RX_CHUNK_SIZE))) 
                                                         == NULL) 
         {
             ERRP("ftdi_read_data_submit(): %s\n", ftdi_get_error_string (ftdic));
@@ -1074,8 +1074,8 @@ void wou_recv (board_t* b)
                             buf_rx + *rx_size,
                             // ftdic->readbuffer_remaining + 1))
                             // MAX(1, ftdic->readbuffer_remaining)))
+                            MIN(RX_BURST_MIN + ftdic->readbuffer_remaining, RX_CHUNK_SIZE))) 
                             // MIN(RX_BURST_MIN, *rx_req)))
-                            RX_BURST_MIN))
                             == NULL) 
     {
         int r;
@@ -1094,9 +1094,8 @@ void wou_recv (board_t* b)
                             // ftdic->readbuffer_remaining + 1)) 
                             // MAX(1, ftdic->readbuffer_remaining))) 
                             // MAX(32, ftdic->readbuffer_remaining))) 
-                            MIN(32 + ftdic->readbuffer_remaining, RX_CHUNK_SIZE))) 
+                            MIN(RX_BURST_MIN + ftdic->readbuffer_remaining, RX_CHUNK_SIZE))) 
                             // MIN(RX_BURST_MIN, *rx_req))) 
-                            // RX_BURST_MIN)) 
                             == NULL) 
     {
         ERRP("ftdi_read_data_submit(): %s\n", ftdi_get_error_string (ftdic));

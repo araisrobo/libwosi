@@ -32,16 +32,25 @@ static void fetchmail(const uint8_t *buf_head)
    // fprintf (mbox_fp, "mail_tag(0x%04X)\n", mail_tag);
     fprintf(mbox_fp,"%11u",_dt++);
     if (mail_tag == 0x0001) {
-        // for (i=4; i<(1 + buf_head[0] + CRC_SIZE - 4); i+=8) {
-        //     // memcpy(&pos, (buf_head + i), sizeof(uint32_t));
-        //     // fprintf (stderr, "J[%d]: pulse_pos(0x%08X) ", (i-4)/8, pos);
-        //     p = (uint32_t *) (buf_head + i);
-        //     fprintf (mbox_fp, "J[%d]: pulse_pos(0x%08X) ", (i-4)/8, *p);
-        //     memcpy(&pos, (buf_head + i + 4), sizeof(uint32_t));
-        //     fprintf (mbox_fp, "enc_pos(0x%08X)\n", pos);
-        // }
+        // BP_TICK
+        p = (uint32_t *) (buf_head + 4);
+        fprintf (mbox_fp, "BP_TICK(%d)\n", *p);
         
         // PULSE_POS and ENC_POS
+        for (i=0; i<4; i++) {
+            p = (uint32_t *) (buf_head + 8 + i*8);
+            fprintf (mbox_fp, "J[%d]: pulse_pos(0x%08X) ", i, *p);
+            pulse_pos_tmp[i] = *p;
+            p = (uint32_t *) (buf_head + 8 + i*8 + 4);
+            fprintf (mbox_fp, "enc_pos(0x%08X)\n", *p);
+            enc_pos_tmp[i] = *p;
+        }
+        
+        // ADC_SPI
+        p = (uint32_t *) (buf_head + 8 + 4*8);
+        fprintf (mbox_fp, "adc_spi(0x%08X)\n", *p);
+		 /*
+// PULSE_POS and ENC_POS
         for (i=0; i<4; i++) {
             p = (uint32_t *) (buf_head + 4 + i*8);
           //  fprintf (mbox_fp, "J[%d]: pulse_pos(0x%08X) ", i, *p);
@@ -63,6 +72,8 @@ static void fetchmail(const uint8_t *buf_head)
         p = (uint32_t *) (buf_head + 4 + 4*8);
         //fprintf (mbox_fp, "adc_spi(0x%08X)\n", *p);
         fprintf(mbox_fp,"%15u\n", p);
+		*/
+
     }
 
 }
@@ -451,19 +462,19 @@ int main(void)
 	// obtain base_period updated wou registers
 	wou_update(&w_param);
 
-//	for (j = 0; j < 4; j++) {
-//	    memcpy((pulse_cmd + j),
-//		   wou_reg_ptr(&w_param,
-//			       SSIF_BASE + SSIF_PULSE_POS + j * 4), 4);
-//	    memcpy((enc_pos + j),
-//		   wou_reg_ptr(&w_param, SSIF_BASE + SSIF_ENC_POS + j * 4),
-//		   4);
-//	}
+	// for (j = 0; j < 4; j++) {
+	//     memcpy((pulse_cmd + j),
+	// 	   wou_reg_ptr(&w_param,
+	// 		       SSIF_BASE + SSIF_PULSE_POS + j * 4), 4);
+	//     memcpy((enc_pos + j),
+	// 	   wou_reg_ptr(&w_param, SSIF_BASE + SSIF_ENC_POS + j * 4),
+	// 	   4);
+	// }
 
-       // for (j =0; j < 4; j++) {
-       //     fprintf(stderr,"pulse_pos[%d](%04X) ", j, pulse_cmd[j]);
-       // }
-       // fprintf(stderr,"\n");
+        //plasma pid:for (j =0; j < 4; j++) {
+        //plasma pid:    fprintf(stderr,"pulse_pos[%d](%04X) ", j, pulse_cmd[j]);
+        //plasma pid:}
+        //plasma pid:fprintf(stderr,"\n");
 	memcpy(&switch_in,
 	       wou_reg_ptr(&w_param, GPIO_BASE + GPIO_IN), 2);
 
@@ -473,11 +484,11 @@ int main(void)
  	if ((i % 2) == 0) {
              // replace "bp_reg_update":
              // send WB_RD_CMD to read registers back
-             wou_cmd (&w_param,
-                      WB_RD_CMD,
-                      (SSIF_BASE | SSIF_PULSE_POS),
-                      16,
-                      data);
+             //replaced by MAILBOX: wou_cmd (&w_param,
+             //replaced by MAILBOX:          WB_RD_CMD,
+             //replaced by MAILBOX:          (SSIF_BASE | SSIF_PULSE_POS),
+             //replaced by MAILBOX:          16,
+             //replaced by MAILBOX:          data);
              
              wou_cmd (&w_param,
                       WB_RD_CMD,
