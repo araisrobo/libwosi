@@ -30,50 +30,28 @@ static void fetchmail(const uint8_t *buf_head)
 
     memcpy(&mail_tag, (buf_head + 2), sizeof(uint16_t));
    // fprintf (mbox_fp, "mail_tag(0x%04X)\n", mail_tag);
-    fprintf(mbox_fp,"%11u",_dt++);
+
     if (mail_tag == 0x0001) {
+        fprintf(mbox_fp,"%11u",_dt++);
         // BP_TICK
         p = (uint32_t *) (buf_head + 4);
-        fprintf (mbox_fp, "BP_TICK(%d)\n", *p);
-        
+        //fprintf (mbox_fp, "BP_TICK(%d)\n", *p);
+        fprintf(mbox_fp,"%15u", *p);
         // PULSE_POS and ENC_POS
         for (i=0; i<4; i++) {
             p = (uint32_t *) (buf_head + 8 + i*8);
-            fprintf (mbox_fp, "J[%d]: pulse_pos(0x%08X) ", i, *p);
+            //fprintf (mbox_fp, "J[%d]: pulse_pos(0x%08X) ", i, *p);
+            fprintf (mbox_fp, "%15u", *p);
             pulse_pos_tmp[i] = *p;
             p = (uint32_t *) (buf_head + 8 + i*8 + 4);
-            fprintf (mbox_fp, "enc_pos(0x%08X)\n", *p);
+            fprintf(mbox_fp, "%15u", *p);
+            //fprintf (mbox_fp, "enc_pos(0x%08X)\n", *p);
             enc_pos_tmp[i] = *p;
         }
         
         // ADC_SPI
         p = (uint32_t *) (buf_head + 8 + 4*8);
-        fprintf (mbox_fp, "adc_spi(0x%08X)\n", *p);
-		 /*
-// PULSE_POS and ENC_POS
-        for (i=0; i<4; i++) {
-            p = (uint32_t *) (buf_head + 4 + i*8);
-          //  fprintf (mbox_fp, "J[%d]: pulse_pos(0x%08X) ", i, *p);
-            fprintf (mbox_fp, "%15u", *p);
-          //  pulse_pos_tmp[i] = *p;
-        }
-        for (i=0; i<4; i++) {
-            p = (uint32_t *) (buf_head + 4 + i*8 + 4);
-            //fprintf (mbox_fp, "enc_pos(0x%08X)\n", *p);
-            fprintf(mbox_fp, "%15u", *p);
-          //  enc_pos_tmp[i] = *p;
-        }
-
-        //DPS ("%11s%15s%15s%15s%15s%15s%15s%15s\n",
-        //                "#dt", "newaccel", "newvel", "cur_vel", "progress", "target", "dist_to_go", "tolerance");
-        //DPS("%11u%15.5f%15.5f%15.5f%15.5f%15.5f%15.5f%15.5f\n",
-                    //_dt, newaccel, newvel, tc->currentvel, tc->progress, tc->target, tc->distance_to_go, tc->toleranc
-        // ADC_SPI
-        p = (uint32_t *) (buf_head + 4 + 4*8);
-        //fprintf (mbox_fp, "adc_spi(0x%08X)\n", *p);
         fprintf(mbox_fp,"%15u\n", p);
-		*/
-
     }
 
 }
@@ -161,7 +139,7 @@ int main(void)
     // wou_prog_risc(&w_param, "./mailbox.bin");
     
     mbox_fp = fopen ("./mbox.log", "w");
-    fprintf(mbox_fp,"%11s%15s%15s%15s%15s%15s%15s%15s%15s%15s","#dt","j0","j1","j2","j3","e0","e1","e2","e3","adc_spi");
+    fprintf(mbox_fp,"%11s%15s%15s%15s%15s%15s%15s%15s%15s%15s%15s\n","#dt","bp_tick","j0","j1","j2","j3","e0","e1","e2","e3","adc_spi");
     wou_set_mbox_cb (&w_param, fetchmail);
 
    // setup sync timeout
