@@ -280,11 +280,11 @@ int main(void)
     //          * 1024;    // sine/cosine LUT theta resolution
     //
     // rev[0] = -65535;    // RUN-forever
-    // rev[0] = 0;    // stop joint_0
-    rev[0] = 1          // 1 revolution
-             * 200      // 200 full stepper pulse per revolution
-             * 16       // microStepping #
-             ;
+    rev[0] = 0;    // stop joint_0
+    // rev[0] = 1          // 1 revolution
+    //          * 200      // 200 full stepper pulse per revolution
+    //          * 16       // microStepping #
+    //          ;
              
     // microSteps per base_period
     // speed[0] = 50       // 50 full stepper pulse per seconds
@@ -295,6 +295,7 @@ int main(void)
     //7i32:          / (1000/0.65535); // base_period is 0.65535ms
     speed[0] = 50       // MAX_PWM=200, stable@800, unstable@900 full stepper pulse per seconds
              * 16         // microStepping #
+             * 2
              / (1000/0.65535); // base_period is 0.65535ms
  
                         
@@ -304,11 +305,12 @@ int main(void)
              // * 1024     // sine/cosine LUT theta resolution
              // / (1000/0.65535); // base_period is 0.65535ms
 
-    // rev[1] = 0;
-    rev[1] = 1          // 1 revolution
-             * 200      // 200 full stepper pulse per revolution
-             * 16       // microStepping #
-             ;
+    rev[1] = 0;
+    // rev[1] = -65535; // 不停的轉
+    // rev[1] = 1          // 1 revolution
+    //          * 200      // 200 full stepper pulse per revolution
+    //          * 16       // microStepping #
+    //          ;
              
     // speed[1] = 1050   // K=168,MAX_PWM=126: 1050 full stepper pulse per seconds
     //7i32: speed[1] = 100      // MAX_PWM=200, stable@800, unstable@900 full stepper pulse per seconds
@@ -317,21 +319,18 @@ int main(void)
     //7i32:          / (1000/0.65535); // base_period is 0.65535ms
     speed[1] = 50       // MAX_PWM=200, stable@800, unstable@900 full stepper pulse per seconds
              * 16         // microStepping #
+             * 2
              / (1000/0.65535); // base_period is 0.65535ms
  
                         
     accel[1] = 0.01;
     
-   // // rev[2] = 0;
-   // rev[2]      = -65535;       // RUN-forever
    // speed[2]    = 100           // 100 full stepper pulse per seconds
    //               / 4           // 4 full stepper pulse == 1 sine/cosine cycle (2PI)
    //               * 1024        // sine/cosine LUT theta resolution
    //               / (1000/0.65535); // base_period is 0.65535ms
    // accel[2] = 0.01;
    
-
-
     /*rev[2] = 10         // 10 revolution
              * 200      // 200 full stepper pulse per revolution
              * 16       // microStepping #
@@ -345,8 +344,9 @@ int main(void)
     // 就是每秒要送3200
     // 那每個 servo time 0.65535ms 送出的pulse數為
     // 200*16*1000/0.65535
-    speed[2] = 0       // MAX_PWM=200, stable@800, unstable@900 full stepper pulse per seconds
-             * 16         // microStepping #
+    speed[2] = 50       // MAX_PWM=200, stable@800, unstable@900 full stepper pulse per seconds
+             * 16       // microStepping #
+             * 2
              / (1000/0.65535); // base_period is 0.65535ms
  
     accel[2] = 0.01;
@@ -365,12 +365,13 @@ int main(void)
 //7i32:    accel[3] = 0.01;
 
     // for servo_if:
-    /*rev[3] = 10         // 10 revolution
-             * 200      // 200 full stepper pulse per revolution
-             * 16       // microStepping #
-             ;       */
-    // rev[3] = -65535; // 不停的轉
-    rev[3] = 0; // stop
+    // rev[3] = 10         // 10 revolution
+    //          * 200      // 200 full stepper pulse per revolution
+    //          * 16       // microStepping #
+    //          * 2
+    //          ;       
+    rev[3] = -65535; // 不停的轉
+    // rev[3] = 0; // stop
     // speed
     // 200*16 pulse/rev *0.65535/1000,  1 cycle/time
     // 以每秒一圈來算 每秒要送幾個pulse
@@ -383,6 +384,7 @@ int main(void)
     //          / (1000/0.65535); // base_period is 0.65535ms
     speed[3] = 50       // MAX_PWM=200, stable@800, unstable@900 full stepper pulse per seconds
              * 16         // microStepping #
+             * 2
              / (1000/0.65535); // base_period is 0.65535ms
  
  
