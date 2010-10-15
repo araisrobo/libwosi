@@ -1,6 +1,6 @@
 SUBDIRS = wou
 
-h_sources = wou.h wb_regs.h
+h_sources = wou.h wb_regs.h mailtag.h
 c_sources = wou.c
 
 lib_LTLIBRARIES = libwou.la

@@ -309,4 +309,17 @@
 #define ADC_SPI_OUTPUT  0x000A  // 0x0A ~ 0x0B (12-bits) ADC result
 // end: registers for SPI devices
 
+
+// begin: mailbox tags
+#define MT_MOTION_STATUS  0x0001
+#define MT_ERROR_CODE     0x0002
+// end:
+// begin: mailbox error codes
+#define ERROR_BASE_PERIOD       35
+#define ERROR_SFIFO_EMPTY       36
+#define ERROR_LOST_JOINT_CMD    37
+// end:
+
+
+
 #endif // __wb_regs_h__

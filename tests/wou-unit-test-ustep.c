@@ -22,39 +22,34 @@ static void fetchmail(const uint8_t *buf_head)
     uint32_t pos;
     uint32_t *p;
 
-    // fprintf (stderr, "USTEP::MAILBOX: ");
-    // for (i=0; i < (1 + buf_head[0] + CRC_SIZE); i++) {
-    //     fprintf (stderr, "<%.2X>", buf_head[i]);
-    // }
-    // fprintf (stderr, "\n");
+
 
     memcpy(&mail_tag, (buf_head + 2), sizeof(uint16_t));
-   // fprintf (mbox_fp, "mail_tag(0x%04X)\n", mail_tag);
+
 
     if (mail_tag == 0x0001) {
-//        fprintf(mbox_fp,"%11d",_dt++);
+
         // BP_TICK
         p = (uint32_t *) (buf_head + 4);
+
         fprintf (mbox_fp, "%11d", *p);
         // PULSE_POS and ENC_POS
         for (i=0; i<4; i++) {
-            p = (uint32_t *) (buf_head + 8 + i*8);
-            //fprintf (mbox_fp, "J[%d]: pulse_pos(0x%08X) ", i, *p);
-            fprintf (mbox_fp, "%11d", *p);
-            pulse_pos_tmp[i] = *p;
-        }
-        for (i=0; i<4; i++) {
-            p = (uint32_t *) (buf_head + 8 + i*8 + 4);
-            fprintf(mbox_fp, "%11d", *p);
-            //fprintf (mbox_fp, "enc_pos(0x%08X)\n", *p);
-            enc_pos_tmp[i] = *p;
+           // PULSE_POS
+           p += 1;
+           fprintf (mbox_fp, "%11d", *p);
+           // ENC_POS
+           p += 1;
+           fprintf(mbox_fp, "%11d", *p);
         }
         
         // ADC_SPI
-        p = (uint32_t *) (buf_head + 8 + 4*8);
-        fprintf(mbox_fp,"%11d\n", *p);
-
-
+        // original
+        p += 1;
+        fprintf(mbox_fp,"%11d", (int32_t)*p);
+        // filitered
+        p += 1;
+        fprintf(mbox_fp,"%11d\n", (int32_t)*p);
     }
 
 }
@@ -142,7 +137,7 @@ int main(void)
     // wou_prog_risc(&w_param, "./mailbox.bin");
     
     mbox_fp = fopen ("./mbox.log", "w");
-    fprintf(mbox_fp,"%11s%11s%11s%11s%11s%11s%11s%11s%11s%11s\n","bp_tick","j0","j1","j2","j3","e0","e1","e2","e3","adc_spi");
+    fprintf(mbox_fp,"%11s%11s%11s%11s%11s%11s%11s%11s%11s%11s%11s\n","bp_tick","j0","j1","j2","j3","e0","e1","e2","e3","adc_spi","filtered adc");
     wou_set_mbox_cb (&w_param, fetchmail);
 
    // setup sync timeout
