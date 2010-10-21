@@ -1430,8 +1430,8 @@ int wou_eof (board_t* b, uint8_t wouf_cmd)
     // flush pending [wou] packets
     wou_frame_ = &(b->wou->woufs[b->wou->clock]);
     do {
-        wou_recv(b);    // update GBN pointer if receiving Rn
         wou_send(b);
+        wou_recv(b);    // update GBN pointer if receiving Rn
         if (wou_frame_->use) {
             const struct timespec   req = {0,300000};   // 0.3ms
             nanosleep(&req, NULL);  // sleep for 0.3ms to avoid busy loop

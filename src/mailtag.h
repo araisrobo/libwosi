@@ -9,5 +9,5 @@
 #define ERROR_BASE_PERIOD       35
 #define ERROR_SFIFO_EMPTY       36
 #define ERROR_LOST_JOINT_CMD    37
-
+#define ERROR_MBOX_ALMOST_FULL  38
 #endif //mailbox_tag_h
