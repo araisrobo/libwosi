@@ -46,10 +46,10 @@ static void fetchmail(const uint8_t *buf_head)
         // ADC_SPI
         // original
         p += 1;
-        fprintf(mbox_fp,"%11d", (int32_t)*p);
-        // filitered
-        p += 1;
         fprintf(mbox_fp,"%11d\n", (int32_t)*p);
+        // filitered
+        //p += 1;
+        //fprintf(mbox_fp,"%11d\n", (int32_t)*p);
     }
 
 }
