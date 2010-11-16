@@ -89,10 +89,9 @@
  * REG_NAME             ADDR_OFFSET   ACCESS  DESCRIPTION
  * SSIF_PULSE_TYPE      0x0000        W       (0x00       )   (0)AB_PHASE  (1)STEP_DIR
  * SSIF_ENC_TYPE        0x0001        W       (0x01       )   (0)w/o (1)with encoder
- * SSIF_LOAD_POS        0x0002        W       (0x02 ~ 0x03)   load SWITCH & INDEX with PULSE(stepper) or ENC(servo) 
- *                                                            positions for homing
- *                                                (11:0)[i]   set to 1 by SW to load SWITCH and INDEX position
- *                                                            reset to 0 by HW one cycle after resetting by SSIF_RST_POS[i]
+ * SSIF_LOAD_POS        0x0002        W       (0x02 ~ 0x03)   load SWITCH, INDEX, and PULSE positions with ENC_POS 
+ *                                                (11:0)[i]   set to 1 by SW to load SWITCH, INDEX, and PULSE positions
+ *                                                            reset to 0 by HW one cycle later
  * SSIF_RST_POS         0x0004        W       (0x04 ~ 0x05)   reset PULSE/ENC/SWITCH/INDEX positions for homing
  *                                                (11:0)[i]   set to 1 by SW to clear positions 
  *                                                            reset to 0 by HW one cycle after resetting
