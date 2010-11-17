@@ -10,7 +10,6 @@
 #include "wb_regs.h"
 #define WORDS_PER_LINE 8
 #define BYTES_PER_WORD 4
-
 FILE *mbox_fp;
 static uint32_t pulse_pos_tmp[4];
 static uint32_t enc_pos_tmp[4];
@@ -159,6 +158,7 @@ int main(void)
                 sizeof(uint16_t), data);
     }
     // position compensation enable
+#define THC_ENABLE 0
     {
         uint16_t sync_cmd;
         uint32_t immediate_data;
@@ -171,7 +171,7 @@ int main(void)
             wou_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), 
                     sizeof(uint16_t), data);
         }
-        sync_cmd = SYNC_PC | SYNC_COMP_EN(1);
+        sync_cmd = SYNC_PC | SYNC_COMP_EN(THC_ENABLE);
         memcpy(data, &sync_cmd, sizeof(uint16_t));
         wou_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), 
                 sizeof(uint16_t), data);
@@ -340,6 +340,7 @@ int main(void)
              * 16       // microStepping #
              ;       */
     // rev[2] = -65535; // 不停的轉
+#define THC_ENABLE 0    
     rev[2] = 0; // 不停的轉
     // speed
     // 200*16 pulse/rev *0.65535/1000,  1 cycle/time
@@ -410,6 +411,11 @@ int main(void)
 	    wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD), 
                     sizeof(uint16_t), data);
             
+            sync_cmd[0] = SYNC_DOUT | SYNC_IO_ID(0) | SYNC_DO_VAL(sync_do_val);
+            memcpy (data, sync_cmd, sizeof(uint16_t));
+	    wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD), 
+                    sizeof(uint16_t), data);
+            
             // // SYNC_DIN:
             // // // wait for EPP_I[0](ext_pad_i[0]) to be ON
 //              sync_cmd[0] = SYNC_DIN | SYNC_IO_ID(0) | SYNC_DI_TYPE(1);
@@ -452,7 +458,7 @@ int main(void)
             // POS_MASK: relative position mask
             sync_cmd[j] = SYNC_JNT | DIR_P | (POS_MASK & k);
             // for THC test, make Z axis at the same position
-            if(j==2 ) {
+            if((j==2) & THC_ENABLE) {
                 sync_cmd[j] = SYNC_JNT | DIR_P | (POS_MASK & 0);
             }
             memcpy (data+j*sizeof(uint16_t), &(sync_cmd[j]), sizeof(uint16_t));
