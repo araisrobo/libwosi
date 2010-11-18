@@ -431,7 +431,10 @@ int board_init (board_t* board, const char* device_type, const int device_id,
     // for calculating TX_TIMEOUT:
     clock_gettime(CLOCK_REALTIME, &time_send_begin);
     gbn_init (board);
-   
+    
+    // init CRC look-up table
+    crcInit();
+
     return 0;
 }
 
@@ -996,7 +999,6 @@ void wou_recv (board_t* b)
             }
             count_rx++;
 #endif
-            crcInit();
             crc16 = crcFast(buf_head, (1/*PLOAD_SIZE_TX*/ + pload_size_tx));
             cmp = memcmp(buf_head + (1 + pload_size_tx), &crc16, CRC_SIZE);
 
@@ -1412,7 +1414,6 @@ int wou_eof (board_t* b, uint8_t wouf_cmd)
     assert(wou_frame_->buf[6] > 1); // PLOAD_SIZE_RX: 0x02 ~ 0xFF
     
     // calc CRC for {PLOAD_SIZE_TX, PLOAD_SIZE_RX, TID, WOU_PACKETS}
-    crcInit();
     crc16 = crcFast(wou_frame_->buf + (WOUF_HDR_SIZE - 1), 
                     wou_frame_->fsize - (WOUF_HDR_SIZE - 1)); 
     memcpy (wou_frame_->buf + wou_frame_->fsize, &crc16, CRC_SIZE);
