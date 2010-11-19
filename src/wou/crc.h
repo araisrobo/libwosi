@@ -31,25 +31,27 @@
 
 typedef unsigned short  crc;
 
-#define CRC_NAME			"CRC-CCITT"
-#define POLYNOMIAL			0x1021
+#define CRC_NAME		"CRC-CCITT"
+#define POLYNOMIAL		0x1021
 #define INITIAL_REMAINDER	0xFFFF
 #define FINAL_XOR_VALUE		0x0000
 #define REFLECT_DATA		FALSE
 #define REFLECT_REMAINDER	FALSE
-#define CHECK_VALUE			0x29B1
+#define CHECK_VALUE		0x29B1
+#define WIDTH                   16      // width of CRC
 
 #elif defined(CRC16)
 
 typedef unsigned short  crc;
 
-#define CRC_NAME			"CRC-16"
-#define POLYNOMIAL			0x8005
+#define CRC_NAME		"CRC-16"
+#define POLYNOMIAL		0x8005
 #define INITIAL_REMAINDER	0x0000
 #define FINAL_XOR_VALUE		0x0000
 #define REFLECT_DATA		TRUE
 #define REFLECT_REMAINDER	TRUE
-#define CHECK_VALUE			0xBB3D
+#define CHECK_VALUE		0xBB3D
+#define WIDTH                   16
 
 #elif defined(CRC32)
 
@@ -62,6 +64,7 @@ typedef unsigned long  crc;
 #define REFLECT_DATA		TRUE
 #define REFLECT_REMAINDER	TRUE
 #define CHECK_VALUE			0xCBF43926
+#define WIDTH                   32
 
 #else
 

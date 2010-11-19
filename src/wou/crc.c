@@ -14,19 +14,23 @@
  * notice must not be changed or removed and no warranty is either
  * expressed or implied by its publication or distribution.
  **********************************************************************/
- 
+
+#include "stdint.h"
 #include "crc.h"
 
+crc       crcTable[256];
+uint8_t   reflect8_table[256];
+uint16_t  reflect16_table[65536];
 
 /*
  * Derive parameters from the standard-specific parameters in crc.h.
  */
-#define WIDTH    (8 * sizeof(crc))
 #define TOPBIT   (1 << (WIDTH - 1))
 
 #if (REFLECT_DATA == TRUE)
 #undef  REFLECT_DATA
-#define REFLECT_DATA(X)			((unsigned char) reflect((X), 8))
+//orig: #define REFLECT_DATA(X)			((unsigned char) reflect((X), 8))
+#define REFLECT_DATA(X)			(reflect8_table[(X)])
 #else
 #undef  REFLECT_DATA
 #define REFLECT_DATA(X)			(X)
@@ -34,7 +38,11 @@
 
 #if (REFLECT_REMAINDER == TRUE)
 #undef  REFLECT_REMAINDER
+#if (WIDTH == 16)
+#define REFLECT_REMAINDER(X)	((crc) reflect16_table[(X)])
+#else
 #define REFLECT_REMAINDER(X)	((crc) reflect((X), WIDTH))
+#endif
 #else
 #undef  REFLECT_REMAINDER
 #define REFLECT_REMAINDER(X)	(X)
@@ -136,9 +144,6 @@ crcSlow(unsigned char const message[], int nBytes)
 }   /* crcSlow() */
 
 
-crc  crcTable[256];
-
-
 /*********************************************************************
  *
  * Function:    crcInit()
@@ -155,9 +160,10 @@ crc  crcTable[256];
 void
 crcInit(void)
 {
-    crc			   remainder;
-	int			   dividend;
-	unsigned char  bit;
+    crc		      remainder;
+    int		      dividend;
+    unsigned char     bit;
+    uint32_t          id;
 
 
     /*
@@ -193,6 +199,20 @@ crcInit(void)
          */
         crcTable[dividend] = remainder;
     }
+    
+    /*
+     * Compute the reflection table for 0~255
+     */
+    for (id=0; id<256; id++) {
+        reflect8_table[id] = (uint8_t) reflect(id, 8);
+    }
+
+    /*
+     * Compute the reflection table for 0~65535
+     */
+    for (id=0; id<65536; id++) {
+        reflect16_table[id] = (uint16_t) reflect(id, 16);
+    }
 
 }   /* crcInit() */
 
@@ -222,7 +242,7 @@ crcFast(unsigned char const message[], int nBytes)
     for (byte = 0; byte < nBytes; ++byte)
     {
         data = REFLECT_DATA(message[byte]) ^ (remainder >> (WIDTH - 8));
-  		remainder = crcTable[data] ^ (remainder << 8);
+  	remainder = crcTable[data] ^ (remainder << 8);
     }
 
     /*
