@@ -1,3 +1,9 @@
+libwou (0.1-14) lucid; urgency=low
+
+  * boost CRC-16 performance
+
+ -- Yi-Shin Li <ysli@araisrobo.com>  Fri, 19 Nov 2010 14:23:48 +0800
+
 libwou (0.1-13) lucid; urgency=low
 
   * update for USB motion controller
