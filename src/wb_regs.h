@@ -73,6 +73,12 @@
  *                                                LOW_TIMEOUT(100),HIGH_TIMEOUT(101), FALL_TIMEOUT(110),RISE_TIMEOUT(111)
  *    SYNC_ST     4'b0110         {}              Acknowledge of timeout modified.
  *                                                Parser should load immediate data as the timeout.
+ *    
+ *    NAME        OP_CODE[15:0]                   Description             
+ *    SYNC_REQV   4'b0110 0000 0000 0001          Set requested velocity                                      
+ *    SYNC_CURV   4'b0110 0000 0000 0002          Set current velocity
+ *
+ *    NAME        OP_CODE[15:13]  OPERAND[12:0]   Description
  *    SYNC_PC     4'b1000         {EN}            EN[0]: 1: enable 0: disable  position compensation
  *    SYNC_DATA   4'b1100         {VAL}           VAL[7:0]
  *    SYNC_AIO    4'b011.          ... TODO      
@@ -231,6 +237,8 @@
 #define SYNC_DOUT       0x4000
 #define SYNC_DIN        0x5000
 #define SYNC_ST         0x6000  // Set timeout
+#define SYNC_REQV       0x6100
+#define SYNC_CURV       0x6200
 #define SYNC_PC         0x8000  // Set position compensation enable
 #define SYNC_DATA       0xC000  // Transmit immediate data
 #define SYNC_COMP_EN(i) (0x0001&i)
