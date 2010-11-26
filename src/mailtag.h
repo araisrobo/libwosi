@@ -10,7 +10,10 @@
 #define ERROR_SFIFO_EMPTY       36
 #define ERROR_LOST_JOINT_CMD    37
 #define ERROR_MBOX_ALMOST_FULL  38
+#define ERROR_INVALID_IM_DATA   39
 
+
+// OR32 REPORT
 #define REPORT_IO_ON            111
 #define REPORT_IO_OFF           110
 #define REPORT_THC_ON_OFF_BASE  100
@@ -21,6 +24,15 @@
 #define REPORT_WAIT_HIGH        202
 #define REPORT_WAIT_FALL        203
 #define REPORT_WAIT_RISE        204
+#define REPORT_SYNC_DIN         205
+#define REPORT_SYNC_DOUT        206
+#define REPORT_POS_COMP_CMD     207
+#define REPORT_SET_TIMEOUT      208
+#define REPORT_IM_DATA          209
+#define REPORT_INVOKE_EXT_FUN   210
+#define REPORT_REQUESTED_VEL    211
+#define REPORT_CURRENT_VEL      212
+
 
 #define PROTOCOL_REPORT_BASE    300
 #endif //mailbox_tag_h
