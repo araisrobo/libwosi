@@ -73,12 +73,19 @@
  *                                                LOW_TIMEOUT(100),HIGH_TIMEOUT(101), FALL_TIMEOUT(110),RISE_TIMEOUT(111)
  *    SYNC_ST     4'b0110         {}              Acknowledge of timeout modified.
  *                                                Parser should load immediate data as the timeout.
- *    
- *    NAME        OP_CODE[15:0]                   Description             
- *    SYNC_REQV   4'b0110 0000 0000 0001          Set requested velocity                                      
- *    SYNC_CURV   4'b0110 0000 0000 0002          Set current velocity
+ *    SYNC_REQV   4'b0110         {0x0001}        Set requested velocity                         
+ *                                                value from immediate data
+ *    SYNC_CURV   4'b0110         {0x0002}        Set current velocity
+ *                                                value from immediate data
+ *    SYNC_MOT_PARM 4'0111        {TYPE,ID}       TYPE[11:9]:  0: fraction bits
+ *                                                             1: veloctiy
+ *                                                             2: acceleration
+ *                                                             3: acceleration rcip
+ *                                                             4: veloctiy for compensation
+ *                                                ID[8:0]: joint ID
+ *                                                value from immediate data
  *
- *    NAME        OP_CODE[15:13]  OPERAND[12:0]   Description
+ *
  *    SYNC_PC     4'b1000         {EN}            EN[0]: 1: enable 0: disable  position compensation
  *    SYNC_DATA   4'b1100         {VAL}           VAL[7:0]
  *    SYNC_AIO    4'b011.          ... TODO      
@@ -230,25 +237,21 @@
                                 // 0x40:  size in bytes for the mail
                                 //        0 means MAILBOX is empty
 // begin: SYNC_CMD format
+// joint command
 #define SYNC_JNT        0x0000  // [15:14]
 #define DIR_P           0x2000  // + SYNC_JNT: [13] positive direction
 #define DIR_N           0x0000  // + SYNC_JNT: [13] negative direction
 #define POS_MASK        0x1FFF  // + SYNC_JNT: [12:0] relative position mask
+// digital input / output command
 #define SYNC_DOUT       0x4000
 #define SYNC_DIN        0x5000
-#define SYNC_ST         0x6000  // Set timeout
-#define SYNC_REQV       0x6100
-#define SYNC_CURV       0x6200
-#define SYNC_PC         0x8000  // Set position compensation enable
-#define SYNC_DATA       0xC000  // Transmit immediate data
-#define SYNC_COMP_EN(i) (0x0001&i)
 //#define SYNC_AOUT       0x6000 // or 0x7000
 //#define SYNC_AIN        0xE000
 //#define POS_COMP_REF(t) ((0x07FF&t) << 1)
 #define SYNC_IO_ID(i)   ((i & 0x3F) << 6)
 #define SYNC_DO_VAL(v)  ((v & 0x01) << 0)
 #define SYNC_DI_TYPE(t) ((t & 0x07) << 0) // support LOW and HIGH ONLY, TODO: support FALL and RISE
-//    NAME        OP_CODE[15:12]  OPERAND[11:0]   Description
+//    NAME        OP_COVDE[15:12]  OPERAND[11:0]   Description
 //    SYNC_DOUT   4'b0100          {ID, VAL}       ID[11:6]: Output PIN ID
 //                                                VAL[0]:   ON(1), OFF(0)
 //    SYNC_DIN    4'b0101          {ID, TYPE}      ID[11:6]: Input PIN ID
@@ -262,7 +265,30 @@
 #define WAIT_FALL 0x06
 #define WAIT_RISE 0x07
 
+// set timeout command
+#define SYNC_ST         0x6000  // Set timeout
+// set req velocity command
+#define SYNC_REQV       0x6100
+// set current velocity command
+#define SYNC_CURV       0x6200
+// set position compensation command
+#define SYNC_PC         0x8000  // Set position compensation enable
+#define SYNC_COMP_EN(i) (0x0001&i)
+// immediate data command
+#define SYNC_DATA       0xC000  // Transmit immediate data
 #define SYNC_DATA_VAL(t) ((t & 0xFF) << 0)
+// set motion parameter command
+#define SYNC_MOT_PARM   0x7000
+  // type mask
+#define MOT_PARM_TYPE_MASK 0x0E00
+  // types
+#define FRACTION_BIT 0x0000
+#define MAX_VELOCITY_VAL 0x0200
+#define MAX_ACCEL_VAL    0x0400
+#define MAX_ACC_RCIP_VAL 0x0600
+#define COMP_VEL_VAL     0x0800
+ // id
+#define SFIFO_MOT_PARM_ID_MASK   0x01FF
 // end: SYNC_CMD format
 
 // (0x40 ~ 0x7F) RESERVED
