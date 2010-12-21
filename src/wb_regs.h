@@ -268,9 +268,12 @@
 // set timeout command
 #define SYNC_ST         0x6000  // Set timeout
 // set req velocity command
-#define SYNC_REQV       0x9000
+#define SYNC_VEL        0x9000
+#define VEL_MASK 0x0FFE
+#define VEL_SYNC_MASK 0x0001
+
 // set current velocity command
-#define SYNC_CURV       0xA000
+//#define SYNC_CURV       0xA000
 // set position compensation command
 #define SYNC_PC         0x8000  // Set position compensation enable
 #define SYNC_COMP_EN(i) (0x0001&i)

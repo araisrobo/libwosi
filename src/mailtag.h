@@ -30,8 +30,8 @@
 #define REPORT_SET_TIMEOUT      208
 #define REPORT_IM_DATA          209
 #define REPORT_INVOKE_EXT_FUN   210
-#define REPORT_REQUESTED_VEL    211
-#define REPORT_CURRENT_VEL      212
+//#define REPORT_REQUESTED_VEL    211
+#define REPORT_SYNC_VEL         212
 
 
 #define PROTOCOL_REPORT_BASE    300
