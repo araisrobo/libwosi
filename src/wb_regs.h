@@ -80,7 +80,7 @@
  *    SYNC_MOT_PARM 4'0111        {TYPE,ID}       TYPE[11:9]:  0: fraction bits
  *                                                             1: veloctiy
  *                                                             2: acceleration
- *                                                             3: acceleration rcip
+ *                                                             3: acceleration recip
  *                                                             4: veloctiy for compensation
  *                                                ID[8:0]: joint ID
  *                                                value from immediate data
@@ -268,9 +268,9 @@
 // set timeout command
 #define SYNC_ST         0x6000  // Set timeout
 // set req velocity command
-#define SYNC_REQV       0x6100
+#define SYNC_REQV       0x9000
 // set current velocity command
-#define SYNC_CURV       0x6200
+#define SYNC_CURV       0xA000
 // set position compensation command
 #define SYNC_PC         0x8000  // Set position compensation enable
 #define SYNC_COMP_EN(i) (0x0001&i)
@@ -282,10 +282,10 @@
   // type mask
 #define MOT_PARM_TYPE_MASK 0x0E00
   // types
-#define FRACTION_BIT 0x0000
+#define FRACTION_BITS 0x0000
 #define MAX_VELOCITY_VAL 0x0200
 #define MAX_ACCEL_VAL    0x0400
-#define MAX_ACC_RCIP_VAL 0x0600
+#define MAX_ACC_RECIP_VAL 0x0600
 #define COMP_VEL_VAL     0x0800
  // id
 #define SFIFO_MOT_PARM_ID_MASK   0x01FF
