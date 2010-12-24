@@ -7,7 +7,7 @@
 
 #include "wou.h"
 #include "wb_regs.h"
-
+#include "sync_cmd.h"
 int main(void)
 {
     wou_param_t w_param;

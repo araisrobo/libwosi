@@ -8,6 +8,7 @@
 
 #include "wou.h"
 #include "wb_regs.h"
+#include "sync_cmd.h"
 #define WORDS_PER_LINE 8
 #define BYTES_PER_WORD 4
 FILE *mbox_fp;
@@ -406,12 +407,12 @@ int main(void)
             // SYNC_DOUT:
             // toggle ext_pat_o[1] for every 0.655 sec
             sync_do_val = ~sync_do_val;
-            sync_cmd[0] = SYNC_DOUT | SYNC_IO_ID(1) | SYNC_DO_VAL(sync_do_val);
+            sync_cmd[0] = SYNC_DOUT | PACK_IO_ID(1) | PACK_DO_VAL(sync_do_val);
             memcpy (data, sync_cmd, sizeof(uint16_t));
 	    wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD), 
                     sizeof(uint16_t), data);
             
-            sync_cmd[0] = SYNC_DOUT | SYNC_IO_ID(0) | SYNC_DO_VAL(sync_do_val);
+            sync_cmd[0] = SYNC_DOUT | PACK_IO_ID(0) | PACK_DO_VAL(sync_do_val);
             memcpy (data, sync_cmd, sizeof(uint16_t));
 	    wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD), 
                     sizeof(uint16_t), data);

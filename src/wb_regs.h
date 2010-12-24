@@ -60,39 +60,6 @@
  * //not necessary?                                            Usage: check and fetch a mail from MAILBOX
  * //not necessary?                                            0x40:  size in bytes for the mail
  * //not necessary?                                                   0 means MAILBOX is empty
- * SYNC_CMD Format:
- *    NAME        OP_CODE[15:14]  OPERAND[13:0]   Description
- *    SYNC_JNT    2'b00           {DIR_W, POS_W}  DIR_W[13]:    Direction, (positive(1), negative(0))
- *                                                POS_W[12:0]:  Relative Angle Distance (0 ~ 8191)
- *    NAME        OP_CODE[15:13]  OPERAND[12:0]   Description
- *    SYNC_DOUT   4'b0100         {ID, VAL}       ID[11:6]: Output PIN ID
- *                                                VAL[0]:   ON(1), OFF(0)
- *    SYNC_DIN    4'b0101         {ID, TYPE}      ID[11:6]: Input PIN ID
- *                                                TYPE[2:0]: 
- *                                                LOW(000), HIGH(001), FALL(010), RISE(011)
- *                                                LOW_TIMEOUT(100),HIGH_TIMEOUT(101), FALL_TIMEOUT(110),RISE_TIMEOUT(111)
- *    SYNC_ST     4'b0110         {}              Acknowledge of timeout modified.
- *                                                Parser should load immediate data as the timeout.
- *    SYNC_REQV   4'b0110         {0x0001}        Set requested velocity                         
- *                                                value from immediate data
- *    SYNC_CURV   4'b0110         {0x0002}        Set current velocity
- *                                                value from immediate data
- *    SYNC_MOT_PARM 4'0111        {TYPE,ID}       TYPE[11:9]:  0: fraction bits
- *                                                             1: veloctiy
- *                                                             2: acceleration
- *                                                             3: acceleration recip
- *                                                             4: veloctiy for compensation
- *                                                ID[8:0]: joint ID
- *                                                value from immediate data
- *
- *
- *    SYNC_PC     4'b1000         {EN}            EN[0]: 1: enable 0: disable  position compensation
- *    SYNC_DATA   4'b1100         {VAL}           VAL[7:0]
- *    SYNC_AIO    4'b011.          ... TODO      
- *    NUM_JNT                      ... TODO
- *    Write 2nd byte of SYNC_CMD[] will push it into JCMD_FIFO. 
- *    The WB_WRITE got stalled if JCMD_FIFO is full. 
- *******************************************************************************
  
  *******************************************************************************
  * @REGISTERS FOR SSIF (Servo/Stepper InterFace)
@@ -238,19 +205,11 @@
                                 //        0 means MAILBOX is empty
 // begin: SYNC_CMD format
 // joint command
-#define SYNC_JNT        0x0000  // [15:14]
-#define DIR_P           0x2000  // + SYNC_JNT: [13] positive direction
-#define DIR_N           0x0000  // + SYNC_JNT: [13] negative direction
-#define POS_MASK        0x1FFF  // + SYNC_JNT: [12:0] relative position mask
 // digital input / output command
-#define SYNC_DOUT       0x4000
-#define SYNC_DIN        0x5000
-//#define SYNC_AOUT       0x6000 // or 0x7000
-//#define SYNC_AIN        0xE000
 //#define POS_COMP_REF(t) ((0x07FF&t) << 1)
-#define SYNC_IO_ID(i)   ((i & 0x3F) << 6)
-#define SYNC_DO_VAL(v)  ((v & 0x01) << 0)
-#define SYNC_DI_TYPE(t) ((t & 0x07) << 0) // support LOW and HIGH ONLY, TODO: support FALL and RISE
+//#define SYNC_IO_ID(i)   ((i & 0x3F) << 6)
+//#define SYNC_DO_VAL(v)  ((v & 0x01) << 0)
+//#define SYNC_DI_TYPE(t) ((t & 0x07) << 0) // support LOW and HIGH ONLY, TODO: support FALL and RISE
 //    NAME        OP_COVDE[15:12]  OPERAND[11:0]   Description
 //    SYNC_DOUT   4'b0100          {ID, VAL}       ID[11:6]: Output PIN ID
 //                                                VAL[0]:   ON(1), OFF(0)
@@ -260,39 +219,8 @@
 //                                                           TODO HIGH_TIMEOUT(101)
 //                                                           TODO FALL_TIMEOUT(110)
 //                                                           TODO RISE_TIMEOUT(111)
-#define WAIT_LOW  0x04
-#define WAIT_HIGH 0x05
-#define WAIT_FALL 0x06
-#define WAIT_RISE 0x07
-
-// set timeout command
-#define SYNC_ST         0x6000  // Set timeout
-// set req velocity command
-#define SYNC_VEL        0x9000
-#define VEL_MASK 0x0FFE
-#define VEL_SYNC_MASK 0x0001
-
-// set current velocity command
-//#define SYNC_CURV       0xA000
-// set position compensation command
-#define SYNC_PC         0x8000  // Set position compensation enable
-#define SYNC_COMP_EN(i) (0x0001&i)
 // immediate data command
-#define SYNC_DATA       0xC000  // Transmit immediate data
-#define SYNC_DATA_VAL(t) ((t & 0xFF) << 0)
 // set motion parameter command
-#define SYNC_MOT_PARM   0x7000
-  // type mask
-#define MOT_PARM_TYPE_MASK 0x0E00
-  // types
-#define FRACTION_BITS 0x0000
-#define MAX_VELOCITY_VAL 0x0200
-#define MAX_ACCEL_VAL    0x0400
-#define MAX_ACC_RECIP_VAL 0x0600
-#define COMP_VEL_VAL     0x0800
- // id
-#define SFIFO_MOT_PARM_ID_MASK   0x01FF
-// end: SYNC_CMD format
 
 // (0x40 ~ 0x7F) RESERVED
 
