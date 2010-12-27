@@ -66,26 +66,26 @@
 #define DIR_N                           0x0000
 #define POS_MASK                        0x1FFF
 
-#define SFIFO_OP_CODE_MASK              0xF000
-#define SFIFO_DI_DO_PIN_MASK            0x0FC0
-#define SFIFO_DOUT_VAL_MASK             0x0001
-#define SFIFO_DIN_TYPE_MASK             0x0007
-#define SFIFO_TIMEOUT_MASK              0x0FFF
-#define SFIFO_COMP_EN_MASK              0x0001
-#define SFIFO_DATA_MASK                 0x00FF
-#define SFIFO_MOT_PARAM_ADDR_MASK        0x0FF0
-#define SFIFO_MOT_PARAM_ID_MASK          0x000F
+#define SYNC_OP_CODE_MASK               0xF000
+#define SYNC_DI_DO_PIN_MASK             0x0FC0
+#define SYNC_DOUT_VAL_MASK              0x0001
+#define SYNC_DIN_TYPE_MASK              0x0007
+#define SYNC_TIMEOUT_MASK               0x0FFF
+#define SYNC_COMP_EN_MASK               0x0001
+#define SYNC_DATA_MASK                  0x00FF
+#define SYNC_MOT_PARAM_ADDR_MASK        0x0FF0
+#define SYNC_MOT_PARAM_ID_MASK          0x000F
 // SYNC VEL CMD masks
-#define VEL_MASK 0x0FFE
-#define VEL_SYNC_MASK 0x0001
+#define VEL_MASK                        0x0FFE
+#define VEL_SYNC_MASK                   0x0001
 
 //      SFIFO DATA MACROS
-#define GET_IO_ID(i)        (((i) & SFIFO_DI_DO_PIN_MASK) >> 6)
-#define GET_DO_VAL(v)       (((v) & SFIFO_DOUT_VAL_MASK) >> 0)
-#define GET_DI_TYPE(t)      (((t) & SFIFO_DIN_TYPE_MASK) >> 0)
-#define GET_DATA_VAL(t)     (((t) & SFIFO_DATA_MASK) << 0)
-#define GET_MOT_PARAM_ADDR(t)     (((t) & SFIFO_MOT_PARAM_ADDR_MASK) >> 4)
-#define GET_MOT_PARAM_ID(t)        (((t) & SFIFO_MOT_PARAM_ID_MASK) >> 0)
+#define GET_IO_ID(i)        (((i) & SYNC_DI_DO_PIN_MASK) >> 6)
+#define GET_DO_VAL(v)       (((v) & SYNC_DOUT_VAL_MASK) >> 0)
+#define GET_DI_TYPE(t)      (((t) & SYNC_DIN_TYPE_MASK) >> 0)
+#define GET_DATA_VAL(t)     (((t) & SYNC_DATA_MASK) << 0)
+#define GET_MOT_PARAM_ADDR(t)     (((t) & SYNC_MOT_PARAM_ADDR_MASK) >> 4)
+#define GET_MOT_PARAM_ID(t)        (((t) & SYNC_MOT_PARAM_ID_MASK) >> 0)
 #define SYNC_COMP_EN(i) (0x0001&i)
 
 
@@ -102,8 +102,6 @@
 #define MAX_ACCEL                       (0x02)  // b'00000010
 #define MAX_ACCEL_RECIP                 (0x03)  // b'00000011
 #define COMP_VEL                        (0x04)  // b'00000100
-#define HOME_VEL                        (0x05)  // b'00000101
-#define HOME_LATCH_VEL                  (0x06)  // b'00000110
-#define USE_INDEX                       (0x07)  // b'00000111
+#define USE_INDEX                       (0x05)  // b'00000101
 
 #endif // __sync_cmd_h__
