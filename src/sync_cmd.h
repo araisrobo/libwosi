@@ -102,6 +102,16 @@
 #define MAX_ACCEL                       (0x02)  // b'00000010
 #define MAX_ACCEL_RECIP                 (0x03)  // b'00000011
 #define COMP_VEL                        (0x04)  // b'00000100
-#define USE_INDEX                       (0x05)  // b'00000101
-
+#define MOTION_TYPE                     (0x05)  // b'00000101
+enum motion_type {
+    NORMAL_MOVE,
+    SEARCH_HOME_LOW,
+    SEARCH_HOME_HIGH,
+   // TODO: define use index home feature
+    SWITCH_INDEX_HOME_MOVE,
+    INDEX_HOME_MOVE,
+    LOCK_MOVE
+};
+#define HOME_SW_INPUT_ID                (0x06)  // b'00000110
+#define HOME_SW_ACTIVE                  (0x07)  // b'00000111
 #endif // __sync_cmd_h__
