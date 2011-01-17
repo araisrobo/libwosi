@@ -19,11 +19,6 @@
  *    SYNC_ID       4'b1100         {VAL}         Send immediate data
  *                                                      VAL[7:0]: one byte data
  *    SYNC_MOT_PARM 4'b0111         {ADDR}{ID}    ADDR[11:4]
- *                                                      0: fraction bits
- *                                                      1: veloctiy
- *                                                      2: acceleration
- *                                                      3: acceleration recip
- *                                                      4: veloctiy for compensation
  *                                                ID[3:0]:
  *                                                VAL: from immediate data
  *    SYNC_VEL_CMD  4'b1001          {VEL, VAL}   VEL: velocity in mm/s
@@ -97,12 +92,15 @@
 #define PACK_MOT_PARAM_ADDR(t)  ((t) << 4)
 
 // memory map for motion parameter for each joint
-#define FRACTION_BIT                    (0x00)  // b'00000000
-#define MAX_VELOCITY                    (0x01)  // b'00000001
-#define MAX_ACCEL                       (0x02)  // b'00000010
-#define MAX_ACCEL_RECIP                 (0x03)  // b'00000011
-#define COMP_VEL                        (0x04)  // b'00000100
-#define MOTION_TYPE                     (0x05)  // b'00000101
+#define CMD_FRACT_BIT                   (0x00)  // b'00000000
+#define PARAM_FRACT_BIT                 (0x01)
+#define MAX_VELOCITY                    (0x02)
+#define MAX_ACCEL                       (0x03)
+#define MAX_ACCEL_RECIP                 (0x04)
+#define COMP_VEL                        (0x05)
+#define MOTION_TYPE                     (0x06)
+
+
 enum motion_type {
     NORMAL_MOVE,
     SEARCH_HOME_LOW,
@@ -110,6 +108,7 @@ enum motion_type {
    // TODO: define use index home feature
     SWITCH_INDEX_HOME_MOVE,
     INDEX_HOME_MOVE,
+    DECELERATION,
     LOCK_MOVE
 };
 #define HOME_SW_INPUT_ID                (0x06)  // b'00000110
