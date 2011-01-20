@@ -49,6 +49,12 @@
 // 0xf000 command not available
 
 //  timeout type
+#define WAIT_LOW_AND_TIME 0x0
+/*
+#define WAIT_HIGH_AND_TIME 0x1
+#define WAIT_FALL_AND_TIME 0x2
+#define WAIT_RISE_AND_TIME 0x3
+*/
 #define WAIT_LOW          0x4
 #define WAIT_HIGH         0x5
 #define WAIT_FALL         0x6
