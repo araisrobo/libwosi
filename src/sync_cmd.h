@@ -49,6 +49,12 @@
 // 0xf000 command not available
 
 //  timeout type
+#define WAIT_LOW_AND_TIME 0x0
+/*
+#define WAIT_HIGH_AND_TIME 0x1
+#define WAIT_FALL_AND_TIME 0x2
+#define WAIT_RISE_AND_TIME 0x3
+*/
 #define WAIT_LOW          0x4
 #define WAIT_HIGH         0x5
 #define WAIT_FALL         0x6
@@ -92,15 +98,33 @@
 #define PACK_MOT_PARAM_ADDR(t)  ((t) << 4)
 
 // memory map for motion parameter for each joint
-#define CMD_FRACT_BIT                   (0x00)  // b'00000000
-#define PARAM_FRACT_BIT                 (0x01)
-#define MAX_VELOCITY                    (0x02)
-#define MAX_ACCEL                       (0x03)
-#define MAX_ACCEL_RECIP                 (0x04)
-#define COMP_VEL                        (0x05)
-#define MOTION_TYPE                     (0x06)
-
-
+enum motion_parameter_addr {
+    CMD_FRACT_BIT     ,
+    PARAM_FRACT_BIT   ,
+    MAX_VELOCITY      ,
+    MAX_ACCEL         ,
+    MAX_ACCEL_RECIP   ,
+    COMP_VEL          ,
+    MOTION_TYPE       ,
+    HOME_SW_INPUT_ID  ,
+    HOME_SW_ACTIVE    ,
+    DEAD_BAND         ,
+    P_GAIN            ,
+    I_GAIN            ,
+    D_GAIN            ,
+    FF0               ,
+    FF1               ,
+    FF2               ,
+    BIAS              ,
+    MAXERROR          ,
+    MAXERROR_I        ,
+    MAXERROR_D        ,
+    MAXCMD_D          ,
+    MAXCMD_DD         ,
+    MAXOUTPUT         ,
+    ENABLE            ,
+    MAX_PARAM_ITEM
+};
 enum motion_type {
     NORMAL_MOVE,
     SEARCH_HOME_LOW,
@@ -111,6 +135,5 @@ enum motion_type {
     DECELERATION,
     LOCK_MOVE
 };
-#define HOME_SW_INPUT_ID                (0x06)  // b'00000110
-#define HOME_SW_ACTIVE                  (0x07)  // b'00000111
+
 #endif // __sync_cmd_h__

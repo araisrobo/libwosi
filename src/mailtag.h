@@ -32,7 +32,7 @@
 #define REPORT_INVOKE_EXT_FUN   210
 #define REPORT_REF_VOLTAGE      211
 #define REPORT_SYNC_VEL         212
-
+#define REPORT_WAIT_LOW_AND_TIME 213
 
 #define PROTOCOL_REPORT_BASE    300
 #endif //mailbox_tag_h
