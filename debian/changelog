@@ -1,3 +1,9 @@
+libwou (0.1-16) lucid; urgency=low
+
+  * update with dedicated PID control to RISC
+
+ -- Hsu-yao Tsai <hsuyao.tsai@araisrobo.com>  Thu, 24 Feb 2011 13:03:22 +0800
+
 libwou (0.1-15) lucid; urgency=low
 
   * update for risc homing control
