@@ -112,7 +112,7 @@ enum motion_parameter_addr {
     HOME_SW_INPUT_ID  ,
     HOME_SW_ACTIVE    ,
     INDEX_INPUT_ID,
-    INDEX_INTPUT_ACTIVE,
+    INDEX_INPUT_ACTIVE,
     // section for PID
         // unit: 1/2^20
     P_GAIN            ,
