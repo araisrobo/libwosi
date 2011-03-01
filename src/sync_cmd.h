@@ -111,8 +111,7 @@ enum motion_parameter_addr {
     MOTION_TYPE       ,
     HOME_SW_INPUT_ID  ,
     HOME_SW_ACTIVE    ,
-    INDEX_INPUT_ID,
-    INDEX_INPUT_ACTIVE,
+    INDEX_ENABLE,
     // section for PID
         // unit: 1/2^20
     P_GAIN            ,
@@ -140,9 +139,7 @@ enum motion_type {
     NORMAL_MOVE,
     SEARCH_HOME_LOW,
     SEARCH_HOME_HIGH,
-   // TODO: define use index home feature
-    SWITCH_INDEX_HOME_MOVE,
-    INDEX_HOME_MOVE,
+    SEARCH_INDEX,
     DECELERATION,
     LOCK_MOVE,
     PROBE_MOVE,
