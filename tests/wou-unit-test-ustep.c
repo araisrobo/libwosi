@@ -15,6 +15,7 @@ FILE *mbox_fp;
 static uint32_t pulse_pos_tmp[4];
 static uint32_t enc_pos_tmp[4];
 static uint32_t _dt = 0;
+
 static void fetchmail(const uint8_t *buf_head)
 {
     int i;
@@ -22,10 +23,7 @@ static void fetchmail(const uint8_t *buf_head)
     uint32_t pos;
     uint32_t *p;
 
-
-
     memcpy(&mail_tag, (buf_head + 2), sizeof(uint16_t));
-
 
     if (mail_tag == 0x0001) {
 
@@ -51,7 +49,6 @@ static void fetchmail(const uint8_t *buf_head)
         //p += 1;
         //fprintf(mbox_fp,"%11d\n", (int32_t)*p);
     }
-
 }
 
 
