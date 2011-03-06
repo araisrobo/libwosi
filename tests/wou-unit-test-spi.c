@@ -135,6 +135,9 @@ int main(void)
     mbox_fp = fopen ("./mbox.log", "w");
     fprintf(mbox_fp,"%11s%11s%11s%11s%11s%11s%11s%11s%11s%11s%11s\n","bp_tick","j0","j1","j2","j3","e0","e1","e2","e3","adc_spi","filtered adc");
     wou_set_mbox_cb (&w_param, fetchmail);
+        
+    data[0] = 1;        // RISC ON
+    wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | OR32_CTRL), 1, data);
 
 //??    // setup sync timeout
 //??    {

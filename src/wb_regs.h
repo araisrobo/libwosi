@@ -23,9 +23,6 @@
  *                                                3'h4: gpio_in[7:0]
  *                                                4'h5: gpio_in[15:8]
  * GPIO_OUT       [ 7: 0]   0x0003        W       drive the 7i37 out ports
- * GPIO_MASK_IN0  [ 7: 0]   0x0004        W       mask for input bits [7:0]
- * GPIO_MASK_IN1  [ 7: 0]   0x0005        W       mask for input bits [15:8]
- *                                                inport = mask & bits_i
  * GPIO_IN                  0x0006        R       read gpio input:
  *                                                0x06~0x07                                                
  *******************************************************************************
@@ -178,9 +175,6 @@
                                 //  3'h4: gpio_in[7:0]
                                 //  4'h5: gpio_in[15:8]
 #define GPIO_OUT        0x0003  // GPIO_OUT.[7:0]
-#define GPIO_MASK_IN0   0x0004  // mask for input bits [7:0], reset to 0x00
-#define GPIO_MASK_IN1   0x0005  // mask for input bits [15:8], reset to 0x00
-                                // inport = mask & bits_i
 #define GPIO_IN         0x0006
 // JCMD register space:
 #define JCMD_BASE       0x1000  // 
