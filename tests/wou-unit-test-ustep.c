@@ -182,11 +182,6 @@ int main(void)
     printf("\nTEST JCMD WRITE/READ:\n");
     /** WISHBONE REGISTERS **/
     
-    // GPIO: mask for input bits [7:0] [15:8]
-    value = 0xFF;
-    wou_cmd(&w_param, WB_WR_CMD, (GPIO_BASE | GPIO_MASK_IN0), 1, &value);
-    wou_cmd(&w_param, WB_WR_CMD, (GPIO_BASE | GPIO_MASK_IN1), 1, &value);
-
     // switch LEDs to display servo pulse commands
     value = 2;
     wou_cmd(&w_param, WB_WR_CMD, (GPIO_BASE | GPIO_LEDS_SEL), 1, &value);
