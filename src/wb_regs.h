@@ -23,6 +23,8 @@
  *                                                3'h4: gpio_in[7:0]
  *                                                4'h5: gpio_in[15:8]
  * GPIO_OUT       [ 7: 0]   0x0003        W       drive the 7i37 out ports
+ * GPIO_ALM_OUT0            0x0004        W       DOUT[7:0] for ALARM
+ * GPIO_ALM_OUT1            0x0005        W       DOUT[15:8] for ALARM
  * GPIO_IN                  0x0006        R       read gpio input:
  *                                                0x06~0x07                                                
  *******************************************************************************
@@ -175,6 +177,8 @@
                                 //  3'h4: gpio_in[7:0]
                                 //  4'h5: gpio_in[15:8]
 #define GPIO_OUT        0x0003  // GPIO_OUT.[7:0]
+#define GPIO_ALM_OUT0   0x0004
+#define GPIO_ALM_OUT1   0x0005
 #define GPIO_IN         0x0006
 // JCMD register space:
 #define JCMD_BASE       0x1000  // 
