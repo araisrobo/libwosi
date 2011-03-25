@@ -12,8 +12,11 @@
 #define WORDS_PER_LINE 8
 #define BYTES_PER_WORD 4
 
+// co2:
 #define FPGA_BIT  "./co2_top.bit"
 #define RISC_BIN  "./co2.bin"
+
+// #define FPGA_BIT  "./servo_top.bit"
 // #define RISC_BIN  "./sfifo.bin"
 
 FILE *mbox_fp;
@@ -182,28 +185,6 @@ int main(void)
 
     printf("\nTEST JCMD WRITE/READ:\n");
     /** WISHBONE REGISTERS **/
-    
-    value = 2;  // 2: let LEDs to display FIFO status
-    wou_cmd(&w_param, WB_WR_CMD, (GPIO_BASE | GPIO_LEDS_SEL), 1, &value);
-    wou_flush(&w_param);
-    
-
-//obsolete:    //begin: ADC_SPI
-//obsolete:    // set ADC_SPI_SCK_NR to generate 19 SPI_SCK pulses
-//obsolete:    data[0] = 19; 
-//obsolete:    wou_cmd (&w_param, WB_WR_CMD, (uint16_t) (SPI_BASE | ADC_SPI_SCK_NR), 
-//obsolete:                        (uint8_t) 1, data);
-//obsolete:    
-//obsolete:    // enable ADC_SPI with LOOP mode
-//obsolete:    // ADC_SPI_CMD: 0x10: { (1)START_BIT,
-//obsolete:    //                      (0)Differential mode,
-//obsolete:    //                      (0)D2 ... dont care,
-//obsolete:    //                      (0)D1 ... Ch0 = IN+,
-//obsolete:    //                      (0)D2 ... CH1 = IN-   }
-//obsolete:    data[0] = ADC_SPI_EN_MASK | ADC_SPI_LOOP_MASK | (ADC_SPI_CMD_MASK & 0x10);
-//obsolete:    wou_cmd (&w_param, WB_WR_CMD, (uint16_t) (SPI_BASE | ADC_SPI_CTRL), 
-//obsolete:                        (uint8_t) 1, data);
-//obsolete:    //end: ADC_SPI
     
     //begin: set SSIF_PULSE_TYPE as STEP_DIR (default is AB_PHASE)
     value = PTYPE_STEP_DIR;

@@ -13,15 +13,15 @@
  *    RECONFIG    [    1]   0x0000        W       make the FPGA in re-configuration mode, 
  *                                                let CPLD control the USB ports.
  * RESERVED       [ 7: 2]   0x0000
- * GPIO_LEDS      [ 7: 0]   0x0001        W       drive the 7i43 LEDS
- * GPIO_LEDS_SEL  [ 2: 0]   0x0002        W       LED source selection
- *                                                GPIO_LEDS_SEL.[2:0] :
- *                                                3'h0: gpio_leds[7:0]
- *                                                3'h1: servo_if pulse output
- *                                                3'h2: debug_port_0
- *                                                3'h3: gpio_out[7:0]
- *                                                3'h4: gpio_in[7:0]
- *                                                4'h5: gpio_in[15:8]
+//obsolete: * GPIO_LEDS      [ 7: 0]   0x0001        W       drive the 7i43 LEDS
+//obsolete: * GPIO_LEDS_SEL  [ 2: 0]   0x0002        W       LED source selection
+//obsolete: *                                                GPIO_LEDS_SEL.[2:0] :
+//obsolete: *                                                3'h0: gpio_leds[7:0]
+//obsolete: *                                                3'h1: servo_if pulse output
+//obsolete: *                                                3'h2: debug_port_0
+//obsolete: *                                                3'h3: gpio_out[7:0]
+//obsolete: *                                                3'h4: gpio_in[7:0]
+//obsolete: *                                                4'h5: gpio_in[15:8]
  * GPIO_OUT       [ 7: 0]   0x0003        W       drive the 7i37 out ports
  * GPIO_ALM_OUT0            0x0004        W       DOUT[7:0] for ALARM
  * GPIO_ALM_OUT1            0x0005        W       DOUT[15:8] for ALARM
@@ -168,14 +168,14 @@
 #define GPIO_SYSTEM     0x0000  // GPIO_SYSTEM.[1:0]
 #define GPIO_SOFT_RST   0x01    // GPIO_SYSTEM.[0]
 #define GPIO_RECONFIG   0x02    // GPIO_SYSTEM.[1]
-#define GPIO_LEDS       0x0001  // GPIO_LEDS.[7:0]
-#define GPIO_LEDS_SEL   0x0002  // GPIO_LEDS_SEL.[2:0] :
-                                //  3'h0: gpio_leds[7:0]
-                                //  3'h1: servo_if pulse output
-                                //  3'h2: debug_port_0
-                                //  3'h3: gpio_out[7:0]
-                                //  3'h4: gpio_in[7:0]
-                                //  4'h5: gpio_in[15:8]
+//obsolete: #define GPIO_LEDS       0x0001  // GPIO_LEDS.[7:0]
+//obsolete: #define GPIO_LEDS_SEL   0x0002  // GPIO_LEDS_SEL.[2:0] :
+//obsolete:                                 //  3'h0: gpio_leds[7:0]
+//obsolete:                                 //  3'h1: servo_if pulse output
+//obsolete:                                 //  3'h2: debug_port_0
+//obsolete:                                 //  3'h3: gpio_out[7:0]
+//obsolete:                                 //  3'h4: gpio_in[7:0]
+//obsolete:                                 //  4'h5: gpio_in[15:8]
 #define GPIO_OUT        0x0003  // GPIO_OUT.[7:0]
 #define GPIO_ALM_OUT0   0x0004
 #define GPIO_ALM_OUT1   0x0005

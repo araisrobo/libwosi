@@ -50,13 +50,13 @@ int main(void)
     //bug: wou_flush(&w_param);
     //bug: printf("send a wou-frame ... press key ...\n"); getchar();
 
-    // LEDS_SEL(2): switch LEDs to display debug port
-    value = 2;
-    wou_cmd(&w_param, WB_WR_CMD, GPIO_LEDS_SEL, 1, &value);
-    //debug: check if the first packet is correct?
-    wou_flush(&w_param);
-    // printf("send a wou-frame ... press key ...\n");
-    // getchar();
+//obsolete:    // LEDS_SEL(2): switch LEDs to display debug port
+//obsolete:    value = 2;
+//obsolete:    wou_cmd(&w_param, WB_WR_CMD, GPIO_LEDS_SEL, 1, &value);
+//obsolete:    //debug: check if the first packet is correct?
+//obsolete:    wou_flush(&w_param);
+//obsolete:    // printf("send a wou-frame ... press key ...\n");
+//obsolete:    // getchar();
   
     value = 1;
     wou_cmd (&w_param, WB_WR_CMD, GPIO_OUT, 1, &value);
@@ -155,3 +155,5 @@ int main(void)
 
     return 0;
 }
+
+// vim:sw=4:sts=4:et:
