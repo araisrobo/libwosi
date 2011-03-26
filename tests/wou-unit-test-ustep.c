@@ -182,13 +182,13 @@ int main(void)
     printf("\nTEST JCMD WRITE/READ:\n");
     /** WISHBONE REGISTERS **/
     
-    // switch LEDs to display servo pulse commands
-    value = 2;
-    wou_cmd(&w_param, WB_WR_CMD, (GPIO_BASE | GPIO_LEDS_SEL), 1, &value);
-    //debug: check if the first packet is correct?
-    wou_flush(&w_param);
-    // printf("send a wou-frame ... press key ...\n");
-    // getchar();
+//obsolete:    // switch LEDs to display servo pulse commands
+//obsolete:    value = 2;
+//obsolete:    wou_cmd(&w_param, WB_WR_CMD, (GPIO_BASE | GPIO_LEDS_SEL), 1, &value);
+//obsolete:    //debug: check if the first packet is correct?
+//obsolete:    wou_flush(&w_param);
+//obsolete:    // printf("send a wou-frame ... press key ...\n");
+//obsolete:    // getchar();
     
     // this will create a CRC ERROR:
     wou_flush(&w_param);
@@ -201,13 +201,13 @@ int main(void)
     wou_cmd(&w_param, WB_WR_CMD,
     	    (JCMD_BASE | JCMD_WATCHDOG), 1, &value);
 
-    // switch LEDs to display servo pulse commands
-    value = 2;
-    wou_cmd(&w_param, WB_WR_CMD, (GPIO_BASE | GPIO_LEDS_SEL), 1, &value);
-    //debug: check if the first packet is correct?
-    wou_flush(&w_param);
-    // printf("send a wou-frame ... press key ...\n");
-    // getchar();
+//obsolete:    // switch LEDs to display servo pulse commands
+//obsolete:    value = 2;
+//obsolete:    wou_cmd(&w_param, WB_WR_CMD, (GPIO_BASE | GPIO_LEDS_SEL), 1, &value);
+//obsolete:    //debug: check if the first packet is correct?
+//obsolete:    wou_flush(&w_param);
+//obsolete:    // printf("send a wou-frame ... press key ...\n");
+//obsolete:    // getchar();
 
 
 

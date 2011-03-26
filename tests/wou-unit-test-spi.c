@@ -12,8 +12,12 @@
 #define WORDS_PER_LINE 8
 #define BYTES_PER_WORD 4
 
+// co2:
 #define FPGA_BIT  "./co2_top.bit"
-#define RISC_BIN  "./sfifo.bin"
+#define RISC_BIN  "./co2.bin"
+
+// #define FPGA_BIT  "./servo_top.bit"
+// #define RISC_BIN  "./sfifo.bin"
 
 FILE *mbox_fp;
 static uint32_t pulse_pos_tmp[4];
@@ -136,9 +140,6 @@ int main(void)
     fprintf(mbox_fp,"%11s%11s%11s%11s%11s%11s%11s%11s%11s%11s%11s\n","bp_tick","j0","j1","j2","j3","e0","e1","e2","e3","adc_spi","filtered adc");
     wou_set_mbox_cb (&w_param, fetchmail);
         
-    data[0] = 1;        // RISC ON
-    wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | OR32_CTRL), 1, data);
-
 //??    // setup sync timeout
 //??    {
 //??        uint16_t sync_cmd;
@@ -185,28 +186,6 @@ int main(void)
     printf("\nTEST JCMD WRITE/READ:\n");
     /** WISHBONE REGISTERS **/
     
-    value = 2;  // 2: let LEDs to display FIFO status
-    wou_cmd(&w_param, WB_WR_CMD, (GPIO_BASE | GPIO_LEDS_SEL), 1, &value);
-    wou_flush(&w_param);
-    
-
-    //begin: ADC_SPI
-    // set ADC_SPI_SCK_NR to generate 19 SPI_SCK pulses
-    data[0] = 19; 
-    wou_cmd (&w_param, WB_WR_CMD, (uint16_t) (SPI_BASE | ADC_SPI_SCK_NR), 
-                        (uint8_t) 1, data);
-    
-//obsolete:    // enable ADC_SPI with LOOP mode
-//obsolete:    // ADC_SPI_CMD: 0x10: { (1)START_BIT,
-//obsolete:    //                      (0)Differential mode,
-//obsolete:    //                      (0)D2 ... dont care,
-//obsolete:    //                      (0)D1 ... Ch0 = IN+,
-//obsolete:    //                      (0)D2 ... CH1 = IN-   }
-//obsolete:    data[0] = ADC_SPI_EN_MASK | ADC_SPI_LOOP_MASK | (ADC_SPI_CMD_MASK & 0x10);
-//obsolete:    wou_cmd (&w_param, WB_WR_CMD, (uint16_t) (SPI_BASE | ADC_SPI_CTRL), 
-//obsolete:                        (uint8_t) 1, data);
-//obsolete:    //end: ADC_SPI
-    
     //begin: set SSIF_PULSE_TYPE as STEP_DIR (default is AB_PHASE)
     value = PTYPE_STEP_DIR;
     wou_cmd (&w_param, WB_WR_CMD, (uint16_t) (SSIF_BASE | SSIF_PULSE_TYPE), 
@@ -242,6 +221,10 @@ int main(void)
     //     RST               0x05.2        W       Reset JCMD (TODO: seems not necessary)
     data[0] = 2;
     wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_CTRL), 1, data);
+    wou_flush(&w_param);
+    
+    data[0] = 1;        // RISC ON
+    wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | OR32_CTRL), 1, data);
     wou_flush(&w_param);
 
     clock_gettime(CLOCK_REALTIME, &time1);
