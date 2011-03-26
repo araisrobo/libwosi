@@ -103,22 +103,23 @@
  *                set SSIF_MAX_PWM as 255
  *******************************************************************************
  
- *******************************************************************************
- * @REGISTERS FOR SPI Devices
- *******************************************************************************
- * SPI_BASE             0x3000
- *******************************************************************************
- * REG_NAME             ADDR_OFFSET   ACCESS  DESCRIPTION
- * ADC_SPI_CTRL             0x0008        RW      ADC_SPI Control Register
- *     SPI_CMD              0x0008.[4:0]  W       SPI Command to ADC
- *     SPI_DRDY             0x0008.5      R       (1)DATA_READY_FLAG
- *                                                Reset to 0 when write into ADC_SPI_CTRL
- *     SPI_LOOP             0x0008.6      W       (1)LOOPING
- *     SPI_EN               0x0008.7      W       (1)Enable
- * ADC_SPI_SCK_NR           0x0009.[4:0]  W       Number of SCK to generate
- * ADC_SPI_OUTPUT           0x000A        R       [ 7:0] 12-bits ADC result
- *                          0x000B        R       [11:8]
- *******************************************************************************
+//obsolete:  *******************************************************************************
+//obsolete:  * @REGISTERS FOR SPI Devices
+//obsolete:  *******************************************************************************
+//obsolete:  * SPI_BASE             0x3000
+//obsolete:  *******************************************************************************
+//obsolete:  * REG_NAME             ADDR_OFFSET   ACCESS  DESCRIPTION
+//obsolete:  * ADC_SPI_CTRL             0x0008        RW      ADC_SPI Control Register
+//obsolete:  *     SPI_CMD              0x0008.[4:0]  W       SPI Command to ADC
+//obsolete:  *     SPI_DRDY             0x0008.5      R       (1)DATA_READY_FLAG
+//obsolete:  *                                                Reset to 0 when write into ADC_SPI_CTRL
+//obsolete:  *     SPI_LOOP             0x0008.6      W       (1)LOOPING
+//obsolete:  *     SPI_EN               0x0008.7      W       (1)Enable
+//obsolete:  * ADC_SPI_SCK_NR           0x0009.[4:0]  W       Number of SCK to generate
+//obsolete:  * ADC_SPI_OUTPUT           0x000A        R       [ 7:0] 12-bits ADC result
+//obsolete:  *                          0x000B        R       [11:8]
+//obsolete:  *******************************************************************************
+
  **/
 
 /**
@@ -259,15 +260,16 @@
                                 //                  stepper: based on PULSE_POS
 // end: registers for SSIF (Servo/Stepper InterFace)
 
-// begin: registers for SPI devices
-#define SPI_BASE        0x3000
-//      REGISTERS       OFFSET  // DESCRIPTION
-#define ADC_SPI_CTRL    0x0008  // (8-bits)ADC_SPI Control Register
-#define ADC_SPI_CMD_MASK  0x1F  // 0x08.[4:0] SPI Command to ADC
-#define ADC_SPI_DRDY_MASK 0x20  // 0x08.5 (1)DATA_READY
-#define ADC_SPI_LOOP_MASK 0x40  // 0x08.6 (1)LOOPING
-#define ADC_SPI_EN_MASK   0x80  // 0x08.7 (1)Enable
-#define ADC_SPI_SCK_NR  0x0009  // [4:0] Number of SCK to generate
-#define ADC_SPI_OUTPUT  0x000A  // 0x0A ~ 0x0B (12-bits) ADC result
-// end: registers for SPI devices
+//obsolete: // begin: registers for SPI devices
+//obsolete: #define SPI_BASE        0x3000
+//obsolete: //      REGISTERS       OFFSET  // DESCRIPTION
+//obsolete: #define ADC_SPI_CTRL    0x0008  // (8-bits)ADC_SPI Control Register
+//obsolete: #define ADC_SPI_CMD_MASK  0x1F  // 0x08.[4:0] SPI Command to ADC
+//obsolete: #define ADC_SPI_DRDY_MASK 0x20  // 0x08.5 (1)DATA_READY
+//obsolete: #define ADC_SPI_LOOP_MASK 0x40  // 0x08.6 (1)LOOPING
+//obsolete: #define ADC_SPI_EN_MASK   0x80  // 0x08.7 (1)Enable
+//obsolete: #define ADC_SPI_SCK_NR  0x0009  // [4:0] Number of SCK to generate
+//obsolete: #define ADC_SPI_OUTPUT  0x000A  // 0x0A ~ 0x0B (12-bits) ADC result
+//obsolete: // end: registers for SPI devices
+
 #endif // __wb_regs_h__

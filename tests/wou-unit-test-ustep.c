@@ -211,22 +211,22 @@ int main(void)
 
 
 
-    //begin: ADC_SPI
-    // set ADC_SPI_SCK_NR to generate 19 SPI_SCK pulses
-    data[0] = 19; 
-    wou_cmd (&w_param, WB_WR_CMD, (uint16_t) (SPI_BASE | ADC_SPI_SCK_NR), 
-                        (uint8_t) 1, data);
-    
-    // enable ADC_SPI with LOOP mode
-    // ADC_SPI_CMD: 0x10: { (1)START_BIT,
-    //                      (0)Differential mode,
-    //                      (0)D2 ... dont care,
-    //                      (0)D1 ... Ch0 = IN+,
-    //                      (0)D2 ... CH1 = IN-   }
-    data[0] = ADC_SPI_EN_MASK | ADC_SPI_LOOP_MASK | (ADC_SPI_CMD_MASK & 0x10);
-    wou_cmd (&w_param, WB_WR_CMD, (uint16_t) (SPI_BASE | ADC_SPI_CTRL), 
-                        (uint8_t) 1, data);
-    //end: ADC_SPI
+//obsolete:    //begin: ADC_SPI
+//obsolete:    // set ADC_SPI_SCK_NR to generate 19 SPI_SCK pulses
+//obsolete:    data[0] = 19; 
+//obsolete:    wou_cmd (&w_param, WB_WR_CMD, (uint16_t) (SPI_BASE | ADC_SPI_SCK_NR), 
+//obsolete:                        (uint8_t) 1, data);
+//obsolete:    
+//obsolete:    // enable ADC_SPI with LOOP mode
+//obsolete:    // ADC_SPI_CMD: 0x10: { (1)START_BIT,
+//obsolete:    //                      (0)Differential mode,
+//obsolete:    //                      (0)D2 ... dont care,
+//obsolete:    //                      (0)D1 ... Ch0 = IN+,
+//obsolete:    //                      (0)D2 ... CH1 = IN-   }
+//obsolete:    data[0] = ADC_SPI_EN_MASK | ADC_SPI_LOOP_MASK | (ADC_SPI_CMD_MASK & 0x10);
+//obsolete:    wou_cmd (&w_param, WB_WR_CMD, (uint16_t) (SPI_BASE | ADC_SPI_CTRL), 
+//obsolete:                        (uint8_t) 1, data);
+//obsolete:    //end: ADC_SPI
     
 
 
