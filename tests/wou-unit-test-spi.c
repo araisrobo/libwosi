@@ -12,12 +12,15 @@
 #define WORDS_PER_LINE 8
 #define BYTES_PER_WORD 4
 
-// co2:
-#define FPGA_BIT  "./co2_top.bit"
-#define RISC_BIN  "./co2.bin"
+// // co2:
+// #define FPGA_BIT  "./co2_top.bit"
+// #define RISC_BIN  "./co2.bin"
 
 // #define FPGA_BIT  "./servo_top.bit"
 // #define RISC_BIN  "./sfifo.bin"
+
+#define FPGA_BIT  "./plasma_top.bit"
+#define RISC_BIN  "./plasma.bin"
 
 FILE *mbox_fp;
 static uint32_t pulse_pos_tmp[4];
