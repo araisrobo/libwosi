@@ -1,3 +1,9 @@
+libwou (0.1-2011.04.06) lucid; urgency=low
+
+  * update wb_regs.h
+
+ -- Yi-Shin Li <ysli@araisrobo.com>  Wed, 06 Apr 2011 20:12:36 +0800
+
 libwou (0.1-16) lucid; urgency=low
 
   * update with dedicated PID control to RISC
