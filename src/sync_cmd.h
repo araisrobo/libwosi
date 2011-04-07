@@ -111,7 +111,9 @@ enum motion_parameter_addr {
     MOTION_TYPE       ,
     HOME_SW_INPUT_ID  ,
     HOME_SW_ACTIVE    ,
-    INDEX_ENABLE,
+    INDEX_ENABLE      ,
+    LIMIT_MAX         ,
+    LIMIT_MIN         ,
     // section for PID
         // unit: 1/2^20
     P_GAIN            ,
