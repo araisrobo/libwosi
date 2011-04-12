@@ -13,19 +13,18 @@
  *    RECONFIG    [    1]   0x0000        W       make the FPGA in re-configuration mode, 
  *                                                let CPLD control the USB ports.
  * RESERVED       [ 7: 2]   0x0000
- * GPIO_LEDS      [ 7: 0]   0x0001        W       drive the 7i43 LEDS
- * GPIO_LEDS_SEL  [ 2: 0]   0x0002        W       LED source selection
- *                                                GPIO_LEDS_SEL.[2:0] :
- *                                                3'h0: gpio_leds[7:0]
- *                                                3'h1: servo_if pulse output
- *                                                3'h2: debug_port_0
- *                                                3'h3: gpio_out[7:0]
- *                                                3'h4: gpio_in[7:0]
- *                                                4'h5: gpio_in[15:8]
+//obsolete: * GPIO_LEDS      [ 7: 0]   0x0001        W       drive the 7i43 LEDS
+//obsolete: * GPIO_LEDS_SEL  [ 2: 0]   0x0002        W       LED source selection
+//obsolete: *                                                GPIO_LEDS_SEL.[2:0] :
+//obsolete: *                                                3'h0: gpio_leds[7:0]
+//obsolete: *                                                3'h1: servo_if pulse output
+//obsolete: *                                                3'h2: debug_port_0
+//obsolete: *                                                3'h3: gpio_out[7:0]
+//obsolete: *                                                3'h4: gpio_in[7:0]
+//obsolete: *                                                4'h5: gpio_in[15:8]
  * GPIO_OUT       [ 7: 0]   0x0003        W       drive the 7i37 out ports
- * GPIO_MASK_IN0  [ 7: 0]   0x0004        W       mask for input bits [7:0]
- * GPIO_MASK_IN1  [ 7: 0]   0x0005        W       mask for input bits [15:8]
- *                                                inport = mask & bits_i
+ * GPIO_ALM_OUT0            0x0004        W       DOUT[7:0] for ALARM
+ * GPIO_ALM_OUT1            0x0005        W       DOUT[15:8] for ALARM
  * GPIO_IN                  0x0006        R       read gpio input:
  *                                                0x06~0x07                                                
  *******************************************************************************
@@ -104,22 +103,23 @@
  *                set SSIF_MAX_PWM as 255
  *******************************************************************************
  
- *******************************************************************************
- * @REGISTERS FOR SPI Devices
- *******************************************************************************
- * SPI_BASE             0x3000
- *******************************************************************************
- * REG_NAME             ADDR_OFFSET   ACCESS  DESCRIPTION
- * ADC_SPI_CTRL             0x0008        RW      ADC_SPI Control Register
- *     SPI_CMD              0x0008.[4:0]  W       SPI Command to ADC
- *     SPI_DRDY             0x0008.5      R       (1)DATA_READY_FLAG
- *                                                Reset to 0 when write into ADC_SPI_CTRL
- *     SPI_LOOP             0x0008.6      W       (1)LOOPING
- *     SPI_EN               0x0008.7      W       (1)Enable
- * ADC_SPI_SCK_NR           0x0009.[4:0]  W       Number of SCK to generate
- * ADC_SPI_OUTPUT           0x000A        R       [ 7:0] 12-bits ADC result
- *                          0x000B        R       [11:8]
- *******************************************************************************
+//obsolete:  *******************************************************************************
+//obsolete:  * @REGISTERS FOR SPI Devices
+//obsolete:  *******************************************************************************
+//obsolete:  * SPI_BASE             0x3000
+//obsolete:  *******************************************************************************
+//obsolete:  * REG_NAME             ADDR_OFFSET   ACCESS  DESCRIPTION
+//obsolete:  * ADC_SPI_CTRL             0x0008        RW      ADC_SPI Control Register
+//obsolete:  *     SPI_CMD              0x0008.[4:0]  W       SPI Command to ADC
+//obsolete:  *     SPI_DRDY             0x0008.5      R       (1)DATA_READY_FLAG
+//obsolete:  *                                                Reset to 0 when write into ADC_SPI_CTRL
+//obsolete:  *     SPI_LOOP             0x0008.6      W       (1)LOOPING
+//obsolete:  *     SPI_EN               0x0008.7      W       (1)Enable
+//obsolete:  * ADC_SPI_SCK_NR           0x0009.[4:0]  W       Number of SCK to generate
+//obsolete:  * ADC_SPI_OUTPUT           0x000A        R       [ 7:0] 12-bits ADC result
+//obsolete:  *                          0x000B        R       [11:8]
+//obsolete:  *******************************************************************************
+
  **/
 
 /**
@@ -169,18 +169,17 @@
 #define GPIO_SYSTEM     0x0000  // GPIO_SYSTEM.[1:0]
 #define GPIO_SOFT_RST   0x01    // GPIO_SYSTEM.[0]
 #define GPIO_RECONFIG   0x02    // GPIO_SYSTEM.[1]
-#define GPIO_LEDS       0x0001  // GPIO_LEDS.[7:0]
-#define GPIO_LEDS_SEL   0x0002  // GPIO_LEDS_SEL.[2:0] :
-                                //  3'h0: gpio_leds[7:0]
-                                //  3'h1: servo_if pulse output
-                                //  3'h2: debug_port_0
-                                //  3'h3: gpio_out[7:0]
-                                //  3'h4: gpio_in[7:0]
-                                //  4'h5: gpio_in[15:8]
+//obsolete: #define GPIO_LEDS       0x0001  // GPIO_LEDS.[7:0]
+//obsolete: #define GPIO_LEDS_SEL   0x0002  // GPIO_LEDS_SEL.[2:0] :
+//obsolete:                                 //  3'h0: gpio_leds[7:0]
+//obsolete:                                 //  3'h1: servo_if pulse output
+//obsolete:                                 //  3'h2: debug_port_0
+//obsolete:                                 //  3'h3: gpio_out[7:0]
+//obsolete:                                 //  3'h4: gpio_in[7:0]
+//obsolete:                                 //  4'h5: gpio_in[15:8]
 #define GPIO_OUT        0x0003  // GPIO_OUT.[7:0]
-#define GPIO_MASK_IN0   0x0004  // mask for input bits [7:0], reset to 0x00
-#define GPIO_MASK_IN1   0x0005  // mask for input bits [15:8], reset to 0x00
-                                // inport = mask & bits_i
+#define GPIO_ALM_OUT0   0x0004
+#define GPIO_ALM_OUT1   0x0005
 #define GPIO_IN         0x0006
 // JCMD register space:
 #define JCMD_BASE       0x1000  // 
@@ -261,15 +260,16 @@
                                 //                  stepper: based on PULSE_POS
 // end: registers for SSIF (Servo/Stepper InterFace)
 
-// begin: registers for SPI devices
-#define SPI_BASE        0x3000
-//      REGISTERS       OFFSET  // DESCRIPTION
-#define ADC_SPI_CTRL    0x0008  // (8-bits)ADC_SPI Control Register
-#define ADC_SPI_CMD_MASK  0x1F  // 0x08.[4:0] SPI Command to ADC
-#define ADC_SPI_DRDY_MASK 0x20  // 0x08.5 (1)DATA_READY
-#define ADC_SPI_LOOP_MASK 0x40  // 0x08.6 (1)LOOPING
-#define ADC_SPI_EN_MASK   0x80  // 0x08.7 (1)Enable
-#define ADC_SPI_SCK_NR  0x0009  // [4:0] Number of SCK to generate
-#define ADC_SPI_OUTPUT  0x000A  // 0x0A ~ 0x0B (12-bits) ADC result
-// end: registers for SPI devices
+//obsolete: // begin: registers for SPI devices
+//obsolete: #define SPI_BASE        0x3000
+//obsolete: //      REGISTERS       OFFSET  // DESCRIPTION
+//obsolete: #define ADC_SPI_CTRL    0x0008  // (8-bits)ADC_SPI Control Register
+//obsolete: #define ADC_SPI_CMD_MASK  0x1F  // 0x08.[4:0] SPI Command to ADC
+//obsolete: #define ADC_SPI_DRDY_MASK 0x20  // 0x08.5 (1)DATA_READY
+//obsolete: #define ADC_SPI_LOOP_MASK 0x40  // 0x08.6 (1)LOOPING
+//obsolete: #define ADC_SPI_EN_MASK   0x80  // 0x08.7 (1)Enable
+//obsolete: #define ADC_SPI_SCK_NR  0x0009  // [4:0] Number of SCK to generate
+//obsolete: #define ADC_SPI_OUTPUT  0x000A  // 0x0A ~ 0x0B (12-bits) ADC result
+//obsolete: // end: registers for SPI devices
+
 #endif // __wb_regs_h__

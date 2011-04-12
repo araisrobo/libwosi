@@ -11,6 +11,17 @@
 #include "sync_cmd.h"
 #define WORDS_PER_LINE 8
 #define BYTES_PER_WORD 4
+
+// // co2:
+// #define FPGA_BIT  "./co2_top.bit"
+// #define RISC_BIN  "./co2.bin"
+
+// #define FPGA_BIT  "./servo_top.bit"
+// #define RISC_BIN  "./sfifo.bin"
+
+#define FPGA_BIT  "./plasma_top.bit"
+#define RISC_BIN  "./plasma.bin"
+
 FILE *mbox_fp;
 static uint32_t pulse_pos_tmp[4];
 static uint32_t enc_pos_tmp[4];
@@ -117,147 +128,94 @@ int main(void)
     uint32_t word_counter;
 
     // wou_init(): setting fpga board parameters
-//    wou_init(&w_param, "7i43u", 0, "./stepper_top.bit");
-
-    wou_init(&w_param, "7i43u", 0, "./plasma_top.bit");
-    // wou_init(&w_param, "7i43u", 0, "./servo_top.bit");
+    wou_init(&w_param, "7i43u", 0, FPGA_BIT);
 
     // wou_connect(): programe fpga with given "<fpga>.bit"
     if (wou_connect(&w_param) == -1) {
 	printf("ERROR Connection failed\n");
 	exit(1);
     }
-    printf("after programming FPGA with ./plasma_top.bit ...\n");
+    printf("after programming FPGA with %s...\n", FPGA_BIT);
 
-// begin: setup risc
-    wou_prog_risc(&w_param, "./plasma.bin");
-    // wou_prog_risc(&w_param, "./mailbox.bin");
+    wou_prog_risc(&w_param, RISC_BIN);
     
     mbox_fp = fopen ("./mbox.log", "w");
     fprintf(mbox_fp,"%11s%11s%11s%11s%11s%11s%11s%11s%11s%11s%11s\n","bp_tick","j0","j1","j2","j3","e0","e1","e2","e3","adc_spi","filtered adc");
     wou_set_mbox_cb (&w_param, fetchmail);
-
-   // setup sync timeout
-    {
-        uint16_t sync_cmd;
-        uint32_t immediate_data;
-        uint32_t i;
-        immediate_data = 153*1000; // ticks about 0.6 sec
-        // transmit immediate data
-        for(i=0; i<sizeof(uint32_t); i++) {
-            sync_cmd = SYNC_DATA | ((uint8_t *)&immediate_data)[i];
-            memcpy(data, &sync_cmd, sizeof(uint16_t));
-            wou_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), 
-                    sizeof(uint16_t), data);
-        }
-        sync_cmd = SYNC_ST; 
-        memcpy(data, &sync_cmd, sizeof(uint16_t));
-        wou_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), 
-                sizeof(uint16_t), data);
-    }
-    // position compensation enable
-#define THC_ENABLE 0
-    {
-        uint16_t sync_cmd;
-        uint32_t immediate_data;
-        uint32_t i;
-        immediate_data = 0xA00; // ref voltage 2.2 V
-        // transmit immediate data
-        for(i=0; i<sizeof(uint32_t); i++) {
-            sync_cmd = SYNC_DATA | ((uint8_t *)&immediate_data)[i];
-            memcpy(data, &sync_cmd, sizeof(uint16_t));
-            wou_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), 
-                    sizeof(uint16_t), data);
-        }
-        sync_cmd = SYNC_PC | SYNC_COMP_EN(THC_ENABLE);
-        memcpy(data, &sync_cmd, sizeof(uint16_t));
-        wou_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), 
-                sizeof(uint16_t), data);
-    }
-
-// //end: setup risc
+        
+//??    // setup sync timeout
+//??    {
+//??        uint16_t sync_cmd;
+//??        uint32_t immediate_data;
+//??        uint32_t i;
+//??        immediate_data = 153*1000; // ticks about 0.6 sec
+//??        // transmit immediate data
+//??        for(i=0; i<sizeof(uint32_t); i++) {
+//??            sync_cmd = SYNC_DATA | ((uint8_t *)&immediate_data)[i];
+//??            memcpy(data, &sync_cmd, sizeof(uint16_t));
+//??            wou_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), 
+//??                    sizeof(uint16_t), data);
+//??        }
+//??        sync_cmd = SYNC_ST; 
+//??        memcpy(data, &sync_cmd, sizeof(uint16_t));
+//??        wou_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), 
+//??                sizeof(uint16_t), data);
+//??    }
+    
+//??    // position compensation enable
+//??#define THC_ENABLE 0
+//??    {
+//??        uint16_t sync_cmd;
+//??        uint32_t immediate_data;
+//??        uint32_t i;
+//??        immediate_data = 0xA00; // ref voltage 2.2 V
+//??        // transmit immediate data
+//??        for(i=0; i<sizeof(uint32_t); i++) {
+//??            sync_cmd = SYNC_DATA | ((uint8_t *)&immediate_data)[i];
+//??            memcpy(data, &sync_cmd, sizeof(uint16_t));
+//??            wou_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), 
+//??                    sizeof(uint16_t), data);
+//??        }
+//??        sync_cmd = SYNC_PC | SYNC_COMP_EN(THC_ENABLE);
+//??        memcpy(data, &sync_cmd, sizeof(uint16_t));
+//??        wou_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), 
+//??                sizeof(uint16_t), data);
+//??    }
+//??
+//??// //end: setup risc
 
     printf("** UNIT TESTING **\n");
 
     printf("\nTEST JCMD WRITE/READ:\n");
     /** WISHBONE REGISTERS **/
     
-//obsolete:    // switch LEDs to display servo pulse commands
-//obsolete:    value = 2;
-//obsolete:    wou_cmd(&w_param, WB_WR_CMD, (GPIO_BASE | GPIO_LEDS_SEL), 1, &value);
-//obsolete:    //debug: check if the first packet is correct?
-//obsolete:    wou_flush(&w_param);
-//obsolete:    // printf("send a wou-frame ... press key ...\n");
-//obsolete:    // getchar();
-    
-    // this will create a CRC ERROR:
-    wou_flush(&w_param);
-    wou_cmd (&w_param, WB_RD_CMD, (GPIO_BASE + GPIO_IN), 2, data);
-    wou_flush(&w_param);
-
-    
-    // JCMD_WATCHDOG: unit is 100ms
-    value = 0xFF;
-    wou_cmd(&w_param, WB_WR_CMD,
-    	    (JCMD_BASE | JCMD_WATCHDOG), 1, &value);
-
-//obsolete:    // switch LEDs to display servo pulse commands
-//obsolete:    value = 2;
-//obsolete:    wou_cmd(&w_param, WB_WR_CMD, (GPIO_BASE | GPIO_LEDS_SEL), 1, &value);
-//obsolete:    //debug: check if the first packet is correct?
-//obsolete:    wou_flush(&w_param);
-//obsolete:    // printf("send a wou-frame ... press key ...\n");
-//obsolete:    // getchar();
-
-
-
-//obsolete:    //begin: ADC_SPI
-//obsolete:    // set ADC_SPI_SCK_NR to generate 19 SPI_SCK pulses
-//obsolete:    data[0] = 19; 
-//obsolete:    wou_cmd (&w_param, WB_WR_CMD, (uint16_t) (SPI_BASE | ADC_SPI_SCK_NR), 
-//obsolete:                        (uint8_t) 1, data);
-//obsolete:    
-//obsolete:    // enable ADC_SPI with LOOP mode
-//obsolete:    // ADC_SPI_CMD: 0x10: { (1)START_BIT,
-//obsolete:    //                      (0)Differential mode,
-//obsolete:    //                      (0)D2 ... dont care,
-//obsolete:    //                      (0)D1 ... Ch0 = IN+,
-//obsolete:    //                      (0)D2 ... CH1 = IN-   }
-//obsolete:    data[0] = ADC_SPI_EN_MASK | ADC_SPI_LOOP_MASK | (ADC_SPI_CMD_MASK & 0x10);
-//obsolete:    wou_cmd (&w_param, WB_WR_CMD, (uint16_t) (SPI_BASE | ADC_SPI_CTRL), 
-//obsolete:                        (uint8_t) 1, data);
-//obsolete:    //end: ADC_SPI
-    
-
-
-
     //begin: set SSIF_PULSE_TYPE as STEP_DIR (default is AB_PHASE)
     value = PTYPE_STEP_DIR;
     wou_cmd (&w_param, WB_WR_CMD, (uint16_t) (SSIF_BASE | SSIF_PULSE_TYPE), 
                         (uint8_t) 1, &value);
     //end: set SSIF_PULSE_TYPE as STEP_DIR
  
-    // set MAX_PWM ratio for each joints
-    //  * for 華谷：
-    //  * JNT_0 ~ JNT_2: current limit: 2.12A/phase (DST56EX43A)
-    //  *                SSIF_MAX_PWM = 2.12A/3A * 255 * 70% = 126
-    //  *                comment from 林大哥：步進最大電流最好打七折
-    //  *                未打折：K值可上1000P/0.67ms
-    //  *                打七折：K值可上800P/0.67ms
-    //  * JNT_1:         current limit: 3.0A/phase (DST86EM82A)
-    //  *                Bipolar 串聯後之電流 = 3A * 0.707 = 2.121
-    //  *                SSIF_MAX_PWM = 2.121/3 * 255 = 180.285
-    // data[0] = 102; // JNT_0  // japanServo, 1.2A
-    // data[0] = 126; // JNT_0
-    // data[1] = 126; // JNT_1
-    // data[2] = 126; // JNT_2
-    // data[3] = 178; // JNT_3
-    data[0] = 150;  // JNT_0
-    data[1] = 150;  // JNT_1
-    data[2] = 90;   // JNT_2
-    data[3] = 150;  // JNT_3
-    wou_cmd(&w_param, WB_WR_CMD, (SSIF_BASE | SSIF_MAX_PWM), 4, data);
-    wou_flush(&w_param);
+//obsolete:    // set MAX_PWM ratio for each joints
+//obsolete:    //  * for 華谷：
+//obsolete:    //  * JNT_0 ~ JNT_2: current limit: 2.12A/phase (DST56EX43A)
+//obsolete:    //  *                SSIF_MAX_PWM = 2.12A/3A * 255 * 70% = 126
+//obsolete:    //  *                comment from 林大哥：步進最大電流最好打七折
+//obsolete:    //  *                未打折：K值可上1000P/0.67ms
+//obsolete:    //  *                打七折：K值可上800P/0.67ms
+//obsolete:    //  * JNT_1:         current limit: 3.0A/phase (DST86EM82A)
+//obsolete:    //  *                Bipolar 串聯後之電流 = 3A * 0.707 = 2.121
+//obsolete:    //  *                SSIF_MAX_PWM = 2.121/3 * 255 = 180.285
+//obsolete:    // data[0] = 102; // JNT_0  // japanServo, 1.2A
+//obsolete:    // data[0] = 126; // JNT_0
+//obsolete:    // data[1] = 126; // JNT_1
+//obsolete:    // data[2] = 126; // JNT_2
+//obsolete:    // data[3] = 178; // JNT_3
+//obsolete:    data[0] = 150;  // JNT_0
+//obsolete:    data[1] = 150;  // JNT_1
+//obsolete:    data[2] = 90;   // JNT_2
+//obsolete:    data[3] = 150;  // JNT_3
+//obsolete:    wou_cmd(&w_param, WB_WR_CMD, (SSIF_BASE | SSIF_MAX_PWM), 4, data);
+//obsolete:    wou_flush(&w_param);
     
     //  JCMD_CTRL            0x05
     //     WDOG_EN           0x05.0        W       WatchDOG timer (1)enable (0)disable
@@ -266,6 +224,10 @@ int main(void)
     //     RST               0x05.2        W       Reset JCMD (TODO: seems not necessary)
     data[0] = 2;
     wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_CTRL), 1, data);
+    wou_flush(&w_param);
+    
+    data[0] = 1;        // RISC ON
+    wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | OR32_CTRL), 1, data);
     wou_flush(&w_param);
 
     clock_gettime(CLOCK_REALTIME, &time1);
@@ -351,17 +313,6 @@ int main(void)
 
 
 
-//7i32:    rev[3] = 10         // 10 revolution
-//7i32:             * 200      // 200 full stepper pulse per revolution
-//7i32:             / 4        // 4 full stepper pulse == 1 sine/cosine cycle (2PI)
-//7i32:             * 1024;    // sine/cosine LUT theta resolution
-//7i32:    // speed[3] = 1050   // K=168,MAX_PWM=126: 1050 full stepper pulse per seconds
-//7i32:    speed[3] = 100      // MAX_PWM=200, stable@800, unstable@900 full stepper pulse per seconds
-//7i32:             / 4        // 4 full stepper pulse == 1 sine/cosine cycle (2PI)
-//7i32:             * 1024     // sine/cosine LUT theta resolution
-//7i32:             / (1000/0.65535); // base_period is 0.65535ms
-//7i32:    accel[3] = 0.01;
-
     // for servo_if:
     // rev[3] = 10         // 10 revolution
     //          * 200      // 200 full stepper pulse per revolution
@@ -408,15 +359,6 @@ int main(void)
             memcpy (data, sync_cmd, sizeof(uint16_t));
 	    wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD), 
                     sizeof(uint16_t), data);
-            
-            // // SYNC_DIN:
-            // // // wait for EPP_I[0](ext_pad_i[0]) to be ON
-//              sync_cmd[0] = SYNC_DIN | SYNC_IO_ID(0) | SYNC_DI_TYPE(1);
-            // // wait for EPP_I[0](ext_pad_i[0]) to be OFF
-//             sync_cmd[0] = SYNC_DIN | SYNC_IO_ID(1) | SYNC_DI_TYPE(0);
-//             memcpy (data, sync_cmd, sizeof(uint16_t));
-//	     wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD),
-//                     sizeof(uint16_t), sync_cmd);
 	}
       
 	// prepare servo command for 4 axes
@@ -463,40 +405,9 @@ int main(void)
 	// obtain base_period updated wou registers
 	wou_update(&w_param);
 
-	// for (j = 0; j < 4; j++) {
-	//     memcpy((pulse_cmd + j),
-	// 	   wou_reg_ptr(&w_param,
-	// 		       SSIF_BASE + SSIF_PULSE_POS + j * 4), 4);
-	//     memcpy((enc_pos + j),
-	// 	   wou_reg_ptr(&w_param, SSIF_BASE + SSIF_ENC_POS + j * 4),
-	// 	   4);
-	// }
-
-        //plasma pid:for (j =0; j < 4; j++) {
-        //plasma pid:    fprintf(stderr,"pulse_pos[%d](%04X) ", j, pulse_cmd[j]);
-        //plasma pid:}
-        //plasma pid:fprintf(stderr,"\n");
-	memcpy(&switch_in,
-	       wou_reg_ptr(&w_param, GPIO_BASE + GPIO_IN), 2);
-
-        // printf("switch_in(0x%02X\n",switch_in);
         wou_status (&w_param);  // print out tx/rx data rate
 
  	if ((i % 2) == 0) {
-             // replace "bp_reg_update":
-             // send WB_RD_CMD to read registers back
-             //replaced by MAILBOX: wou_cmd (&w_param,
-             //replaced by MAILBOX:          WB_RD_CMD,
-             //replaced by MAILBOX:          (SSIF_BASE | SSIF_PULSE_POS),
-             //replaced by MAILBOX:          16,
-             //replaced by MAILBOX:          data);
-             
-             wou_cmd (&w_param,
-                      WB_RD_CMD,
-                      (GPIO_BASE | GPIO_IN),
-                      2,
-                      data);
- 
              wou_cmd (&w_param,
                       WB_RD_CMD,
                       (SSIF_BASE | SSIF_SWITCH_POS),
@@ -508,10 +419,6 @@ int main(void)
                       (SSIF_BASE | SSIF_INDEX_POS),
                       16,
                       data);
- 	
- 	    // wou_flush(&w_param);
- 	    // debug:
- 	    // printf("send a wou-frame ... press key ...\n"); getchar();
  	}
 
         // we NEED this wou_flush(), otherwise libwou will get into

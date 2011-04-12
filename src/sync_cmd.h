@@ -24,6 +24,9 @@
  *    SYNC_VEL_CMD  4'b1001          {VEL, VAL}   VEL: velocity in mm/s
  *                                                VAL[0]: 1: velocity sync'd
  *                                                          0: velocity not sync'd
+ *    SYNC_PROBE    4'b1010          {VAL}
+ *                                    1: start to probe
+ *                                    0: stop to probe
  *
  *    Write 2nd byte of SYNC_CMD[] will push it into SFIFO.
  *    The WB_WRITE got stalled if SFIFO is full.
@@ -31,19 +34,18 @@
 
 //      SFIFO COMMANDS
 #define SYNC_JNT      0x0000
-// 0x1000 do no use
-// 0x2000 do no use
-// 0x3000 do no use
+// 0x1000 do not use
+// 0x2000 do not use
+// 0x3000 do not use
 #define SYNC_DOUT        0x4000
 #define SYNC_DIN         0x5000
 #define SYNC_ST          0x6000
 #define SYNC_MOT_PARAM   0x7000
-#define SYNC_PC          0x8000
+#define SYNC_PC          0x8000         // position compensation (THC)
 #define SYNC_VEL         0x9000
-// 0x9000 command not available
-// 0xa000 command not available
+#define SYNC_PROBE       0xa000
 // 0xb000 command not available
-#define SYNC_DATA          0xC000
+#define SYNC_DATA        0xC000
 // 0xd000 command not available
 // 0xe000 command not available
 // 0xf000 command not available
@@ -79,7 +81,8 @@
 // SYNC VEL CMD masks
 #define VEL_MASK                        0x0FFE
 #define VEL_SYNC_MASK                   0x0001
-
+// PROBE mask
+#define SYNC_PROBE_MASK                      0x0FFF
 //      SFIFO DATA MACROS
 #define GET_IO_ID(i)        (((i) & SYNC_DI_DO_PIN_MASK) >> 6)
 #define GET_DO_VAL(v)       (((v) & SYNC_DOUT_VAL_MASK) >> 0)
@@ -108,20 +111,29 @@ enum motion_parameter_addr {
     MOTION_TYPE       ,
     HOME_SW_INPUT_ID  ,
     HOME_SW_ACTIVE    ,
-    DEAD_BAND         ,
+    INDEX_ENABLE      ,
+    LIMIT_MAX         ,
+    LIMIT_MIN         ,
+    // section for PID
+        // unit: 1/2^20
     P_GAIN            ,
     I_GAIN            ,
     D_GAIN            ,
     FF0               ,
     FF1               ,
-    FF2               ,
+    FF2               , //5
+        // unit: 1 pulse
+    DEAD_BAND         , //6
     BIAS              ,
     MAXERROR          ,
     MAXERROR_I        ,
     MAXERROR_D        ,
     MAXCMD_D          ,
     MAXCMD_DD         ,
-    MAXOUTPUT         ,
+    MAXOUTPUT         , //13
+    MAXFOLLWING_ERR   ,
+    PROBE_ERR         ,
+    PROBE_BACK_OFF    ,
     ENABLE            ,
     MAX_PARAM_ITEM
 };
@@ -129,11 +141,10 @@ enum motion_type {
     NORMAL_MOVE,
     SEARCH_HOME_LOW,
     SEARCH_HOME_HIGH,
-   // TODO: define use index home feature
-    SWITCH_INDEX_HOME_MOVE,
-    INDEX_HOME_MOVE,
+    SEARCH_INDEX,
     DECELERATION,
-    LOCK_MOVE
+    LOCK_MOVE,
+    PROBE_MOVE,
 };
 
 #endif // __sync_cmd_h__

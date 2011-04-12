@@ -1,6 +1,6 @@
 #!/bin/bash
 
-RELEASE=0.1-16
+RELEASE=0.1-2011.04.06
 nice debuild -S
 sudo nice pbuilder build ../../libwou_${RELEASE}.dsc
 sudo cp -v \
