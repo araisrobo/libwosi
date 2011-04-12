@@ -20,3 +20,6 @@ $ CFLAGS="-g -O0" CXXFLAGS="-g -O0" ./configure
 
 to enable debug message for libusb-1.0:
 $ CFLAGS="-g -O0" CXXFLAGS="-g -O0" ./configure --enable-debug-log
+
+to disable debug message for libusb-1.0:
+$ ./configure --disable-log
