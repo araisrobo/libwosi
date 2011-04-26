@@ -102,13 +102,14 @@
 
 // memory map for motion parameter for each joint
 enum motion_parameter_addr {
-    CMD_FRACT_BIT     ,
+//    CMD_FRACT_BIT     ,
     PARAM_FRACT_BIT   ,
     MAX_VELOCITY      ,
     MAX_ACCEL         ,
     MAX_ACCEL_RECIP   ,
     COMP_VEL          ,
     MOTION_TYPE       ,
+    PREV_MOTION_TYPE  ,
     HOME_SW_INPUT_ID  ,
     HOME_SW_ACTIVE    ,
     INDEX_ENABLE      ,
