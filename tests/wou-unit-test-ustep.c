@@ -5,16 +5,87 @@
 #include <assert.h>
 #include <stdint.h>
 #include <time.h>
+#include <math.h>
 
 #include "wou.h"
 #include "wb_regs.h"
 #include "sync_cmd.h"
 #define WORDS_PER_LINE 8
 #define BYTES_PER_WORD 4
+
+#define FRACTION_BITS 15
+#define FRACTION_MASK 0x0000FFFF
+
+// // co2:
+#define FPGA_BIT  "./step_top.bit"
+#define RISC_BIN  "./stepper.bin"
+
+// #define FPGA_BIT  "./servo_top.bit"
+// #define RISC_BIN  "./sfifo.bin"
+
+// #define FPGA_BIT  "./plasma_top.bit"
+// #define RISC_BIN  "./plasma.bin"
+
+#define WITH_ENC 1          // 0) w/o enc  1) with enc  
+#define WITHOUT_ENC 0       // 0) w/o enc  1) with enc  
+
+char *ferror_str[4] = { "0", "0", "0", "0"};
+// input scale:  pulses/unit
+char *pos_scale_str[4] = { "-25380.71066", 
+                           "-25380.71066", 
+                           "-25380.71066", 
+                           "-25380.71066", 
+                          };
+// velocity limit: unit/sec
+char *max_vel_str[4] = {"19.99",
+                         "19.99",
+                         "19.99",
+                         "19.99" };
+// accel limit: unit/sec^2
+char *max_accel_str[4] = { "155.9",
+                           "155.9",
+                           "155.9",
+                           "155.9" };
+// PID config
+char **pid_str[4];  
+//          P      I      D    FF0    FF1     FF2     DB      BI   M_ER   M_EI    M_ED    MCD  MCDD     MO     PE      PB
+char *j0_pid_str[16] = 
+    { "16000","   0","    0","   0"," 100"," 300","   10","   0","   0","   20","   0","   0","   0"," 656","   0","    0"};
+char *j1_pid_str[16] = 
+    { "16000","   0","    0","   0"," 100"," 300","   10","   0","   0","   20","   0","   0","   0"," 656","   0","    0"};
+char *j2_pid_str[16] = 
+    { "16000","   0","    0","   0"," 100"," 300","   10","   0","   0","   20","   0","   0","   0"," 656","   0","    0"};
+char *j3_pid_str[16] = 
+    { "16000","   0","    0","   0"," 100"," 300","   10","   0","   0","   20","   0","   0","   0"," 656","   0","    0"};
+
+
 FILE *mbox_fp;
 static uint32_t pulse_pos_tmp[4];
 static uint32_t enc_pos_tmp[4];
 static uint32_t _dt = 0;
+
+static void write_mot_param (wou_param_t *w_param, uint32_t joint, uint32_t addr, int32_t data)
+{
+    uint16_t    sync_cmd;
+    uint8_t     buf[MAX_DSIZE];
+    int         j;
+
+    for(j=0; j<sizeof(int32_t); j++) {
+        sync_cmd = SYNC_DATA | ((uint8_t *)&data)[j];
+        memcpy(buf, &sync_cmd, sizeof(uint16_t));
+        wou_cmd(w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD),
+                sizeof(uint16_t), buf);
+        // wou_flush(&w_param);
+    }
+
+    sync_cmd = SYNC_MOT_PARAM | PACK_MOT_PARAM_ADDR(addr) | PACK_MOT_PARAM_ID(joint);
+    memcpy(buf, &sync_cmd, sizeof(uint16_t));
+    wou_cmd(w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD),
+            sizeof(uint16_t), buf);
+    wou_flush(w_param);
+
+    return;
+}
 
 static void fetchmail(const uint8_t *buf_head)
 {
@@ -95,7 +166,7 @@ int main(void)
     double data_rate;
     uint8_t value;
     int ret;
-    int i, j;
+    int i, j, n;
     uint8_t data[MAX_DSIZE];
     uint16_t sync_cmd[4];
     int rev[4];             // revolution for each joints
@@ -104,34 +175,31 @@ int main(void)
     double accel[4];        // acceleration for each joints (unit: p/s^2)
     double cur_speed[4];    // current speed for each joints (unit: p/bp)
     uint8_t sync_do_val;
-
+    double max_vel, max_accel, pos_scale, thc_vel, f_value, max_following_error;
+    int32_t immediate_data;
     int32_t pulse_cmd[4];
     int32_t enc_pos[4];
     uint16_t switch_in;
     struct timespec time1, time2, dt;
     int ss, mm, hh, prev_ss;
-
+    double f_dt = (double) 65536 * 0.000000001;
+    double recip_dt = 1.0 / f_dt;
     // Counters keeping track of what we've printed
     uint32_t current_addr;
     uint32_t byte_counter;
     uint32_t word_counter;
 
     // wou_init(): setting fpga board parameters
-//    wou_init(&w_param, "7i43u", 0, "./stepper_top.bit");
-
-    wou_init(&w_param, "7i43u", 0, "./plasma_top.bit");
-    // wou_init(&w_param, "7i43u", 0, "./servo_top.bit");
+    wou_init(&w_param, "7i43u", 0, FPGA_BIT);
 
     // wou_connect(): programe fpga with given "<fpga>.bit"
     if (wou_connect(&w_param) == -1) {
 	printf("ERROR Connection failed\n");
 	exit(1);
     }
-    printf("after programming FPGA with ./plasma_top.bit ...\n");
+    printf("after programming FPGA with %s...\n", FPGA_BIT);
 
-// begin: setup risc
-    wou_prog_risc(&w_param, "./plasma.bin");
-    // wou_prog_risc(&w_param, "./mailbox.bin");
+    wou_prog_risc(&w_param, RISC_BIN);
     
     mbox_fp = fopen ("./mbox.log", "w");
     fprintf(mbox_fp,"%11s%11s%11s%11s%11s%11s%11s%11s%11s%11s%11s\n","bp_tick","j0","j1","j2","j3","e0","e1","e2","e3","adc_spi","filtered adc");
@@ -232,11 +300,22 @@ int main(void)
 
 
     //begin: set SSIF_PULSE_TYPE as STEP_DIR (default is AB_PHASE)
+    // value = PTYPE_STEP_DIR;
     value = PTYPE_STEP_DIR;
     wou_cmd (&w_param, WB_WR_CMD, (uint16_t) (SSIF_BASE | SSIF_PULSE_TYPE), 
                         (uint8_t) 1, &value);
     //end: set SSIF_PULSE_TYPE as STEP_DIR
- 
+    
+	//begin: set encoder type
+    value = WITHOUT_ENC;
+    wou_cmd (&w_param, WB_WR_CMD, (uint16_t) (SSIF_BASE | SSIF_ENC_TYPE), 
+                        (uint8_t) 1, &value);
+    //end:
+    
+    //begin: * to clear PULSE/ENC/SWITCH/INDEX positions for 4 axes */
+    value = 0x0F;
+    wou_cmd(&w_param, WB_WR_CMD, SSIF_BASE | SSIF_RST_POS, 1, &value);
+
     // set MAX_PWM ratio for each joints
     //  * for 華谷：
     //  * JNT_0 ~ JNT_2: current limit: 2.12A/phase (DST56EX43A)
@@ -259,6 +338,11 @@ int main(void)
     wou_cmd(&w_param, WB_WR_CMD, (SSIF_BASE | SSIF_MAX_PWM), 4, data);
     wou_flush(&w_param);
     
+    value = 0x00;
+    wou_cmd(&w_param, WB_WR_CMD, SSIF_BASE | SSIF_RST_POS, 1, &value);
+    wou_flush(&w_param);
+    //end:
+    
     //  JCMD_CTRL            0x05
     //     WDOG_EN           0x05.0        W       WatchDOG timer (1)enable (0)disable
     //                                             FPGA will reset if there's no WOU packets comming from HOST
@@ -267,6 +351,121 @@ int main(void)
     data[0] = 2;
     wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_CTRL), 1, data);
     wou_flush(&w_param);
+   
+    data[0] = 1;        // RISC ON
+    wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | OR32_CTRL), 1, data);
+    wou_flush(&w_param);
+
+    //begin: /* configure motion parameters for risc*/
+    pid_str[0] = j0_pid_str;
+    pid_str[1] = j1_pid_str;
+    pid_str[2] = j2_pid_str;
+    pid_str[3] = j3_pid_str;
+    for(n=0; n<4; n++) {
+
+        // accurate 0.0001 mm
+        pos_scale = atof(pos_scale_str[n]);
+        max_vel = atof(max_vel_str[n]);
+        max_accel = atof(max_accel_str[n]);
+        /* config fraction bit of param */
+        immediate_data = FRACTION_BITS;
+        write_mot_param (&w_param,n, (PARAM_FRACT_BIT), immediate_data);
+        /* config velocity */
+        immediate_data = (uint32_t)((max_vel*pos_scale*f_dt)*(1 << FRACTION_BITS));
+        immediate_data = immediate_data > 0? immediate_data:-immediate_data;
+        immediate_data += 1;
+        fprintf(stderr,
+                " max_vel= %f*%f*%f*(2^%d) = (%d) ", max_vel, pos_scale, f_dt, FRACTION_BITS, immediate_data);
+        assert(immediate_data>0);
+        write_mot_param (&w_param, n, (MAX_VELOCITY), immediate_data);
+
+        /* config acceleration */
+        immediate_data = (uint32_t)(((max_accel*pos_scale*f_dt*
+                                        f_dt)*(1 << FRACTION_BITS)));
+        immediate_data = immediate_data > 0? immediate_data:-immediate_data;
+        immediate_data += 1;
+        fprintf(stderr,"max_accel=%f*%f*(%f^2)*(2^%d) = (%d) ",
+                 max_accel, pos_scale, f_dt, FRACTION_BITS, immediate_data);
+
+        assert(immediate_data>0);
+        write_mot_param (&w_param, n, (MAX_ACCEL), immediate_data);
+
+        /* config acceleration recip */
+        immediate_data = (uint32_t)(((1/(max_accel*pos_scale*f_dt*
+                                        f_dt))*(1 << FRACTION_BITS)));
+        immediate_data = immediate_data > 0? immediate_data:-immediate_data;
+        fprintf(stderr, "(1/(max_accel*scale)=(1/(%f*%f*(%f^2)))*(2^%d) = (%d) ",
+                max_accel, pos_scale, f_dt, FRACTION_BITS, immediate_data);
+        assert(immediate_data>0);
+
+        write_mot_param (&w_param, n, (MAX_ACCEL_RECIP), immediate_data);
+
+        /* config max following error */
+        // following error send with unit pulse
+        max_following_error = atof(ferror_str[n]);
+        immediate_data = (uint32_t)((max_following_error * pos_scale));
+        immediate_data = immediate_data > 0? immediate_data:-immediate_data;
+
+
+        fprintf(stderr, "(max ferror) = (%d) (%d) ",
+                       ((uint32_t) (immediate_data/pos_scale)),(immediate_data));
+        write_mot_param (&w_param, n, (MAXFOLLWING_ERR), immediate_data);
+
+        // set move type as normal by default
+        immediate_data = NORMAL_MOVE;
+        write_mot_param (&w_param, n, (MOTION_TYPE), immediate_data);
+
+        // test valid PID parameter for joint[n]
+        if (pid_str[n][0] != NULL) {
+            fprintf(stderr, "J%d_PID: ", n);
+            fprintf(stderr,"#   0:P 1:I 2:D 3:FF0 4:FF1 5:FF2 6:DB 7:BI 8:M_ER 9:M_EI 10:M_ED 11:MCD 12:MCDD 13:MO 14:PE 15:PB\n");
+            for (i=0; i < (FF2-P_GAIN+1); i++) {
+                // all gain varies from 0(0%) to 65535(100%)
+                value = atof(pid_str[n][i]);
+                immediate_data = (int32_t) (value);
+                write_mot_param (&w_param, n, (P_GAIN + i), immediate_data);
+                fprintf(stderr, "pid(%d) = %s (%d)\n",i, pid_str[n][i], immediate_data);
+            }
+            for (; i < (PROBE_BACK_OFF-P_GAIN); i++) {
+                // parameter use parameter fraction, parameter unit: pulse
+                value = atof(pid_str[n][i]);
+                immediate_data = (int32_t) (value) * (1 << FRACTION_BITS);
+                write_mot_param (&w_param, n, (P_GAIN + i), immediate_data);
+                fprintf(stderr, "pid(%d) = %s (%d)\n",i, pid_str[n][i], immediate_data);
+            }
+
+            value = 1;
+            immediate_data = (int32_t) (value);
+            write_mot_param (&w_param, n, (ENABLE), immediate_data);
+            fprintf(stderr, "\n");
+        }
+
+     }   
+    //end:
+
+
+//obsolete:    // set MAX_PWM ratio for each joints
+//obsolete:    //  * for 華谷：
+//obsolete:    //  * JNT_0 ~ JNT_2: current limit: 2.12A/phase (DST56EX43A)
+//obsolete:    //  *                SSIF_MAX_PWM = 2.12A/3A * 255 * 70% = 126
+//obsolete:    //  *                comment from 林大哥：步進最大電流最好打七折
+//obsolete:    //  *                未打折：K值可上1000P/0.67ms
+//obsolete:    //  *                打七折：K值可上800P/0.67ms
+//obsolete:    //  * JNT_1:         current limit: 3.0A/phase (DST86EM82A)
+//obsolete:    //  *                Bipolar 串聯後之電流 = 3A * 0.707 = 2.121
+//obsolete:    //  *                SSIF_MAX_PWM = 2.121/3 * 255 = 180.285
+//obsolete:    // data[0] = 102; // JNT_0  // japanServo, 1.2A
+//obsolete:    // data[0] = 126; // JNT_0
+//obsolete:    // data[1] = 126; // JNT_1
+//obsolete:    // data[2] = 126; // JNT_2
+//obsolete:    // data[3] = 178; // JNT_3
+//obsolete:    data[0] = 150;  // JNT_0
+//obsolete:    data[1] = 150;  // JNT_1
+//obsolete:    data[2] = 90;   // JNT_2
+//obsolete:    data[3] = 150;  // JNT_3
+//obsolete:    wou_cmd(&w_param, WB_WR_CMD, (SSIF_BASE | SSIF_MAX_PWM), 4, data);
+//obsolete:    wou_flush(&w_param);
+    
 
     clock_gettime(CLOCK_REALTIME, &time1);
     prev_ss = 59;
