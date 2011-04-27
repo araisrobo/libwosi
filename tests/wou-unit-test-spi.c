@@ -16,8 +16,12 @@
 #define FRACTION_BITS 15
 #define FRACTION_MASK 0x0000FFFF
 
-// // co2:
-#define FPGA_BIT  "./co2_top.bit"
+// // // co2:
+// #define FPGA_BIT  "./co2_top.bit"
+// #define RISC_BIN  "./co2.bin"
+
+// taiwan-plasma:
+#define FPGA_BIT  "./mesa7i43_ar02_ar01.bit"
 #define RISC_BIN  "./co2.bin"
 
 // #define FPGA_BIT  "./servo_top.bit"
@@ -26,7 +30,9 @@
 // #define FPGA_BIT  "./plasma_top.bit"
 // #define RISC_BIN  "./plasma.bin"
 
-#define ENC_TYPE 1      // 0) w/o enc  1) with enc  
+#define WITH_ENC 1          // 0) w/o enc  1) with enc  
+#define WITHOUT_ENC 0       // 0) w/o enc  1) with enc  
+
 char *ferror_str[4] = { "0", "0", "0", "0"};
 // input scale:  pulses/unit
 char *pos_scale_str[4] = { "-25380.71066", 
@@ -257,7 +263,7 @@ int main(void)
     //end: set SSIF_PULSE_TYPE as STEP_DIR
     
     //begin: set encoder type
-    value = ENC_TYPE;
+    value = WITHOUT_ENC;
     wou_cmd (&w_param, WB_WR_CMD, (uint16_t) (SSIF_BASE | SSIF_ENC_TYPE), 
                         (uint8_t) 1, &value);
     //end:
@@ -271,6 +277,19 @@ int main(void)
     wou_cmd(&w_param, WB_WR_CMD, SSIF_BASE | SSIF_RST_POS, 1, &value);
     wou_flush(&w_param);
     //end:
+    
+    //  JCMD_CTRL            0x05
+    //     WDOG_EN           0x05.0        W       WatchDOG timer (1)enable (0)disable
+    //                                             FPGA will reset if there's no WOU packets comming from HOST
+    //     SSIF_EN           0x05.1        W       Servo/Stepper Interface Enable
+    //     RST               0x05.2        W       Reset JCMD (TODO: seems not necessary)
+    data[0] = 2;
+    wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_CTRL), 1, data);
+    wou_flush(&w_param);
+   
+    data[0] = 1;        // RISC ON
+    wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | OR32_CTRL), 1, data);
+    wou_flush(&w_param);
 
     //begin: /* configure motion parameters for risc*/
     pid_str[0] = j0_pid_str;
@@ -350,7 +369,7 @@ int main(void)
                 fprintf(stderr, "pid(%d) = %s (%d)\n",i, pid_str[n][i], immediate_data);
             }
 
-            value = 0;
+            value = 1;
             immediate_data = (int32_t) (value);
             write_mot_param (&w_param, n, (ENABLE), immediate_data);
             fprintf(stderr, "\n");
@@ -382,22 +401,6 @@ int main(void)
 //obsolete:    wou_cmd(&w_param, WB_WR_CMD, (SSIF_BASE | SSIF_MAX_PWM), 4, data);
 //obsolete:    wou_flush(&w_param);
     
-    //  JCMD_CTRL            0x05
-    //     WDOG_EN           0x05.0        W       WatchDOG timer (1)enable (0)disable
-    //                                             FPGA will reset if there's no WOU packets comming from HOST
-    //     SSIF_EN           0x05.1        W       Servo/Stepper Interface Enable
-    //     RST               0x05.2        W       Reset JCMD (TODO: seems not necessary)
-    
-    
-    
-    data[0] = 2;
-    wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_CTRL), 1, data);
-    wou_flush(&w_param);
-   
-    
-    data[0] = 1;        // RISC ON
-    wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | OR32_CTRL), 1, data);
-    wou_flush(&w_param);
 
     clock_gettime(CLOCK_REALTIME, &time1);
     prev_ss = 59;
@@ -407,8 +410,8 @@ int main(void)
     //          / 4        // 4 full stepper pulse == 1 sine/cosine cycle (2PI)
     //          * 1024;    // sine/cosine LUT theta resolution
     //
-    // rev[0] = -65535;    // RUN-forever
-    rev[0] = 0;    // stop joint_0
+    rev[0] = -65535;    // RUN-forever
+    // rev[0] = 0;    // stop joint_0
     // rev[0] = 1          // 1 revolution
     //          * 200      // 200 full stepper pulse per revolution
     //          * 16       // microStepping #
