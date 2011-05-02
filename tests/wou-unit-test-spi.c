@@ -302,9 +302,9 @@ int main(void)
         pos_scale = atof(pos_scale_str[n]);
         max_vel = atof(max_vel_str[n]);
         max_accel = atof(max_accel_str[n]);
-        /* config fraction bit of param */
-        immediate_data = FRACTION_BITS;
-        write_mot_param (&w_param,n, (PARAM_FRACT_BIT), immediate_data);
+//obsolete:        /* config fraction bit of param */
+//obsolete:        immediate_data = FRACTION_BITS;
+//obsolete:        write_mot_param (&w_param,n, (PARAM_FRACT_BIT), immediate_data);
         /* config velocity */
         immediate_data = (uint32_t)((max_vel*pos_scale*f_dt)*(1 << FRACTION_BITS));
         immediate_data = immediate_data > 0? immediate_data:-immediate_data;

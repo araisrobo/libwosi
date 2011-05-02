@@ -103,7 +103,7 @@
 // memory map for motion parameter for each joint
 enum motion_parameter_addr {
 //    CMD_FRACT_BIT     ,
-    PARAM_FRACT_BIT   ,
+//    PARAM_FRACT_BIT   ,  => become FRACTION_BITS, which is const-16
     MAX_VELOCITY      ,
     MAX_ACCEL         ,
     MAX_ACCEL_RECIP   ,
