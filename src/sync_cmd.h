@@ -116,8 +116,9 @@ enum motion_parameter_addr {
     LIMIT_MAX         ,
     LIMIT_MIN         ,
     MAXFOLLWING_ERR   ,
+
     // section for PID
-        // unit: 1/2^20
+        // unit: 1/65536
     P_GAIN            ,
     I_GAIN            ,
     D_GAIN            ,
