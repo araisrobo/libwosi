@@ -147,9 +147,9 @@ enum motion_parameter_addr {
     MAXERROR_D        ,
     MAXCMD_D          ,
     MAXCMD_DD         ,
-    MAXOUTPUT         , //13
-    PROBE_ERR         ,
-    PROBE_BACK_OFF    ,
+//    MAXOUTPUT         , //13
+//    PROBE_ERR         ,
+//    PROBE_BACK_OFF    ,
     ENABLE            ,
     MAX_PARAM_ITEM
 };

@@ -361,7 +361,7 @@ int main(void)
                 write_mot_param (&w_param, n, (P_GAIN + i), immediate_data);
                 fprintf(stderr, "pid(%d) = %s (%d)\n",i, pid_str[n][i], immediate_data);
             }
-            for (; i < (PROBE_BACK_OFF-P_GAIN); i++) {
+            for (; i < (MAXCMD_DD-P_GAIN); i++) {
                 // parameter use parameter fraction, parameter unit: pulse
                 value = atof(pid_str[n][i]);
                 immediate_data = (int32_t) (value) * (1 << FRACTION_BITS);
