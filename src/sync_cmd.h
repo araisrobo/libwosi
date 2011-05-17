@@ -106,6 +106,8 @@
 // memory map for machine config
 enum machine_parameter_addr {
     MACHINE_TYPE,
+    HC_JNT,
+    HC_POLARITY,
     MACHINE_PARAM_ITEM
 };
 
@@ -114,6 +116,11 @@ enum machine_type_enum {
     XYZY,         // y1 y2 rotate in the same direction
     XYZY_,        // y1 y2 rotate in different direction
 };
+
+enum thc_polarity_enum {
+    POSITIVE_DIR,        // positive command to lift up axis z
+    NEGATIVE_DIR,       // positive command to lay down axis z
+};
 // memory map for motion parameter for each joint
 enum motion_parameter_addr {
 //    CMD_FRACT_BIT     ,
@@ -121,7 +128,7 @@ enum motion_parameter_addr {
     MAX_VELOCITY      ,
     MAX_ACCEL         ,
     MAX_ACCEL_RECIP   ,
-    COMP_VEL          ,
+    COMP_VEL          , // TODO going to remove
     MOTION_TYPE       ,
     PREV_MOTION_TYPE  ,
     HOME_SW_INPUT_ID  ,
@@ -136,12 +143,12 @@ enum motion_parameter_addr {
     P_GAIN            ,
     I_GAIN            ,
     D_GAIN            ,
-    FF0               ,
+    FF0               ,         // useless for position mode servo
     FF1               ,
     FF2               , //5
         // unit: 1 pulse
     DEAD_BAND         , //6
-    BIAS              ,
+    BIAS              ,         // useless for position mode servo
     MAXERROR          ,
     MAXERROR_I        ,
     MAXERROR_D        ,
