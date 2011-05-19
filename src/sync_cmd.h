@@ -75,7 +75,7 @@
 #define SYNC_DOUT_VAL_MASK              0x0001
 #define SYNC_DIN_TYPE_MASK              0x0007
 #define SYNC_TIMEOUT_MASK               0x0FFF
-#define SYNC_COMP_EN_MASK               0x0001
+#define SYNC_COMP_EN_MASK               0x000F
 #define SYNC_DATA_MASK                  0x00FF
 #define SYNC_MOT_PARAM_ADDR_MASK        0x0FF0
 #define SYNC_MOT_PARAM_ID_MASK          0x000F
@@ -93,7 +93,7 @@
 #define GET_MOT_PARAM_ADDR(t)           (((t) & SYNC_MOT_PARAM_ADDR_MASK) >> 4)
 #define GET_MOT_PARAM_ID(t)             (((t) & SYNC_MOT_PARAM_ID_MASK) >> 0)
 #define GET_MACH_PARAM_ADDR(t)          ((t) & SYNC_MACH_PARAM_ADDR_MASK)
-#define SYNC_COMP_EN(i) (0x0001&i)
+#define SYNC_COMP_EN(i) (0x000F&i)
 
 #define PACK_SYNC_DATA(t)               ((t & 0xFF) << 0)
 #define PACK_IO_ID(i)                   (((i) & 0x3F) << 6)
@@ -117,9 +117,15 @@ enum machine_type_enum {
     XYZY_,        // y1 y2 rotate in different direction
 };
 
-enum thc_polarity_enum {
+enum ahc_polarity_enum {
     POSITIVE_DIR,        // positive command to lift up axis z
     NEGATIVE_DIR,       // positive command to lay down axis z
+};
+
+enum ahc_state_enum {
+    AHC_DISABLE,
+    AHC_ENABLE,
+    AHC_SUSPEND,
 };
 // memory map for motion parameter for each joint
 enum motion_parameter_addr {
