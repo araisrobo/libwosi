@@ -41,7 +41,7 @@
 #define SYNC_DIN         0x5000
 #define SYNC_ST          0x6000
 #define SYNC_MOT_PARAM   0x7000
-#define SYNC_PC          0x8000         // position compensation (THC)
+#define SYNC_AHC         0x8000         // auto height control
 #define SYNC_VEL         0x9000
 #define SYNC_PROBE       0xa000
 // 0xb000 command not available
@@ -75,7 +75,8 @@
 #define SYNC_DOUT_VAL_MASK              0x0001
 #define SYNC_DIN_TYPE_MASK              0x0007
 #define SYNC_TIMEOUT_MASK               0x0FFF
-#define SYNC_COMP_EN_MASK               0x000F
+#define SYNC_AHC_STATE_MASK             0x000F
+#define SYNC_AHC_POLARITY_MASK          0x00F0
 #define SYNC_DATA_MASK                  0x00FF
 #define SYNC_MOT_PARAM_ADDR_MASK        0x0FF0
 #define SYNC_MOT_PARAM_ID_MASK          0x000F
@@ -93,7 +94,8 @@
 #define GET_MOT_PARAM_ADDR(t)           (((t) & SYNC_MOT_PARAM_ADDR_MASK) >> 4)
 #define GET_MOT_PARAM_ID(t)             (((t) & SYNC_MOT_PARAM_ID_MASK) >> 0)
 #define GET_MACH_PARAM_ADDR(t)          ((t) & SYNC_MACH_PARAM_ADDR_MASK)
-#define SYNC_COMP_EN(i) (0x000F&i)
+#define AHC_STATE(i) (0x000F&i)
+#define GET_AHC_POLARITY(i)             (((i) & SYNC_AHC_POLARITY_MASK) >> 4)
 
 #define PACK_SYNC_DATA(t)               ((t & 0xFF) << 0)
 #define PACK_IO_ID(i)                   (((i) & 0x3F) << 6)
@@ -102,12 +104,12 @@
 #define PACK_MOT_PARAM_ID(t)            ((t) << 0)
 #define PACK_MOT_PARAM_ADDR(t)          ((t) << 4)
 #define PACK_MACH_PARAM_ADDR(t)         ((t) & SYNC_MACH_PARAM_ADDR_MASK)
-
+#define PACK_AHC_POLARITY(t)            (((t) & 0x000F) << 4)
 // memory map for machine config
 enum machine_parameter_addr {
     MACHINE_TYPE,
-    HC_JNT,
-    HC_POLARITY,
+    AHC_JNT,
+    AHC_POLARITY,
     MACHINE_PARAM_ITEM
 };
 
@@ -118,8 +120,8 @@ enum machine_type_enum {
 };
 
 enum ahc_polarity_enum {
-    POSITIVE_DIR,        // positive command to lift up axis z
-    NEGATIVE_DIR,       // positive command to lay down axis z
+    AHC_POSITIVE,        // positive command to lift up axis z
+    AHC_NEGATIVE,       // positive command to lay down axis z
 };
 
 enum ahc_state_enum {

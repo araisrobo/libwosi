@@ -237,7 +237,7 @@ int main(void)
             wou_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), 
                     sizeof(uint16_t), data);
         }
-        sync_cmd = SYNC_PC | SYNC_COMP_EN(THC_ENABLE);
+        sync_cmd = SYNC_AHC | AHC_STATE(AHC_DISABLE);
         memcpy(data, &sync_cmd, sizeof(uint16_t));
         wou_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), 
                 sizeof(uint16_t), data);
