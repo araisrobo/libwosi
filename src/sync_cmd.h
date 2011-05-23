@@ -110,6 +110,8 @@ enum machine_parameter_addr {
     MACHINE_TYPE,
     AHC_JNT,
     AHC_POLARITY,
+    TEST_PATTERN_TYPE,
+    TEST_PATTERN,
     MACHINE_PARAM_ITEM
 };
 
@@ -122,6 +124,11 @@ enum machine_type_enum {
 enum ahc_polarity_enum {
     AHC_POSITIVE,        // positive command to lift up axis z
     AHC_NEGATIVE,       // positive command to lay down axis z
+};
+
+enum test_pattern_type_enum {
+    NO_TEST,
+    ANALOG_IN,
 };
 
 enum ahc_state_enum {
