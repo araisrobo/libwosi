@@ -52,17 +52,15 @@
 // 0xf000 command not available
 
 //  timeout type
-#define WAIT_LOW_AND_TIME 0x0
-/*
-#define WAIT_HIGH_AND_TIME 0x1
-#define WAIT_FALL_AND_TIME 0x2
-#define WAIT_RISE_AND_TIME 0x3
-*/
-#define WAIT_LOW          0x4
-#define WAIT_HIGH         0x5
-#define WAIT_FALL         0x6
-#define WAIT_RISE         0x7
-#define NO_WAIT           0xF
+#define WAIT_LEVEL_LOWER    0x0   // wait analog input in a range of set point
+//#define WAIT_LEVEL_GREATER  0x1
+// 0x2 reserved
+// 0x3 reserved
+#define WAIT_LOW            0x4
+#define WAIT_HIGH           0x5
+#define WAIT_FALL           0x6
+#define WAIT_RISE           0x7
+#define NO_WAIT             0xF
 
 //      SFIFO COMMAND MASK
 #define SFIFO_SYNC_JNT_MASK             0xC000
@@ -112,6 +110,7 @@ enum machine_parameter_addr {
     AHC_POLARITY,
     TEST_PATTERN_TYPE,
     TEST_PATTERN,
+    ANALOG_REF_LEVEL,
     MACHINE_PARAM_ITEM
 };
 
@@ -128,6 +127,7 @@ enum ahc_polarity_enum {
 
 enum test_pattern_type_enum {
     NO_TEST,
+    DIGITAL_IN,
     ANALOG_IN,
 };
 
