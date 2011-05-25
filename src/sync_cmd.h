@@ -111,6 +111,7 @@ enum machine_parameter_addr {
     TEST_PATTERN_TYPE,
     TEST_PATTERN,
     ANALOG_REF_LEVEL,
+    AHC_MAX_OFFSET,
     MACHINE_PARAM_ITEM
 };
 
