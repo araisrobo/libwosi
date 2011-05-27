@@ -40,6 +40,7 @@
 #define SYNC_DOUT        0x4000
 #define SYNC_DIN         0x5000
 //#define SYNC_ST          0x6000
+#define SYNC_BP          0x6000
 #define SYNC_MOT_PARAM   0x7000
 #define SYNC_AHC         0x8000         // auto height control
 #define SYNC_VEL         0x9000
