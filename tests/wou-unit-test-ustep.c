@@ -64,6 +64,28 @@ static uint32_t pulse_pos_tmp[4];
 static uint32_t enc_pos_tmp[4];
 static uint32_t _dt = 0;
 
+static void write_machine_param (wou_param_t *w_param, uint32_t addr, int32_t data)
+{
+    uint16_t    sync_cmd;
+    uint8_t     buf[MAX_DSIZE];
+    int         j;
+
+    for(j=0; j<sizeof(int32_t); j++) {
+        sync_cmd = SYNC_DATA | ((uint8_t *)&data)[j];
+        memcpy(buf, &sync_cmd, sizeof(uint16_t));
+        wou_cmd(w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD),
+                sizeof(uint16_t), buf);
+        // wou_flush(&w_param);
+    }
+
+    sync_cmd = SYNC_MACH_PARAM | PACK_MACH_PARAM_ADDR(addr);
+    memcpy(buf, &sync_cmd, sizeof(uint16_t));
+    wou_cmd(w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD),
+            sizeof(uint16_t), buf);
+    wou_flush(w_param);
+
+    return;
+}
 static void write_mot_param (wou_param_t *w_param, uint32_t joint, uint32_t addr, int32_t data)
 {
     uint16_t    sync_cmd;
@@ -211,17 +233,18 @@ int main(void)
         uint32_t immediate_data;
         uint32_t i;
         immediate_data = 153*1000; // ticks about 0.6 sec
-        // transmit immediate data
-        for(i=0; i<sizeof(uint32_t); i++) {
-            sync_cmd = SYNC_DATA | ((uint8_t *)&immediate_data)[i];
-            memcpy(data, &sync_cmd, sizeof(uint16_t));
-            wou_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), 
-                    sizeof(uint16_t), data);
-        }
-        sync_cmd = SYNC_ST; 
-        memcpy(data, &sync_cmd, sizeof(uint16_t));
-        wou_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), 
-                sizeof(uint16_t), data);
+        //// transmit immediate data
+        //for(i=0; i<sizeof(uint32_t); i++) {
+        //    sync_cmd = SYNC_DATA | ((uint8_t *)&immediate_data)[i];
+        //    memcpy(data, &sync_cmd, sizeof(uint16_t));
+        //    wou_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), 
+        //            sizeof(uint16_t), data);
+        //}
+        //sync_cmd = SYNC_ST; 
+        //memcpy(data, &sync_cmd, sizeof(uint16_t));
+        //wou_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), 
+        //        sizeof(uint16_t), data);
+        write_machine_param(&w_param , WAIT_TIMEOUT, (uint32_t) immediate_data);
     }
     // position compensation enable
 #define THC_ENABLE 0

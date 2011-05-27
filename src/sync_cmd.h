@@ -39,7 +39,7 @@
 // 0x3000 do not use
 #define SYNC_DOUT        0x4000
 #define SYNC_DIN         0x5000
-#define SYNC_ST          0x6000
+//#define SYNC_ST          0x6000
 #define SYNC_MOT_PARAM   0x7000
 #define SYNC_AHC         0x8000         // auto height control
 #define SYNC_VEL         0x9000
@@ -72,7 +72,7 @@
 #define SYNC_DI_DO_PIN_MASK             0x0FC0
 #define SYNC_DOUT_VAL_MASK              0x0001
 #define SYNC_DIN_TYPE_MASK              0x0007
-#define SYNC_TIMEOUT_MASK               0x0FFF
+//#define SYNC_TIMEOUT_MASK               0x0FFF
 #define SYNC_AHC_STATE_MASK             0x000F
 #define SYNC_AHC_POLARITY_MASK          0x00F0
 #define SYNC_DATA_MASK                  0x00FF
@@ -103,6 +103,7 @@
 #define PACK_MOT_PARAM_ADDR(t)          ((t) << 4)
 #define PACK_MACH_PARAM_ADDR(t)         ((t) & SYNC_MACH_PARAM_ADDR_MASK)
 #define PACK_AHC_POLARITY(t)            (((t) & 0x000F) << 4)
+
 // memory map for machine config
 enum machine_parameter_addr {
     MACHINE_TYPE,
@@ -112,6 +113,10 @@ enum machine_parameter_addr {
     TEST_PATTERN,
     ANALOG_REF_LEVEL,
     AHC_MAX_OFFSET,
+    AHC_LEVEL_MAX,
+    AHC_LEVEL_MIN,
+    HOST_TICK,
+    WAIT_TIMEOUT,
     MACHINE_PARAM_ITEM
 };
 
