@@ -118,6 +118,9 @@ enum machine_parameter_addr {
     AHC_LEVEL_MIN,
     HOST_TICK,
     WAIT_TIMEOUT,
+    PROBE_INPUT_ID,
+    PROBE_TYPE,
+    PREV_PROBE_TYPE,
     MACHINE_PARAM_ITEM
 };
 
@@ -183,13 +186,21 @@ enum motion_parameter_addr {
     MAX_PARAM_ITEM
 };
 enum motion_type {
+    // regular move
     NORMAL_MOVE,
+    // homing
     SEARCH_HOME_LOW,
     SEARCH_HOME_HIGH,
     SEARCH_INDEX,
     DECELERATION,
     LOCK_MOVE,
-    PROBE_MOVE,
+};
+
+enum probe_state {
+    PROBE_NONE,
+    PROBE_HIGH, // once triggered, return to PROBE_NONE and set motion type LOCK_MOVE
+    PROBE_LOW,  // once triggered, return to PROBE_NONE and set motion type LOCK_MOVE
+    PROBE_LOCK_MOVE,
 };
 
 #endif // __sync_cmd_h__
