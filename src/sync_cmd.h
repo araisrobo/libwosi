@@ -39,13 +39,13 @@
 // 0x3000 do not use
 #define SYNC_DOUT        0x4000
 #define SYNC_DIN         0x5000
-//#define SYNC_ST          0x6000
 #define SYNC_BP          0x6000
 #define SYNC_MOT_PARAM   0x7000
 #define SYNC_AHC         0x8000         // auto height control
 #define SYNC_VEL         0x9000
-#define SYNC_PROBE       0xa000
+//#define SYNC_PROBE       0xa000       // disabled
 // 0xb000 command not available
+#define SYNC_RST_POS     0xb000
 #define SYNC_MACH_PARAM  0xb000
 #define SYNC_DATA        0xC000
 // 0xd000 command not available
@@ -80,6 +80,7 @@
 #define SYNC_MOT_PARAM_ADDR_MASK        0x0FF0
 #define SYNC_MOT_PARAM_ID_MASK          0x000F
 #define SYNC_MACH_PARAM_ADDR_MASK       0x0FFF
+#define SYNC_RST_POS_MASK               0x0FFF
 // SYNC VEL CMD masks
 #define VEL_MASK                        0x0FFE
 #define VEL_SYNC_MASK                   0x0001
@@ -95,6 +96,7 @@
 #define GET_MACH_PARAM_ADDR(t)          ((t) & SYNC_MACH_PARAM_ADDR_MASK)
 #define AHC_STATE(i) (0x000F&i)
 #define GET_AHC_POLARITY(i)             (((i) & SYNC_AHC_POLARITY_MASK) >> 4)
+#define GET_RST_POS(i)                  ((i) & SYNC_RST_POS)
 
 #define PACK_SYNC_DATA(t)               ((t & 0xFF) << 0)
 #define PACK_IO_ID(i)                   (((i) & 0x3F) << 6)
@@ -104,7 +106,7 @@
 #define PACK_MOT_PARAM_ADDR(t)          ((t) << 4)
 #define PACK_MACH_PARAM_ADDR(t)         ((t) & SYNC_MACH_PARAM_ADDR_MASK)
 #define PACK_AHC_POLARITY(t)            (((t) & 0x000F) << 4)
-
+#define PACK_RST_POS(i)                 ((1 << i))
 // memory map for machine config
 enum machine_parameter_addr {
     MACHINE_TYPE,
