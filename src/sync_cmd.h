@@ -154,7 +154,6 @@ enum motion_parameter_addr {
     MAX_VELOCITY      ,
     MAX_ACCEL         ,
     MAX_ACCEL_RECIP   ,
-    COMP_VEL          , // TODO going to remove
     MOTION_TYPE       ,
     PREV_MOTION_TYPE  ,
     HOME_SW_INPUT_ID  ,
