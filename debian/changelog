@@ -1,3 +1,9 @@
+libwou (0.1-2011.06.04) lucid; urgency=low
+
+  * Update for PLASMA cutting commands
+
+ -- Yi-Shin Li <ysli@araisrobo.com>  Sat, 04 Jun 2011 08:34:09 +0800 
+
 libwou (0.1-2011.05.20) lucid; urgency=low
 
   * BUGFIX for open-loop control
