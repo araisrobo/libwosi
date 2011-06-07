@@ -44,9 +44,8 @@
 #define SYNC_AHC         0x8000         // auto height control
 #define SYNC_VEL         0x9000
 //#define SYNC_PROBE       0xa000       // disabled
-// 0xb000 command not available
-#define SYNC_RST_POS     0xb000
-#define SYNC_MACH_PARAM  0xb000
+#define SYNC_RST_POS     0xA000
+#define SYNC_MACH_PARAM  0xB000
 #define SYNC_DATA        0xC000
 // 0xd000 command not available
 // 0xe000 command not available
