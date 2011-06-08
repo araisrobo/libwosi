@@ -154,8 +154,10 @@ typedef struct wou_struct {
   uint8_t     Sn;
   uint8_t     Sb;    
   uint8_t     Sm;    
+  uint32_t    crc_error_counter;
   // MAILBOX callback functional pointer
   libwou_mailbox_cb_fn mbox_callback;
+  libwou_crc_error_cb_fn crc_error_callback;
 } wou_t;
 
 //

@@ -427,11 +427,12 @@ int board_init (board_t* board, const char* device_type, const int device_id,
    
     board->wou = (wou_t *) malloc (sizeof(wou_t));
     board->wou->mbox_callback = NULL;
-
+    board->wou->crc_error_callback = NULL;
+    board->wou->crc_error_counter = 0;
     // for calculating TX_TIMEOUT:
     clock_gettime(CLOCK_REALTIME, &time_send_begin);
     gbn_init (board);
-    
+
     // init CRC look-up table
     crcInit();
 
@@ -1027,6 +1028,10 @@ void wou_recv (board_t* b)
                 }
                 *rx_state = SYNC;
                 immediate_state = 1;
+                b->wou->crc_error_counter ++;
+                if (b->wou->crc_error_callback) {
+                    b->wou->crc_error_callback(b->wou->crc_error_counter);
+                }
                 ERRP ("RX_CRC(0x%04X) pload_size_tx(%d)\n", crc16, pload_size_tx);
                 ERRP ("buf_rx(%p) buf_head(%p) rx_size(%d)\n", buf_rx, buf_head, *rx_size);
 

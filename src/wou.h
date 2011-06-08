@@ -43,6 +43,8 @@ typedef struct {
 
 typedef void (*libwou_mailbox_cb_fn)(const uint8_t *buf_head);
 
+typedef void (*libwou_crc_error_cb_fn)(int32_t crc_count);
+
 /**
  * type: READ/WRITE, AI/FIFO
  **/
@@ -93,7 +95,7 @@ int wou_prog_risc(wou_param_t *w_param, const char *binfile);
 /* set wou mailbox callback function */
 void wou_set_mbox_cb (wou_param_t *w_param, libwou_mailbox_cb_fn callback);
 
-
+void wou_set_crc_error_cb (wou_param_t *w_param, libwou_crc_error_cb_fn callback);
 #ifdef __cplusplus
 }
 #endif

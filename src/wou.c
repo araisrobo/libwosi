@@ -140,6 +140,11 @@ void wou_set_mbox_cb (wou_param_t *w_param, libwou_mailbox_cb_fn callback)
     return;
 }
 
+void wou_set_crc_error_cb(wou_param_t *w_param, libwou_crc_error_cb_fn callback)
+{
+    w_param->board->wou->crc_error_callback = callback;
+}
+
 
 /**
  * wou_connect_usb - Establishes a wou USB connection 
