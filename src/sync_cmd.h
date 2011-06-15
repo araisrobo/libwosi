@@ -200,6 +200,9 @@ enum probe_state {
     PROBE_NONE,
     PROBE_HIGH, // once triggered, return to PROBE_NONE and set motion type LOCK_MOVE
     PROBE_LOW,  // once triggered, return to PROBE_NONE and set motion type LOCK_MOVE
+    PROBE_LEVEL_HIGH,
+    PROBE_LEVEL_LOW,
+    PROBE_CLEAN_OFFSET,
     PROBE_LOCK_MOVE,
 };
 
