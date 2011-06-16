@@ -117,6 +117,7 @@ enum machine_parameter_addr {
     AHC_MAX_OFFSET,
     AHC_LEVEL_MAX,
     AHC_LEVEL_MIN,
+    AHC_ANALOG_CH,
     HOST_TICK,
     WAIT_TIMEOUT,
     PROBE_INPUT_ID,
