@@ -1,3 +1,9 @@
+libwou (0.1-2011.06.17) lucid; urgency=low
+
+  * Update API for AHC (automatic height control)
+
+ -- Yi-Shin Li <ysli@araisrobo.com>  Fri, 17 Jun 2011 07:53:37 +0800
+
 libwou (0.1-2011.06.08) lucid; urgency=low
 
   * Add callback function for CRC-ERROR-COUNT  
