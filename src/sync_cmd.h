@@ -144,9 +144,9 @@ enum test_pattern_type_enum {
 };
 
 enum ahc_state_enum {
-    AHC_DISABLE,
-    AHC_ENABLE,
-    AHC_SUSPEND,
+    AHC_DISABLE,  // clear offset
+    AHC_ENABLE,   // ahc start
+    AHC_SUSPEND,  // ahc stop
 };
 // memory map for motion parameter for each joint
 enum motion_parameter_addr {
