@@ -113,16 +113,20 @@ enum machine_parameter_addr {
     AHC_POLARITY,
     TEST_PATTERN_TYPE,
     TEST_PATTERN,
-    ANALOG_REF_LEVEL,
+    ANALOG_REF_LEVEL,   // wait analog signal: M110
     AHC_MAX_OFFSET,
     AHC_LEVEL_MAX,
     AHC_LEVEL_MIN,
     AHC_ANALOG_CH,
     HOST_TICK,
     WAIT_TIMEOUT,
-    PROBE_INPUT_ID,
-    PROBE_TYPE,
-    PREV_PROBE_TYPE,
+    PROBE_PIN_ID,     // setup while initializing
+    PROBE_PIN_TYPE,         // setup while initializing
+    PROBE_ANALOG_REF_LEVEL,     // setup while initializing
+//    PROBE_STATUS,       // reported by mailbox
+    PROBE_CMD,          // send by host: one of usb commands
+    USB_STATUS,         // report status response to usb commands
+//    PREV_PROBE_TYPE,
     MACHINE_PARAM_ITEM
 };
 
@@ -197,14 +201,54 @@ enum motion_type {
     LOCK_MOVE,
 };
 
-enum probe_state {
-    PROBE_NONE,
-    PROBE_HIGH, // once triggered, return to PROBE_NONE and set motion type LOCK_MOVE
-    PROBE_LOW,  // once triggered, return to PROBE_NONE and set motion type LOCK_MOVE
-    PROBE_LEVEL_HIGH,
-    PROBE_LEVEL_LOW,
-    PROBE_CLEAN_OFFSET,
-    PROBE_LOCK_MOVE,
-};
+/*enum wou_status {
+    PROBE_IDLE,   // idling and would not be reported
+//    PROBE_HIGH, // once triggered, return to PROBE_NONE and set motion type LOCK_MOVE
+//    PROBE_LOW,  // once triggered, return to PROBE_NONE and set motion type LOCK_MOVE
+//    PROBE_LEVEL_HIGH,
+//    PROBE_LEVEL_LOW,
+//    PROBE_CLEAN_OFFSET,
+//    PROBE_LOCK_MOVE,
+    PROBE_HIT,
+    PROBE_RUN,
+    PROBE_ERROR,
+};*/
 
+
+/* usb to risc: similar to usb_cmd in hal/usb.h */
+typedef enum {
+    PROBE_STOP_REPORT,
+    PROBE_END,   // an ack from host to acknowledge risc when the probing is finish or abort
+    PROBE_HIGH,
+    PROBE_LOW,
+    PROBE_DECEL=0xF000,                // internal command
+    PROBE_LOCK_MOVE=0xF001,            // internal command
+    PROBE_FINAL_MOVE=0xF002,           // internal command
+    PROBE_WAIT_RESUME=0xF003,
+} probe_cmd_t;
+
+/* copy & paste from hal/usb.h */
+/* always sync with hal/usb.h */
+typedef enum {
+    USB_STATUS_READY = 0,
+    USB_STATUS_PROBE_HIT,// 1
+    USB_STATUS_PROBING,//2
+    USB_STATUS_PROBE_ERROR,//3
+    USB_STATUS_PROBE_FLUSH_CMD,
+    USB_STATUS_PROBE_WAIT_RESUME,
+    USB_STATUS_ERROR
+} usb_status_t;
+
+typedef enum {
+    USB_CMD_NOOP = 0,           /* no-operation */
+    USB_CMD_ABORT,              /* abort current command */
+    USB_CMD_PROBE_HIGH,         /* probing for probe.input changes from 0->1 */
+    USB_CMD_PROBE_LOW,          /* probing for probe.input changes from 1->0 */
+    USB_CMD_STATUS_ACK          /* ack to usb ater receiving USB_STATUS */
+} usb_cmd_t;
+
+enum probe_pin_type {
+    DIGITAL_PIN,
+    ANALOG_PIN,
+};
 #endif // __sync_cmd_h__
