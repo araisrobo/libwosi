@@ -123,7 +123,6 @@ enum machine_parameter_addr {
     PROBE_PIN_ID,     // setup while initializing
     PROBE_PIN_TYPE,         // setup while initializing
     PROBE_ANALOG_REF_LEVEL,     // setup while initializing
-//    PROBE_STATUS,       // reported by mailbox
     PROBE_CMD,          // send by host: one of usb commands
     USB_STATUS,         // report status response to usb commands
 //    PREV_PROBE_TYPE,
@@ -167,6 +166,7 @@ enum motion_parameter_addr {
     LIMIT_MAX         ,
     LIMIT_MIN         ,
     MAXFOLLWING_ERR   ,
+    PROBE_DECEL_CMD   , // scalar(decel) * pos_scale * dt(sec)
 
     // section for PID
         // unit: 1/65536
@@ -201,19 +201,6 @@ enum motion_type {
     LOCK_MOVE,
 };
 
-/*enum wou_status {
-    PROBE_IDLE,   // idling and would not be reported
-//    PROBE_HIGH, // once triggered, return to PROBE_NONE and set motion type LOCK_MOVE
-//    PROBE_LOW,  // once triggered, return to PROBE_NONE and set motion type LOCK_MOVE
-//    PROBE_LEVEL_HIGH,
-//    PROBE_LEVEL_LOW,
-//    PROBE_CLEAN_OFFSET,
-//    PROBE_LOCK_MOVE,
-    PROBE_HIT,
-    PROBE_RUN,
-    PROBE_ERROR,
-};*/
-
 
 /* usb to risc: similar to usb_cmd in hal/usb.h */
 typedef enum {
@@ -221,11 +208,10 @@ typedef enum {
     PROBE_END,   // an ack from host to acknowledge risc when the probing is finish or abort
     PROBE_HIGH,
     PROBE_LOW,
-    PROBE_DECEL=0xF000,                // internal command
-    PROBE_LOCK_MOVE=0xF001,            // internal command
-    PROBE_FINAL_MOVE=0xF002,           // internal command
-    PROBE_WAIT_RESUME=0xF003,
-} probe_cmd_t;
+    PROBE_DECEL=0xF000,
+    PROBE_LOCK_MOVE=0xF001,
+    PROBE_FINAL_MOVE=0xF002,
+} probe_state_t;
 
 /* copy & paste from hal/usb.h */
 /* always sync with hal/usb.h */
@@ -234,6 +220,7 @@ typedef enum {
     USB_STATUS_PROBE_HIT,// 1
     USB_STATUS_PROBING,//2
     USB_STATUS_PROBE_ERROR,//3
+    USB_STATUS_WOU_CMD_SYNCED,
     USB_STATUS_ERROR, // 4
 } usb_status_t;
 
