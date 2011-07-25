@@ -1,3 +1,9 @@
+libwou (0.1-2011.07.25) lucid; urgency=low
+
+  * Improve API for USB-PROBE
+
+ -- Yi-Shin Li <ysli@araisrobo.com>  Mon, 25 Jul 2011 09:18:33 +0800
+
 libwou (0.1-2011.07.04) lucid; urgency=low
 
   * Improve API for USB-PROBE
