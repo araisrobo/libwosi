@@ -1,3 +1,9 @@
+libwou (0.1-2011.08.05) lucid; urgency=low
+
+  * Add TICK and DEBUG support
+
+ -- Yi-Shin Li <ysli@araisrobo.com>  Fri, 05 Aug 2011 11:38:44 +0800
+
 libwou (0.1-2011.07.25) lucid; urgency=low
 
   * Improve API for USB-PROBE
