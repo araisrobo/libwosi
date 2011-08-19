@@ -52,8 +52,8 @@
 // 0xf000 command not available
 
 //  timeout type
-#define WAIT_LEVEL_LOWER    0x0   // wait analog input in a range of set point
-//#define WAIT_LEVEL_GREATER  0x1
+#define WAIT_LEVEL_LOWER    0x0   // wait analog input to be lower than specified value
+#define WAIT_LEVEL_HIGHER   0x1   // wait analog input to be higher than specified value
 // 0x2 reserved
 // 0x3 reserved
 #define WAIT_LOW            0x4
