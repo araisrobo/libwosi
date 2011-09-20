@@ -126,9 +126,9 @@ enum machine_parameter_addr {
     PROBE_CMD,          // send by host: one of usb commands
     USB_STATUS,         // report status response to usb commands
     // parameter section for risc probing
-    PROBE_DISTANCE,     // in pulse without fraction. risc probing: based on joint 2 (set by GUI?)
-    PROBE_RETRACT_DIST, // in pulse without fraction. risc probing: based on joint 2 (set by GUI?)
-    PROBE_VEL_CMD,      // risc probing: based on joint 2 (set by GUI?)
+//    PROBE_DISTANCE,     // in pulse without fraction. risc probing: based on joint 2 (set by GUI?)
+//    PROBE_RETRACT_DIST, // in pulse without fraction. risc probing: based on joint 2 (set by GUI?)
+//    PROBE_VEL_CMD,      // risc probing: based on joint 2 (set by GUI?)
     // parameters specified by machine
     PARAM0,
     PARAM1,
@@ -138,6 +138,9 @@ enum machine_parameter_addr {
     PARAM5,
     PARAM6,
     PARAM7,
+    PARAM8,
+    PARAM9,
+    PARAM10,
     MACHINE_PARAM_ITEM
 };
 
@@ -162,14 +165,6 @@ enum ahc_state_enum {
     AHC_DISABLE,  // clear offset
     AHC_ENABLE,   // ahc start
     AHC_SUSPEND,  // ahc stop
-};
-
-enum ahc_mode_enum {
-    AHC_NOOP,
-    AHC_MODE1,
-    AHC_MODE2,
-    AHC_MODE3,
-    AHC_MODE4,
 };
 
 // memory map for motion parameter for each joint
@@ -230,7 +225,7 @@ typedef enum {
     PROBE_DECEL=0xF000,
     PROBE_LOCK_MOVE=0xF001,
     PROBE_FINAL_MOVE=0xF002,
-    PROBE_REPORT_ERROR=0xF003, // used by risc probing
+    PROBE_REPORT_RISC_ERROR=0xF003, // used by risc probing
 } probe_state_t;
 
 /* copy & paste from hal/usb.h */
