@@ -248,23 +248,23 @@ int main(void)
     }
     // position compensation enable
 #define THC_ENABLE 0
-    {
-        uint16_t sync_cmd;
-        uint32_t immediate_data;
-        uint32_t i;
-        immediate_data = 0xA00; // ref voltage 2.2 V
-        // transmit immediate data
-        for(i=0; i<sizeof(uint32_t); i++) {
-            sync_cmd = SYNC_DATA | ((uint8_t *)&immediate_data)[i];
-            memcpy(data, &sync_cmd, sizeof(uint16_t));
-            wou_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), 
-                    sizeof(uint16_t), data);
-        }
-        sync_cmd = SYNC_AHC | AHC_STATE(AHC_DISABLE);
-        memcpy(data, &sync_cmd, sizeof(uint16_t));
-        wou_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), 
-                sizeof(uint16_t), data);
-    }
+// TODO: recover the function     {
+// TODO: recover the function         uint16_t sync_cmd;
+// TODO: recover the function         uint32_t immediate_data;
+// TODO: recover the function         uint32_t i;
+// TODO: recover the function         immediate_data = 0xA00; // ref voltage 2.2 V
+// TODO: recover the function         // transmit immediate data
+// TODO: recover the function         for(i=0; i<sizeof(uint32_t); i++) {
+// TODO: recover the function             sync_cmd = SYNC_DATA | ((uint8_t *)&immediate_data)[i];
+// TODO: recover the function             memcpy(data, &sync_cmd, sizeof(uint16_t));
+// TODO: recover the function             wou_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), 
+// TODO: recover the function                     sizeof(uint16_t), data);
+// TODO: recover the function         }
+// TODO: recover the function         sync_cmd = SYNC_AHC | AHC_STATE(AHC_DISABLE);
+// TODO: recover the function         memcpy(data, &sync_cmd, sizeof(uint16_t));
+// TODO: recover the function         wou_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), 
+// TODO: recover the function                 sizeof(uint16_t), data);
+// TODO: recover the function     }
 
 // //end: setup risc
 

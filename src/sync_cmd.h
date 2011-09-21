@@ -73,8 +73,8 @@
 #define SYNC_DOUT_VAL_MASK              0x0001
 #define SYNC_DIN_TYPE_MASK              0x0007
 //#define SYNC_TIMEOUT_MASK               0x0FFF
-#define SYNC_AHC_STATE_MASK             0x000F
-#define SYNC_AHC_POLARITY_MASK          0x00F0
+//#define SYNC_AHC_STATE_MASK             0x000F
+//#define SYNC_AHC_POLARITY_MASK          0x00F0
 #define SYNC_DATA_MASK                  0x00FF
 #define SYNC_MOT_PARAM_ADDR_MASK        0x0FF0
 #define SYNC_MOT_PARAM_ID_MASK          0x000F
@@ -93,9 +93,9 @@
 #define GET_MOT_PARAM_ADDR(t)           (((t) & SYNC_MOT_PARAM_ADDR_MASK) >> 4)
 #define GET_MOT_PARAM_ID(t)             (((t) & SYNC_MOT_PARAM_ID_MASK) >> 0)
 #define GET_MACH_PARAM_ADDR(t)          ((t) & SYNC_MACH_PARAM_ADDR_MASK)
-#define AHC_STATE(i) (0x000F&i)
-#define GET_AHC_POLARITY(i)             (((i) & SYNC_AHC_POLARITY_MASK) >> 4)
-#define GET_RST_POS(i)                  ((i) & SYNC_RST_POS)
+//#define AHC_STATE(i) (0x000F&i)
+//#define GET_AHC_POLARITY(i)             (((i) & SYNC_AHC_POLARITY_MASK) >> 4)
+//#define GET_RST_POS(i)                  ((i) & SYNC_RST_POS)
 
 #define PACK_SYNC_DATA(t)               ((t & 0xFF) << 0)
 #define PACK_IO_ID(i)                   (((i) & 0x3F) << 6)
@@ -104,7 +104,7 @@
 #define PACK_MOT_PARAM_ID(t)            ((t) << 0)
 #define PACK_MOT_PARAM_ADDR(t)          ((t) << 4)
 #define PACK_MACH_PARAM_ADDR(t)         ((t) & SYNC_MACH_PARAM_ADDR_MASK)
-#define PACK_AHC_POLARITY(t)            (((t) & 0x000F) << 4)
+//#define PACK_AHC_POLARITY(t)            (((t) & 0x000F) << 4)
 #define PACK_RST_POS(i)                 ((1 << i))
 // memory map for machine config
 enum machine_parameter_addr {
@@ -125,6 +125,8 @@ enum machine_parameter_addr {
     PROBE_ANALOG_REF_LEVEL,     // setup while initializing
     PROBE_CMD,          // send by host: one of usb commands
     USB_STATUS,         // report status response to usb commands
+    AHC_STATE,
+    AHC_LEVEL,
     // parameter section for risc probing
 //    PROBE_DISTANCE,     // in pulse without fraction. risc probing: based on joint 2 (set by GUI?)
 //    PROBE_RETRACT_DIST, // in pulse without fraction. risc probing: based on joint 2 (set by GUI?)
@@ -141,6 +143,11 @@ enum machine_parameter_addr {
     PARAM8,
     PARAM9,
     PARAM10,
+    PARAM11,
+    PARAM12,
+    PARAM13,
+    PARAM14,
+    PARAM15,
     MACHINE_PARAM_ITEM
 };
 
