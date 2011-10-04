@@ -43,8 +43,7 @@
 #define SYNC_MOT_PARAM   0x7000
 #define SYNC_AHC         0x8000         // auto height control
 #define SYNC_VEL         0x9000
-//#define SYNC_PROBE       0xa000       // disabled
-#define SYNC_RST_POS     0xA000
+// 0xa000
 #define SYNC_MACH_PARAM  0xB000
 #define SYNC_DATA        0xC000
 // 0xd000 command not available
@@ -72,14 +71,10 @@
 #define SYNC_DI_DO_PIN_MASK             0x0FC0
 #define SYNC_DOUT_VAL_MASK              0x0001
 #define SYNC_DIN_TYPE_MASK              0x0007
-//#define SYNC_TIMEOUT_MASK               0x0FFF
-//#define SYNC_AHC_STATE_MASK             0x000F
-//#define SYNC_AHC_POLARITY_MASK          0x00F0
 #define SYNC_DATA_MASK                  0x00FF
 #define SYNC_MOT_PARAM_ADDR_MASK        0x0FF0
 #define SYNC_MOT_PARAM_ID_MASK          0x000F
 #define SYNC_MACH_PARAM_ADDR_MASK       0x0FFF
-#define SYNC_RST_POS_MASK               0x0FFF
 // SYNC VEL CMD masks
 #define VEL_MASK                        0x0FFE
 #define VEL_SYNC_MASK                   0x0001
@@ -93,9 +88,6 @@
 #define GET_MOT_PARAM_ADDR(t)           (((t) & SYNC_MOT_PARAM_ADDR_MASK) >> 4)
 #define GET_MOT_PARAM_ID(t)             (((t) & SYNC_MOT_PARAM_ID_MASK) >> 0)
 #define GET_MACH_PARAM_ADDR(t)          ((t) & SYNC_MACH_PARAM_ADDR_MASK)
-//#define AHC_STATE(i) (0x000F&i)
-//#define GET_AHC_POLARITY(i)             (((i) & SYNC_AHC_POLARITY_MASK) >> 4)
-//#define GET_RST_POS(i)                  ((i) & SYNC_RST_POS)
 
 #define PACK_SYNC_DATA(t)               ((t & 0xFF) << 0)
 #define PACK_IO_ID(i)                   (((i) & 0x3F) << 6)
@@ -127,10 +119,6 @@ enum machine_parameter_addr {
     USB_STATUS,         // report status response to usb commands
     AHC_STATE,
     AHC_LEVEL,
-    // parameter section for risc probing
-//    PROBE_DISTANCE,     // in pulse without fraction. risc probing: based on joint 2 (set by GUI?)
-//    PROBE_RETRACT_DIST, // in pulse without fraction. risc probing: based on joint 2 (set by GUI?)
-//    PROBE_VEL_CMD,      // risc probing: based on joint 2 (set by GUI?)
     // parameters specified by machine
     PARAM0,
     PARAM1,
