@@ -1,3 +1,9 @@
+libwou (0.1-2011.09.27) lucid; urgency=low
+
+  * RISC-probing
+
+ -- Yi-Shin Li <ysli@araisrobo.com>  Tue, 27 Sep 2011 15:28:27 +0800
+
 libwou (0.1-2011.08.19) lucid; urgency=low
 
   * Add WAIT_LEVEL_HIGHER for Analog Input Synchronizing Command

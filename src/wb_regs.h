@@ -39,12 +39,13 @@
  *    OR32_EN           0x00.0        W       (1)enable OR32 
  *                                            (0)keep resetting OR32
  * RESERVED             0x01          
- * JCMD_WATCHDOG        0x02          W       watchdog timeout limit (unit: 100ms)
+ * // OBSOLETE: JCMD_WATCHDOG        0x02          W       watchdog timeout limit (unit: 100ms)
+ * RESERVED             0x02
  * RESERVED             0x03
  * RESERVED             0x04
  * JCMD_CTRL            0x05
- *    WDOG_EN           0x05.0        W       WatchDOG timer (1)enable (0)disable
- *                                            FPGA will reset if there's no WOU packets comming from HOST
+ *    //OBSOLETE: WDOG_EN           0x05.0        W       WatchDOG timer (1)enable (0)disable
+ *    //OBSOLETE:                                         FPGA will reset if there's no WOU packets comming from HOST
  *    SSIF_EN           0x05.1        W       Servo/Stepper Interface Enable
  * RESERVED             0x06 
  * RESERVED               ~ 
@@ -92,9 +93,9 @@
  * SSIF_SWITCH_POS      0X0090        R       (0X90 ~ 0XBF)   JNT_0 ~ JNT_11, HOME-SWITCH-POSITION 
  *                                                            servo: based on ENC_POS
  *                                                            stepper: based on PULSE_POS
- * SSIF_INDEX_POS       0X00C0        R       (0XC0 ~ 0XEF)   JNT_0 ~ JNT_11, MOTOR-INDEX-POSITION
- *                                                            servo: based on ENC_POS
- *                                                            stepper: based on PULSE_POS
+ * //obsolete: SSIF_INDEX_POS       0X00C0        R       (0XC0 ~ 0XEF)   JNT_0 ~ JNT_11, MOTOR-INDEX-POSITION
+ * //obsolete:                                                            servo: based on ENC_POS
+ * //obsolete:                                                            stepper: based on PULSE_POS
  *******************************************************************************
  * for 華谷：
  * JNT_0 ~ JNT_2: current limit: 2.12A/phase (DST56EX43A)
@@ -187,11 +188,12 @@
 #define OR32_CTRL       0x0000          
 #define OR32_EN_MASK      0x01  // OR32_EN(0x00.0) (1)enable (0)keep resetting OR32
 // #define RESERVED     0x0001  
-#define JCMD_WATCHDOG   0x0002  // watchdog timeout limit (unit: 100ms)
+// OBSOLETE: #define JCMD_WATCHDOG   0x0002  // watchdog timeout limit (unit: 100ms)
                                 // default value: 30 (3 seconds)
+// #define RESERVED     0x0002  
 // #define RESERVED     0x0003  
 // #define RESERVED     0x0004  
-#define JCMD_CTRL       0x0005  // [1:0]: {SSIF_EN, WDOG_EN}
+#define JCMD_CTRL       0x0005  // [1:0]: {SSIF_EN, /*obsolete: WDOG_EN*/}
 // #define RESERVED     0x0006  ~  0x0017
 #define OR32_PROG       0x0018  // 0x18 ~ 0x1F, 4 bytes of ADDR and 4 bytes of DATA
                                 // Write to 0x1F to program OR32.SRAM when (OR32_EN == 0)
@@ -255,9 +257,9 @@
 #define SSIF_SWITCH_POS 0X0090  // R(0X90 ~ 0XBF)   JNT_0 ~ JNT_11, HOME-SWITCH-POSITION 
                                 //                  servo: based on ENC_POS
                                 //                  stepper: based on PULSE_POS
-#define SSIF_INDEX_POS  0X00C0  // R(0XC0 ~ 0XEF)   JNT_0 ~ JNT_11, MOTOR-INDEX-POSITION
-                                //                  servo: based on ENC_POS
-                                //                  stepper: based on PULSE_POS
+//obsolete: #define SSIF_INDEX_POS  0X00C0  // R(0XC0 ~ 0XEF)   JNT_0 ~ JNT_11, MOTOR-INDEX-POSITION
+//obsolete:                                 //                  servo: based on ENC_POS
+//obsolete:                                 //                  stepper: based on PULSE_POS
 // end: registers for SSIF (Servo/Stepper InterFace)
 
 //obsolete: // begin: registers for SPI devices

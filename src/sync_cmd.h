@@ -43,8 +43,7 @@
 #define SYNC_MOT_PARAM   0x7000
 #define SYNC_AHC         0x8000         // auto height control
 #define SYNC_VEL         0x9000
-//#define SYNC_PROBE       0xa000       // disabled
-#define SYNC_RST_POS     0xA000
+// 0xa000
 #define SYNC_MACH_PARAM  0xB000
 #define SYNC_DATA        0xC000
 // 0xd000 command not available
@@ -72,14 +71,10 @@
 #define SYNC_DI_DO_PIN_MASK             0x0FC0
 #define SYNC_DOUT_VAL_MASK              0x0001
 #define SYNC_DIN_TYPE_MASK              0x0007
-//#define SYNC_TIMEOUT_MASK               0x0FFF
-#define SYNC_AHC_STATE_MASK             0x000F
-#define SYNC_AHC_POLARITY_MASK          0x00F0
 #define SYNC_DATA_MASK                  0x00FF
 #define SYNC_MOT_PARAM_ADDR_MASK        0x0FF0
 #define SYNC_MOT_PARAM_ID_MASK          0x000F
 #define SYNC_MACH_PARAM_ADDR_MASK       0x0FFF
-#define SYNC_RST_POS_MASK               0x0FFF
 // SYNC VEL CMD masks
 #define VEL_MASK                        0x0FFE
 #define VEL_SYNC_MASK                   0x0001
@@ -93,9 +88,6 @@
 #define GET_MOT_PARAM_ADDR(t)           (((t) & SYNC_MOT_PARAM_ADDR_MASK) >> 4)
 #define GET_MOT_PARAM_ID(t)             (((t) & SYNC_MOT_PARAM_ID_MASK) >> 0)
 #define GET_MACH_PARAM_ADDR(t)          ((t) & SYNC_MACH_PARAM_ADDR_MASK)
-#define AHC_STATE(i) (0x000F&i)
-#define GET_AHC_POLARITY(i)             (((i) & SYNC_AHC_POLARITY_MASK) >> 4)
-#define GET_RST_POS(i)                  ((i) & SYNC_RST_POS)
 
 #define PACK_SYNC_DATA(t)               ((t & 0xFF) << 0)
 #define PACK_IO_ID(i)                   (((i) & 0x3F) << 6)
@@ -104,7 +96,7 @@
 #define PACK_MOT_PARAM_ID(t)            ((t) << 0)
 #define PACK_MOT_PARAM_ADDR(t)          ((t) << 4)
 #define PACK_MACH_PARAM_ADDR(t)         ((t) & SYNC_MACH_PARAM_ADDR_MASK)
-#define PACK_AHC_POLARITY(t)            (((t) & 0x000F) << 4)
+//#define PACK_AHC_POLARITY(t)            (((t) & 0x000F) << 4)
 #define PACK_RST_POS(i)                 ((1 << i))
 // memory map for machine config
 enum machine_parameter_addr {
@@ -125,7 +117,25 @@ enum machine_parameter_addr {
     PROBE_ANALOG_REF_LEVEL,     // setup while initializing
     PROBE_CMD,          // send by host: one of usb commands
     USB_STATUS,         // report status response to usb commands
-//    PREV_PROBE_TYPE,
+    AHC_STATE,
+    AHC_LEVEL,
+    // parameters specified by machine
+    PARAM0,
+    PARAM1,
+    PARAM2,
+    PARAM3,
+    PARAM4,
+    PARAM5,
+    PARAM6,
+    PARAM7,
+    PARAM8,
+    PARAM9,
+    PARAM10,
+    PARAM11,
+    PARAM12,
+    PARAM13,
+    PARAM14,
+    PARAM15,
     MACHINE_PARAM_ITEM
 };
 
@@ -151,6 +161,7 @@ enum ahc_state_enum {
     AHC_ENABLE,   // ahc start
     AHC_SUSPEND,  // ahc stop
 };
+
 // memory map for motion parameter for each joint
 enum motion_parameter_addr {
 //    CMD_FRACT_BIT     ,
@@ -185,8 +196,6 @@ enum motion_parameter_addr {
     MAXCMD_D          ,
     MAXCMD_DD         ,
     MAXOUTPUT         , //13
-//    PROBE_ERR         ,
-//    PROBE_BACK_OFF    ,
     ENABLE            ,
     MAX_PARAM_ITEM
 };
@@ -211,6 +220,7 @@ typedef enum {
     PROBE_DECEL=0xF000,
     PROBE_LOCK_MOVE=0xF001,
     PROBE_FINAL_MOVE=0xF002,
+    PROBE_REPORT_RISC_ERROR=0xF003, // used by risc probing
 } probe_state_t;
 
 /* copy & paste from hal/usb.h */
@@ -220,8 +230,9 @@ typedef enum {
     USB_STATUS_PROBE_HIT,// 1
     USB_STATUS_PROBING,//2
     USB_STATUS_PROBE_ERROR,//3
-    USB_STATUS_WOU_CMD_SYNCED,
     USB_STATUS_ERROR, // 4
+    USB_STATUS_RISC_PROBE_ERROR, // 5
+
 } usb_status_t;
 
 typedef enum {
