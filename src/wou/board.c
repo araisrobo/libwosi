@@ -364,8 +364,6 @@ static void gbn_init (board_t* board)
     board->rd_dsize = 0;
     board->wr_dsize = 0;
     board->wou->tx_size = 0;
-    //obsolete: board->wou->rx_req_size = 0;
-    //obsolete: board->wou->rx_req = 0;
     board->wou->rx_size = 0;
     board->wou->rx_state = SYNC;
     board->wou->tid = 0;
@@ -492,8 +490,6 @@ int board_reconnect(board_t* board) {
 		board->io.usb.tx_tc = NULL;
 	}
 	board->wou->tx_size = 0;
-	//obsolete: board->wou->rx_req_size = 0;
-	//obsolete: board->wou->rx_req = 0;
 
 	board->wou->Sn = board->wou->Sb;
 	DP("board_reconnect\n");
@@ -696,14 +692,6 @@ static uint8_t wb_reg_update (board_t* b, const uint8_t *buf)
     wb_regp = &(b->wb_reg_map[wb_addr]);
     memcpy (wb_regp, buf+WOU_HDR_SIZE, dsize);
 
-    //obsolete: ftStatus = FT_Read(b->io.usb.ftHandle, wb_regp, dsize, &recvd);
-    //obsolete: if (ftStatus != FT_OK) 
-    //obsolete: {
-    //obsolete:   ERRP ("FT_Read(): ftStatus(%d)\n", (int)ftStatus);
-    //obsolete:   return -1;
-    //obsolete: }
-    //obsolete: b->rd_dsize += recvd;
-
 #if (TRACE!=0)
     {
         int         i;
@@ -804,8 +792,6 @@ static int wouf_parse (board_t* b, const uint8_t *buf_head)
                 b->io.usb.tx_tc = NULL;
             }
             b->wou->tx_size = 0;
-            //obsolete: b->wou->rx_req_size = 0;
-            //obsolete: b->wou->rx_req = 0;
             b->wou->rx_size = 0;
             // flushing RX buffer
             // // to clear tx and rx queue
@@ -873,7 +859,6 @@ void wou_recv (board_t* b)
     int         pload_size_tx;
     uint8_t     *buf_head;
     int         *rx_size;      // size of buf_rx[]
-    //obsolete: int         *rx_req;
     uint8_t     *buf_rx;
     enum rx_state_type *rx_state;
     static uint8_t sync_words[3] = {WOUF_PREAMBLE, WOUF_PREAMBLE, WOUF_SOFD};
@@ -884,7 +869,6 @@ void wou_recv (board_t* b)
 
     ftdic = &(b->io.usb.ftdic);
     rx_size = &(b->wou->rx_size);
-    //obsolete: rx_req = &(b->wou->rx_req);
     buf_rx = b->wou->buf_rx;
     rx_state = &(b->wou->rx_state);
     if (b->io.usb.rx_tc) {
@@ -923,7 +907,6 @@ void wou_recv (board_t* b)
     // append data from USB to buf_rx[]
     b->rd_dsize += recvd;
     *rx_size += recvd;
-    //obsolete: *rx_req -= recvd;
     
     // parsing buf_rx[]:
     buf_head = buf_rx;
@@ -1051,28 +1034,22 @@ void wou_recv (board_t* b)
 #if RX_FAIL_TEST
     count_rx_fail ++;
     if(count_rx_fail < RX_FAIL_COUNT) {
-    	//obsolete: if (*rx_req) {
         // issue async_read ...
-        if ((b->io.usb.rx_tc = ftdi_read_data_submit (
-                                                        ftdic,
-                                                        buf_rx + *rx_size,
-                                                        // ftdic->readbuffer_remaining + 1))
-                                                        // MAX(1, ftdic->readbuffer_remaining)))
-                                                        // obsolete: MIN(RX_BURST_MIN, *rx_req)))
-                                                        MIN(RX_BURST_MIN + ftdic->readbuffer_remaining, RX_CHUNK_SIZE))) 
-                                                        == NULL) 
+        if ((b->io.usb.rx_tc = 
+                ftdi_read_data_submit (
+                    ftdic,
+                    buf_rx + *rx_size,
+                    MIN(RX_BURST_MIN + ftdic->readbuffer_remaining, RX_CHUNK_SIZE))) 
+                    == NULL) 
         {
             ERRP("ftdi_read_data_submit(): %s\n", ftdi_get_error_string (ftdic));
             ERRP("rx_size(%d)\n", *rx_size);
             assert(0);
         }
-        //obsolete: DP ("rx_req(%d)\n", *rx_req);
-	//obsolete: }
     }
     if(count_rx_fail < RX_FAIL_COUNT + RX_FAIL_NUM_IN_ROW) count_rx_fail = 0;
 #elif RECONNECT_TEST
     count_reconnect ++;
-    //obsolete: if (*rx_req) {
     // issue async_read ...
     if ((count_reconnect > RECONNECT_COUNT) || (b->io.usb.rx_tc = ftdi_read_data_submit (
                             ftdic,
@@ -1087,20 +1064,13 @@ void wou_recv (board_t* b)
         count_reconnect=0;
         board_reconnect(b);
     }
-    //obsolete: DP ("rx_req(%d)\n", *rx_req);
-    //obsolete: }
 #else
     // REGULAR OPERATION
-    //obsolete: if (*rx_req) {
     // issue async_read ...
     if ((b->io.usb.rx_tc = ftdi_read_data_submit (
                             ftdic, 
                             buf_rx + *rx_size, 
-                            // ftdic->readbuffer_remaining + 1)) 
-                            // MAX(1, ftdic->readbuffer_remaining))) 
-                            // MAX(32, ftdic->readbuffer_remaining))) 
                             MIN(RX_BURST_MIN + ftdic->readbuffer_remaining, RX_CHUNK_SIZE))) 
-                            // MIN(RX_BURST_MIN, *rx_req))) 
                             == NULL) 
     {
         ERRP("ftdi_read_data_submit(): %s\n", ftdi_get_error_string (ftdic));
@@ -1112,8 +1082,6 @@ void wou_recv (board_t* b)
             board_reconnect(b);
         }
     }
-    //obsolete: DP ("rx_req(%d)\n", *rx_req);
-    //obsolete: }
 #endif
     return;
 } // wou_recv()
@@ -1131,8 +1099,6 @@ static void wou_send (board_t* b)
 
     int         dwBytesWritten;
     int         *tx_size;
-    //obsolete: int         *rx_req_size;
-    //obsolete: int         *rx_req;
     unsigned short status;
     struct ftdi_context     *ftdic;
     ftdic = &(b->io.usb.ftdic);
@@ -1150,15 +1116,11 @@ static void wou_send (board_t* b)
             b->io.usb.tx_tc = NULL;
         }
         b->wou->tx_size = 0;
-        //obsolete: b->wou->rx_req_size = 0;
-        //obsolete: b->wou->rx_req = 0;
         b->wou->Sn = b->wou->Sb;
         DP("TX TIMEOUT,Sm,Sn,Sb reconfig Sm(%d) Sn(%d) Sb(%d)\n", b->wou->Sm, b->wou->Sn, b->wou->Sb);
      }
 
     tx_size = &(b->wou->tx_size);
-    //obsolete: rx_req_size = &(b->wou->rx_req_size);
-    //obsolete: rx_req = &(b->wou->rx_req);
     buf_tx = b->wou->buf_tx;
     Sm = &(b->wou->Sm);
     Sn = &(b->wou->Sn);
@@ -1201,8 +1163,6 @@ static void wou_send (board_t* b)
                 count_single_break++;
 #endif
                 *tx_size += b->wou->woufs[i].fsize;
-                //obsolete: *rx_req_size += (b->wou->woufs[i].pload_size_rx + WOUF_HDR_SIZE + 1/*TID*/ + CRC_SIZE);
-                //obsolete: DP ("rx_req_size(%d)\n", *rx_req_size);
                 *Sn += 1;
 
             }
@@ -1243,8 +1203,6 @@ static void wou_send (board_t* b)
 				   count_single_break++;
 #endif
                 *tx_size += b->wou->woufs[i].fsize;
-                //obsolete: *rx_req_size += (b->wou->woufs[i].pload_size_rx + WOUF_HDR_SIZE + 1/*TID*/ + CRC_SIZE);
-                //obsolete: DP ("rx_req_size(%d)\n", *rx_req_size);
                 *Sn += 1;
 
             }
@@ -1277,8 +1235,6 @@ static void wou_send (board_t* b)
 				   count_single_break++;
 #endif
                     *tx_size += b->wou->woufs[i].fsize;
-                    //obsolete: *rx_req_size += (b->wou->woufs[i].pload_size_rx + WOUF_HDR_SIZE + 1/*TID*/ + CRC_SIZE);
-                    //obsolete: DP ("rx_req_size(%d)\n", *rx_req_size);
                     *Sn += 1;
 
                 }
@@ -1377,10 +1333,7 @@ static void wou_send (board_t* b)
 
 #endif
     // request for rx
-    //obsolete: *rx_req += *rx_req_size;    
     DP ("dwBytesWritten(%d) tx_size(%d)\n", dwBytesWritten, *tx_size);
-    //obsolete: *rx_req_size = 0;
-
     DP("tx_tc.completed(%d)\n", b->io.usb.tx_tc->completed);
     DP("tx_tc->transfer->status(%d)\n", b->io.usb.tx_tc->transfer->status);
     DP("tx_tc->transfer->actual_length(%d)\n", b->io.usb.tx_tc->transfer->actual_length);
@@ -1671,9 +1624,7 @@ static int m7i43u_program_fpga(struct board *board,
     time.tv_nsec = 500000000;   // 500ms
     nanosleep(&time, NULL);
     
-    //obsolete: board_reset (board);  
     printf ("end: m7i43u_program_fpga()\n");
-
     return 0;
 }
 
