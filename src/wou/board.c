@@ -390,8 +390,9 @@ int board_init (board_t* board, const char* device_type, const int device_id,
     dptrace = fopen("dptrace.log","w");
     // dptrace = stderr;
 #endif
-    // init wb_reg_map
+
     memset (board->wb_reg_map, 0, WB_REG_SIZE);
+    // memset (board->mbox_buf, 0, (WOUF_HDR_SIZE+MAX_PSIZE+CRC_SIZE));
 
     // look up the device type that the caller requested in our table of
     // known device types
@@ -424,7 +425,7 @@ int board_init (board_t* board, const char* device_type, const int device_id,
     DP ("chip_type(%s)\n", board->chip_type);
    
     board->wou = (wou_t *) malloc (sizeof(wou_t));
-    board->wou->mbox_callback = NULL;
+    // board->wou->mbox_callback = NULL;
     board->wou->crc_error_callback = NULL;
     board->wou->crc_error_counter = 0;
     // for calculating TX_TIMEOUT:
@@ -829,18 +830,22 @@ static int wouf_parse (board_t* b, const uint8_t *buf_head)
         return (0);
         // (buf_head[1] == TYP_WOUF)
     } else if (buf_head[1] == MAILBOX) {
-        // TODO: implement a callback function that could process 
-        //       buf_head[] for MAILBOX
-
-        // fprintf (stderr, "DEBUG: MAILBOX: ");
-        // for (i=0; i < (1 + buf_head[0] + CRC_SIZE); i++) {
-        //     fprintf (stderr, "<%.2X>", buf_head[i]);
-        // }
-        // fprintf (stderr, "\n");
-        assert (buf_head[0] > 1);
-        if (b->wou->mbox_callback) {
-            b->wou->mbox_callback(buf_head);
+        //debug: fprintf (stderr, "DEBUG: MAILBOX: ");
+        //debug: for (i=0; i < (1 /* sizeof(PLOAD_SIZE_TX) */ + buf_head[0] + CRC_SIZE); i++) {
+        //debug:     fprintf (stderr, "<%.2X>", buf_head[i]);
+        //debug: }
+        //debug: fprintf (stderr, "\n");
+        //debug: fprintf (stderr, "mbox_buf(%p) buf_head(%p)\n", b->mbox_buf, buf_head);
+        
+        assert (buf_head[0] > 3);
+        assert (buf_head[0] < 254);
+        for (i=0; i < (1 /* sizeof(PLOAD_SIZE_TX) */ + buf_head[0]); i++) {
+            b->mbox_buf[i] = buf_head[i];
         }
+
+        //buggy for both x86 and arm:  
+        //memcpy (b->mbox_buf, src_ptr, (1 /* sizeof(PLOAD_SIZE_TX) */ + src_ptr[0]));
+        //reason: might because the src_ptr is not 4 byte aligned
 
         return (0);
     }
@@ -984,12 +989,14 @@ void wou_recv (board_t* b)
             count_rx++;
 #endif
             crc16 = crcFast(buf_head, (1/*PLOAD_SIZE_TX*/ + pload_size_tx));
-            cmp = memcmp(buf_head + (1 + pload_size_tx), &crc16, CRC_SIZE);
+            cmp = memcmp(buf_head + (1/*PLOAD_SIZE_TX*/ + pload_size_tx), &crc16, CRC_SIZE);
 
             if (cmp == 0 ) {
                 // CRC pass; about to parse WOU_FRAME
                 if (wouf_parse (b, buf_head)) {
                     // un-expected Rn
+                    fprintf (stderr, "wou: wouf_parse() error ... \n");
+                    assert(0);
                 } else {
                     // expected Rn
                     *rx_size -= (1 + pload_size_tx + CRC_SIZE);

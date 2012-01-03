@@ -41,7 +41,7 @@ typedef struct {
         struct board* board;
 } wou_param_t;
 
-typedef void (*libwou_mailbox_cb_fn)(const uint8_t *buf_head);
+//obsolete: typedef void (*libwou_mailbox_cb_fn)(const uint8_t *buf_head);
 
 typedef void (*libwou_crc_error_cb_fn)(int32_t crc_count);
 
@@ -71,6 +71,11 @@ void wou_status (wou_param_t *w_param);
  **/
 const void *wou_reg_ptr (wou_param_t *w_param, uint32_t wou_addr);
 
+/**
+ * wou_mbox_ptr - return the pointer to mailbox buffer
+ **/
+const void *wou_mbox_ptr (wou_param_t *w_param);
+
 
 void wou_flush (wou_param_t *w_param);
 
@@ -92,8 +97,8 @@ void wou_close (wou_param_t *w_param);
 /* prog risc core */
 int wou_prog_risc(wou_param_t *w_param, const char *binfile);
 
-/* set wou mailbox callback function */
-void wou_set_mbox_cb (wou_param_t *w_param, libwou_mailbox_cb_fn callback);
+//obsolete: /* set wou mailbox callback function */
+//obsolete: void wou_set_mbox_cb (wou_param_t *w_param, libwou_mailbox_cb_fn callback);
 
 void wou_set_crc_error_cb (wou_param_t *w_param, libwou_crc_error_cb_fn callback);
 #ifdef __cplusplus

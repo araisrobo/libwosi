@@ -20,9 +20,13 @@
 // #define FPGA_BIT  "./co2_top.bit"
 // #define RISC_BIN  "./co2.bin"
 
-// taiwan-plasma:
-#define FPGA_BIT  "./mesa7i43_ar02_ar01.bit"
-#define RISC_BIN  "./co2.bin"
+// // taiwan-plasma:
+// #define FPGA_BIT  "./mesa7i43_ar02_ar01.bit"
+// #define RISC_BIN  "./co2.bin"
+
+// pdt:
+#define FPGA_BIT  "./plasma_top.bit"
+#define RISC_BIN  "./stepper.bin"
 
 // #define FPGA_BIT  "./servo_top.bit"
 // #define RISC_BIN  "./sfifo.bin"
@@ -331,7 +335,7 @@ int main(void)
         immediate_data = immediate_data > 0? immediate_data:-immediate_data;
         fprintf(stderr, "(1/(max_accel*scale)=(1/(%f*%f*(%f^2)))*(2^%d) = (%d) ",
                 max_accel, pos_scale, f_dt, FRACTION_BITS, immediate_data);
-        assert(immediate_data>0);
+        // assert(immediate_data>0);
 
         write_mot_param (&w_param, n, (MAX_ACCEL_RECIP), immediate_data);
 
@@ -583,12 +587,6 @@ int main(void)
              wou_cmd (&w_param,
                       WB_RD_CMD,
                       (SSIF_BASE | SSIF_SWITCH_POS),
-                      16,
-                      data);
-             
-             wou_cmd (&w_param,
-                      WB_RD_CMD,
-                      (SSIF_BASE | SSIF_INDEX_POS),
                       16,
                       data);
  	}
