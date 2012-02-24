@@ -376,6 +376,7 @@ static void gbn_init (board_t* board)
         board->wou->woufs[i].use = 0;
     }
     wouf_init (board);
+    rt_wouf_init (board);
     return;
 }
 
@@ -842,16 +843,21 @@ static int wouf_parse (board_t* b, const uint8_t *buf_head)
         for (i=0; i < (1 /* sizeof(PLOAD_SIZE_TX) */ + buf_head[0]); i++) {
             b->mbox_buf[i] = buf_head[i];
         }
-
-        //buggy for both x86 and arm:  
-        //memcpy (b->mbox_buf, src_ptr, (1 /* sizeof(PLOAD_SIZE_TX) */ + src_ptr[0]));
-        //reason: might because the src_ptr is not 4 byte aligned
-
+        return (0);
+    } else if (buf_head[1] == RT_WOUF) {
+        // about to parse [WOU][WOU]...
+        pload_size_tx = buf_head[0];
+        pload_size_tx -= 1;     // sizeof(RT_WOUF)
+        buf_head += 2;          // point to [WOU]
+        while (pload_size_tx > 0) {
+            wou_dsize = wb_reg_update (b, buf_head);
+            pload_size_tx -= (WOU_HDR_SIZE + wou_dsize);
+            assert ((pload_size_tx & 0x8000) == 0);   // no negative pload_size_tx
+            buf_head += (WOU_HDR_SIZE + wou_dsize);
+        }
+        DP ("TODO: return parsed pload_size_tx for assertion\n");
         return (0);
     }
-
-        
-
 } // wouf_parse()
 
 // receive data from USB and update corresponding WB registers
@@ -1159,7 +1165,6 @@ static void wou_send (board_t* b)
                 count_tx ++;
 #endif
 #if TX_BREAK_SINGLE_TID
-            //    if((buf_tx+*tx_size)[4] ==  ((uint8_t)SINGLE_BREAK_TID) ) {
                 if( count_single_break > COUNT_START_BREAK && (buf_tx+*tx_size)[4] ==  ((uint8_t)SINGLE_BREAK_TID)) {
 					(buf_tx+*tx_size)[3] = 0;//~(buf_tx+*tx_size)[3];;
 					DP("break tid(0x%02X) sn(0x%02X)\n", (buf_tx+*tx_size)[5], *Sn);
@@ -1176,7 +1181,7 @@ static void wou_send (board_t* b)
         }
     } else {
         if ((*Sn - *Sm) == 1) {
-            // stop sending when exceening Max Window Boundary
+            // stop sending when exceeding Max Window Boundary
             DP("hit Window Boundary\n"); 
         } else {
             // round a circle
@@ -1243,10 +1248,8 @@ static void wou_send (board_t* b)
 #endif
                     *tx_size += b->wou->woufs[i].fsize;
                     *Sn += 1;
-
                 }
             }
-
         }
     }
        
@@ -1357,6 +1360,92 @@ static void wou_send (board_t* b)
     return;
 }
 
+static void rt_wou_send (board_t* b)
+{
+    struct timespec         time2, dt;
+    uint8_t *buf_tx;
+    uint8_t *buf_src;
+    uint8_t *Sm;
+    uint8_t *Sn;
+    int     i,j;
+
+    int         dwBytesWritten;
+    int         *tx_size;
+    unsigned short status;
+    struct ftdi_context     *ftdic;
+
+    ftdic = &(b->io.usb.ftdic);
+
+    // there might be pended async write data
+    tx_size = &(b->wou->tx_size);
+    buf_tx = b->wou->buf_tx;
+    
+    assert(b->wou->rt_wouf.use == 1);
+    buf_src = b->wou->rt_wouf.buf;
+    memcpy (buf_tx + *tx_size, buf_src, b->wou->rt_wouf.fsize);  
+    *tx_size += b->wou->rt_wouf.fsize;
+    assert (*tx_size < NR_OF_WIN*(WOUF_HDR_SIZE+2+MAX_PSIZE+CRC_SIZE));
+    b->wou->rt_wouf.use = 0;
+
+    //async write:
+    if (b->io.usb.tx_tc) {
+        // there's previous pending async write
+        if (b->io.usb.tx_tc->transfer) {
+            struct timeval poll_timeout = {0,0};
+            if (libusb_handle_events_timeout(ftdic->usb_ctx, &poll_timeout) < 0) {
+                ERRP("libusb_handle_events_timeout() (%s)\n", ftdi_get_error_string(ftdic));
+            }
+            DP ("toggle USB\n");
+        }
+        if (b->io.usb.tx_tc->completed) {
+            dwBytesWritten = ftdi_transfer_data_done (b->io.usb.tx_tc);
+            if (dwBytesWritten < 0) {
+                ERRP("dwBytesWritten(%d) (%s)\n", dwBytesWritten, ftdi_get_error_string(ftdic));
+                dwBytesWritten = 0;  // to issue another ftdi_write_data_submit()
+            } 
+            b->io.usb.tx_tc = NULL;
+        } else {
+           return;
+        }
+    } else {
+        dwBytesWritten = 0;
+    }
+
+    assert(b->io.usb.tx_tc == NULL);
+    
+    if (dwBytesWritten) {
+        clock_gettime(CLOCK_REALTIME, &time2);
+        dt = diff(time_send_begin,time2);
+        DP ("tx_size(%d), dwBytesWritten(%d,0x%08X), dt.sec(%lu), dt.nsec(%lu)\n", 
+             *tx_size, dwBytesWritten, dwBytesWritten, dt.tv_sec, dt.tv_nsec);
+        DP ("bitrate(%f Mbps)\n", 
+             8.0*dwBytesWritten/(1000000.0*dt.tv_sec+dt.tv_nsec/1000.0));
+        assert (dwBytesWritten <= *tx_size);
+        b->wr_dsize += dwBytesWritten;
+        *tx_size -= dwBytesWritten;
+        memmove(buf_tx, buf_tx+dwBytesWritten, *tx_size);
+    }
+    
+    if (*tx_size < TX_BURST_MIN) {
+        DP ("skip wou_send(), tx_size(%d)\n", *tx_size);
+        return;
+    }
+
+    // issue async_write ...
+    b->io.usb.tx_tc = ftdi_write_data_submit (
+                            ftdic, 
+                            buf_tx, 
+                            MIN(*tx_size, TX_BURST_MAX));
+    if (b->io.usb.tx_tc == NULL) {
+
+        ERRP("ftdi_write_data_submit(): %s\n", 
+             ftdi_get_error_string (ftdic));
+    } else {
+    	clock_gettime(CLOCK_REALTIME, &time_send_begin);
+    }
+    return;
+}
+
 int wou_eof (board_t* b, uint8_t wouf_cmd)
 {
     // took from vip/ftdi/generator.cpp::send_frame()
@@ -1435,6 +1524,105 @@ void wouf_init (board_t* b)
     return ;
 }
 
+void rt_wouf_init (board_t* b)
+{
+    // took from vip/ftdi/generator.cpp::rt_init_frame()
+    wouf_t      *wou_frame_;
+
+    wou_frame_ = &(b->wou->rt_wouf);
+
+    wou_frame_->buf[0]          = WOUF_PREAMBLE;
+    wou_frame_->buf[1]          = WOUF_PREAMBLE;
+    wou_frame_->buf[2]          = WOUF_SOFD;    // Start of Frame Delimiter
+    wou_frame_->buf[3]          = 0xFF;         // PLOAD_SIZE_TX
+    wou_frame_->buf[4]          = 0xFF;         // WOUF_COMMAND
+    wou_frame_->buf[5]          = 0xFF;         // PLOAD_SIZE_RX
+    wou_frame_->fsize           = 6;
+    wou_frame_->pload_size_rx   = 1;            // there could be no PAYLOAD in response WOU_FRAME,
+                                                // in this case the response frame would be composed of {PLOAD_SIZE_TX, WOUF_COMMAND, TID/MAIL_TAG}
+    wou_frame_->use             = 0;
+    return ;
+}
+
+void rt_wou_append (
+        board_t* b, const uint8_t func, const uint16_t wb_addr, 
+        const uint16_t dsize, const uint8_t* buf)
+{
+    wouf_t      *wou_frame_;
+    uint16_t    i;
+
+    wou_frame_ = &(b->wou->rt_wouf);
+
+    // avoid exceeding WOUF_PAYLOAD limit
+    if (func == WB_WR_CMD) {
+        if ((wou_frame_->fsize - WOUF_HDR_SIZE + WOU_HDR_SIZE + dsize) 
+            > MAX_PSIZE) 
+        {
+            // CRC_SIZE is not counted in PLOAD_SIZE_TX
+            rt_wou_eof(b);
+        }
+    } else if (func == WB_RD_CMD) {
+        if (((wou_frame_->fsize - WOUF_HDR_SIZE + WOU_HDR_SIZE) > MAX_PSIZE) 
+            || 
+            ((wou_frame_->pload_size_rx + WOU_HDR_SIZE + dsize) > MAX_PSIZE))
+        {
+            // CRC_SIZE is not counted in PLOAD_SIZE_TX
+            rt_wou_eof(b);
+        }
+    } else {
+        assert (0); // not a valid func
+    }
+
+    // code took from vip/ftdi/generator.cpp:
+    i = wou_frame_->fsize;
+    wou_frame_->buf[i] = 0xFF & (func | (0x7F & dsize));
+    i++;
+    memcpy (wou_frame_->buf + i, &wb_addr, WB_ADDR_SIZE);
+    i+= WB_ADDR_SIZE;
+    if (func == WB_WR_CMD) {
+        memcpy (wou_frame_->buf + i, buf, dsize);
+        wou_frame_->fsize = i + dsize;
+    } else  if (func == WB_RD_CMD) {
+        wou_frame_->fsize = i;
+        wou_frame_->pload_size_rx += (WOU_HDR_SIZE + dsize);
+    }
+    return;    
+}   // rt_wou_append()
+
+int rt_wou_eof (board_t* b)
+{
+    // took from vip/ftdi/generator.cpp::send_frame()
+    wouf_t      *wou_frame_;
+    uint16_t    crc16;
+
+    wou_frame_ = &(b->wou->rt_wouf);
+
+    assert ((wou_frame_->fsize - WOUF_HDR_SIZE) <= MAX_PSIZE);
+    // update PAYLOAD size TX/RX of WOU_FRAME 
+    // PLOAD_SIZE_TX is part of the header
+    wou_frame_->buf[3] = 0xFF & (wou_frame_->fsize - WOUF_HDR_SIZE);
+    wou_frame_->buf[4] = RT_WOUF;
+    wou_frame_->buf[5] = 0xFF & (wou_frame_->pload_size_rx);
+
+    // calc CRC for {PLOAD_SIZE_TX, PLOAD_SIZE_RX, TID, WOU_PACKETS}
+    crc16 = crcFast(wou_frame_->buf + (WOUF_HDR_SIZE - 1), 
+                    wou_frame_->fsize - (WOUF_HDR_SIZE - 1)); 
+    memcpy (wou_frame_->buf + wou_frame_->fsize, &crc16, CRC_SIZE);
+    wou_frame_->fsize += CRC_SIZE;
+
+    // set use flag for CLOCK algorithm
+    wou_frame_->use = 1;    
+
+    do {
+        rt_wou_send(b);
+        wou_recv(b);    // update GBN pointer if receiving Rn
+    } while (wou_frame_->use);
+    
+    // init the rt_wouf buffer
+    rt_wouf_init (b);
+
+    return 0;
+} // rt_wou_eof()
 
 void wou_append (board_t* b, const uint8_t func, const uint16_t wb_addr, 
                  const uint16_t dsize, const uint8_t* buf)

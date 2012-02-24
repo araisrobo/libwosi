@@ -13,19 +13,6 @@
  *    RECONFIG    [    1]   0x0000        W       make the FPGA in re-configuration mode, 
  *                                                let CPLD control the USB ports.
  * RESERVED       [ 7: 2]   0x0000
-//obsolete: * GPIO_LEDS      [ 7: 0]   0x0001        W       drive the 7i43 LEDS
-//obsolete: * GPIO_LEDS_SEL  [ 2: 0]   0x0002        W       LED source selection
-//obsolete: *                                                GPIO_LEDS_SEL.[2:0] :
-//obsolete: *                                                3'h0: gpio_leds[7:0]
-//obsolete: *                                                3'h1: servo_if pulse output
-//obsolete: *                                                3'h2: debug_port_0
-//obsolete: *                                                3'h3: gpio_out[7:0]
-//obsolete: *                                                3'h4: gpio_in[7:0]
-//obsolete: *                                                4'h5: gpio_in[15:8]
-//obsolete: * GPIO_OUT       [ 7: 0]   0x0003        W       drive the 7i37 out ports
-//obsolete: * GPIO_ALM_OUT0            0x0004        W       DOUT[7:0] for ALARM
-//obsolete: * GPIO_ALM_OUT1            0x0005        W       DOUT[15:8] for ALARM
-//obsolete: * GPIO_IN                  0x0006        R       read gpio input:
  *                                                0x06~0x07                                                
  *******************************************************************************
  
@@ -39,27 +26,22 @@
  *    OR32_EN           0x00.0        W       (1)enable OR32 
  *                                            (0)keep resetting OR32
  * RESERVED             0x01          
- * // OBSOLETE: JCMD_WATCHDOG        0x02          W       watchdog timeout limit (unit: 100ms)
  * RESERVED             0x02
  * RESERVED             0x03
  * RESERVED             0x04
  * JCMD_CTRL            0x05
- *    //OBSOLETE: WDOG_EN           0x05.0        W       WatchDOG timer (1)enable (0)disable
- *    //OBSOLETE:                                         FPGA will reset if there's no WOU packets comming from HOST
  *    SSIF_EN           0x05.1        W       Servo/Stepper Interface Enable
  * RESERVED             0x06 
- * RESERVED               ~ 
+ * RESERVED             0x07
+ * OR32_RT_CMD          0x08          W       0x08 ~ 0x0B, 4 bytes of REALTIME command for OR32
+ * RESERVED             0x0C
+ * RESERVED               ~
  * RESERVED             0x17
  * OR32_PROG            0x18          W       0x18 ~ 0x1F, 4 bytes of ADDR and 4 bytes of DATA
  *                                            Write to 0x1F to program OR32.SRAM when (OR32_EN == 0)
  * SYNC_CMD             0x20          W       2-bytes of SYNC commands to JCMD FIFO
  *                                            0x20 ~ 0x3F, size up to 32-bytes
- * // move MAILBOX to WOU protocol
- * //not necessary? OR32_MAILBOX         0x40          R       Mailbox to receive mails from OR32
- * //not necessary?                                            0x40 ~ 0x7F, size up to 64-bytes
- * //not necessary?                                            Usage: check and fetch a mail from MAILBOX
- * //not necessary?                                            0x40:  size in bytes for the mail
- * //not necessary?                                                   0 means MAILBOX is empty
+ *******************************************************************************
  
  *******************************************************************************
  * @REGISTERS FOR SSIF (Servo/Stepper InterFace)
@@ -104,23 +86,6 @@
  *                set SSIF_MAX_PWM as 255
  *******************************************************************************
  
-//obsolete:  *******************************************************************************
-//obsolete:  * @REGISTERS FOR SPI Devices
-//obsolete:  *******************************************************************************
-//obsolete:  * SPI_BASE             0x3000
-//obsolete:  *******************************************************************************
-//obsolete:  * REG_NAME             ADDR_OFFSET   ACCESS  DESCRIPTION
-//obsolete:  * ADC_SPI_CTRL             0x0008        RW      ADC_SPI Control Register
-//obsolete:  *     SPI_CMD              0x0008.[4:0]  W       SPI Command to ADC
-//obsolete:  *     SPI_DRDY             0x0008.5      R       (1)DATA_READY_FLAG
-//obsolete:  *                                                Reset to 0 when write into ADC_SPI_CTRL
-//obsolete:  *     SPI_LOOP             0x0008.6      W       (1)LOOPING
-//obsolete:  *     SPI_EN               0x0008.7      W       (1)Enable
-//obsolete:  * ADC_SPI_SCK_NR           0x0009.[4:0]  W       Number of SCK to generate
-//obsolete:  * ADC_SPI_OUTPUT           0x000A        R       [ 7:0] 12-bits ADC result
-//obsolete:  *                          0x000B        R       [11:8]
-//obsolete:  *******************************************************************************
-
  **/
 
 /**
@@ -163,6 +128,7 @@
 #define TYP_WOUF        0x00
 #define RST_TID         0x01
 #define MAILBOX         0x02
+#define RT_WOUF         0x03    // REALTIME WOU-FRAME
 
 // GPIO register space: (8-bit GPIO for LEDs, purpose: test Wishbone protocol)
 #define GPIO_BASE       0x0000
@@ -170,31 +136,17 @@
 #define GPIO_SYSTEM     0x0000  // GPIO_SYSTEM.[1:0]
 #define GPIO_SOFT_RST   0x01    // GPIO_SYSTEM.[0]
 #define GPIO_RECONFIG   0x02    // GPIO_SYSTEM.[1]
-//obsolete: #define GPIO_LEDS       0x0001  // GPIO_LEDS.[7:0]
-//obsolete: #define GPIO_LEDS_SEL   0x0002  // GPIO_LEDS_SEL.[2:0] :
-//obsolete:                                 //  3'h0: gpio_leds[7:0]
-//obsolete:                                 //  3'h1: servo_if pulse output
-//obsolete:                                 //  3'h2: debug_port_0
-//obsolete:                                 //  3'h3: gpio_out[7:0]
-//obsolete:                                 //  3'h4: gpio_in[7:0]
-//obsolete:                                 //  4'h5: gpio_in[15:8]
-//obsolete: #define GPIO_OUT        0x0003  // GPIO_OUT.[7:0]
-//obsolete: #define GPIO_ALM_OUT0   0x0004
-//obsolete: #define GPIO_ALM_OUT1   0x0005
-//obsolete: #define GPIO_IN         0x0006
 // JCMD register space:
 #define JCMD_BASE       0x1000  // 
 // offset to JCMD registers
 #define OR32_CTRL       0x0000          
 #define OR32_EN_MASK      0x01  // OR32_EN(0x00.0) (1)enable (0)keep resetting OR32
 // #define RESERVED     0x0001  
-// OBSOLETE: #define JCMD_WATCHDOG   0x0002  // watchdog timeout limit (unit: 100ms)
-                                // default value: 30 (3 seconds)
 // #define RESERVED     0x0002  
 // #define RESERVED     0x0003  
 // #define RESERVED     0x0004  
 #define JCMD_CTRL       0x0005  // [1:0]: {SSIF_EN, /*obsolete: WDOG_EN*/}
-// #define RESERVED     0x0006  ~  0x0017
+#define OR32_RT_CMD     0x0008  // 0x08 ~ 0x0B, 4 bytes of REALTIME CMD
 #define OR32_PROG       0x0018  // 0x18 ~ 0x1F, 4 bytes of ADDR and 4 bytes of DATA
                                 // Write to 0x1F to program OR32.SRAM when (OR32_EN == 0)
 #define JCMD_SYNC_CMD   0x0020  // 2-bytes of SYNC commands to JCMD FIFO 
@@ -204,6 +156,11 @@
                                 // Usage: check and fetch a mail from MAILBOX
                                 // 0x40:  size in bytes for the mail
                                 //        0 means MAILBOX is empty
+// begin: OR32_RT_CMD format
+#define RT_NOP          0x00000000
+#define RT_ABORT        0x00000001
+// end:   OR32_RT_CMD format
+
 // begin: SYNC_CMD format
 // joint command
 // digital input / output command
@@ -216,10 +173,6 @@
 //                                                VAL[0]:   ON(1), OFF(0)
 //    SYNC_DIN    4'b0101          {ID, TYPE}      ID[11:6]: Input PIN ID
 //                                                 TYPE[2:0]: LOW(000), HIGH(001), FALL(010), RISE(011) TIMEOUT(100)
-//                                                           TODO LOW_TIMEOUT(100)
-//                                                           TODO HIGH_TIMEOUT(101)
-//                                                           TODO FALL_TIMEOUT(110)
-//                                                           TODO RISE_TIMEOUT(111)
 // immediate data command
 // set motion parameter command
 
@@ -257,21 +210,6 @@
 #define SSIF_SWITCH_POS 0X0090  // R(0X90 ~ 0XBF)   JNT_0 ~ JNT_11, HOME-SWITCH-POSITION 
                                 //                  servo: based on ENC_POS
                                 //                  stepper: based on PULSE_POS
-//obsolete: #define SSIF_INDEX_POS  0X00C0  // R(0XC0 ~ 0XEF)   JNT_0 ~ JNT_11, MOTOR-INDEX-POSITION
-//obsolete:                                 //                  servo: based on ENC_POS
-//obsolete:                                 //                  stepper: based on PULSE_POS
 // end: registers for SSIF (Servo/Stepper InterFace)
-
-//obsolete: // begin: registers for SPI devices
-//obsolete: #define SPI_BASE        0x3000
-//obsolete: //      REGISTERS       OFFSET  // DESCRIPTION
-//obsolete: #define ADC_SPI_CTRL    0x0008  // (8-bits)ADC_SPI Control Register
-//obsolete: #define ADC_SPI_CMD_MASK  0x1F  // 0x08.[4:0] SPI Command to ADC
-//obsolete: #define ADC_SPI_DRDY_MASK 0x20  // 0x08.5 (1)DATA_READY
-//obsolete: #define ADC_SPI_LOOP_MASK 0x40  // 0x08.6 (1)LOOPING
-//obsolete: #define ADC_SPI_EN_MASK   0x80  // 0x08.7 (1)Enable
-//obsolete: #define ADC_SPI_SCK_NR  0x0009  // [4:0] Number of SCK to generate
-//obsolete: #define ADC_SPI_OUTPUT  0x000A  // 0x0A ~ 0x0B (12-bits) ADC result
-//obsolete: // end: registers for SPI devices
 
 #endif // __wb_regs_h__

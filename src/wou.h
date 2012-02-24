@@ -46,7 +46,18 @@ typedef struct {
 typedef void (*libwou_crc_error_cb_fn)(int32_t crc_count);
 
 /**
- * type: READ/WRITE, AI/FIFO
+ * rt_wou_cmd - issue a write command to realtime WOU-Frame buffer
+ **/
+void rt_wou_cmd (
+        wou_param_t *w_param, const uint8_t func, const uint16_t wb_addr, 
+        const uint16_t dsize, const uint8_t *data);
+/**
+ * rt_wou_flush - flush a realtime WOU-Frame to USB
+ **/
+void rt_wou_flush (wou_param_t *w_param);
+
+/**
+ * issue a write command to synchronized WOU-Frame buffer
  **/
 void wou_cmd (wou_param_t *w_param, const uint8_t func, const uint16_t wb_addr, 
              const uint16_t dsize, const uint8_t *data);

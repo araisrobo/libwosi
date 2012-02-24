@@ -45,15 +45,32 @@
 #include "wb_regs.h"
 #include "wou/board.h"
 
+/* read/write multiple wishbone registers through RT_WOUF */
+void rt_wou_cmd (wou_param_t *w_param, const uint8_t func, const uint16_t wb_addr, 
+             const uint16_t dsize, const uint8_t *data)
+{
+  if (dsize > MAX_DSIZE) {
+    ERRP ("ERROR Trying to write to too many registers (%d > %d)\n",
+          dsize, MAX_DSIZE);
+    return;
+  }
+
+  rt_wou_append (w_param->board, func, wb_addr, dsize, data);
+
+  return;
+}
+
+/* flush pending WOU commands of RT_WOUF to USB */
+void rt_wou_flush (wou_param_t *w_param)
+{
+    rt_wou_eof (w_param->board); // REALTIME WOU_FRAME
+    return;
+}
+
 /* read/write multiple wishbone registers */
 void wou_cmd (wou_param_t *w_param, const uint8_t func, const uint16_t wb_addr, 
              const uint16_t dsize, const uint8_t *data)
 {
-  int ret;
-  int i;
-  int query_length;
-  int byte_count;
-
   if (dsize > MAX_DSIZE) {
     ERRP ("ERROR Trying to write to too many registers (%d > %d)\n",
           dsize, MAX_DSIZE);
@@ -137,6 +154,7 @@ void wou_init (wou_param_t *w_param, const char *device_type,
     w_param->board = malloc(sizeof(board_t));
     board_init(w_param->board, device_type, device_id, bitfile);
     wouf_init(w_param->board);
+    rt_wouf_init(w_param->board);
 }
 
 int wou_prog_risc(wou_param_t *w_param, const char *binfile)

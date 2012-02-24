@@ -23,7 +23,7 @@
  *                                                VAL: from immediate data
  *    SYNC_VEL_CMD  4'b1001          {VEL, VAL}   VEL: velocity in mm/s
  *                                                VAL[0]: 1: velocity sync'd
- *                                                          0: velocity not sync'd
+ *                                                         0: velocity not sync'd
  *    SYNC_PROBE    4'b1010          {VAL}
  *                                    1: start to probe
  *                                    0: stop to probe
@@ -33,19 +33,19 @@
  */
 
 //      SFIFO COMMANDS
-#define SYNC_JNT      0x0000
+#define SYNC_JNT            0x0000
 // 0x1000 do not use
 // 0x2000 do not use
 // 0x3000 do not use
-#define SYNC_DOUT        0x4000
-#define SYNC_DIN         0x5000
-#define SYNC_BP          0x6000
-#define SYNC_MOT_PARAM   0x7000
-#define SYNC_AHC         0x8000         // auto height control
-#define SYNC_VEL         0x9000
+#define SYNC_DOUT           0x4000
+#define SYNC_DIN            0x5000
+#define SYNC_BP             0x6000
+#define SYNC_MOT_PARAM      0x7000
+#define SYNC_AHC            0x8000         // auto height control
+#define SYNC_VEL            0x9000
 // 0xa000
-#define SYNC_MACH_PARAM  0xB000
-#define SYNC_DATA        0xC000
+#define SYNC_MACH_PARAM     0xB000
+#define SYNC_DATA           0xC000
 // 0xd000 command not available
 // 0xe000 command not available
 // 0xf000 command not available
@@ -82,21 +82,20 @@
 #define SYNC_PROBE_MASK                      0x0FFF
 //      SFIFO DATA MACROS
 #define GET_IO_ID(i)                    (((i) & SYNC_DI_DO_PIN_MASK) >> 6)
-#define GET_DO_VAL(v)                   (((v) & SYNC_DOUT_VAL_MASK) >> 0)
-#define GET_DI_TYPE(t)                  (((t) & SYNC_DIN_TYPE_MASK) >> 0)
-#define GET_DATA_VAL(t)                 (((t) & SYNC_DATA_MASK) << 0)
+#define GET_DO_VAL(v)                   (((v) & SYNC_DOUT_VAL_MASK))
+#define GET_DI_TYPE(t)                  (((t) & SYNC_DIN_TYPE_MASK))
+#define GET_DATA_VAL(t)                 (((t) & SYNC_DATA_MASK))
 #define GET_MOT_PARAM_ADDR(t)           (((t) & SYNC_MOT_PARAM_ADDR_MASK) >> 4)
-#define GET_MOT_PARAM_ID(t)             (((t) & SYNC_MOT_PARAM_ID_MASK) >> 0)
+#define GET_MOT_PARAM_ID(t)             (((t) & SYNC_MOT_PARAM_ID_MASK))
 #define GET_MACH_PARAM_ADDR(t)          ((t) & SYNC_MACH_PARAM_ADDR_MASK)
 
-#define PACK_SYNC_DATA(t)               ((t & 0xFF) << 0)
+#define PACK_SYNC_DATA(t)               ((t & 0xFF))
 #define PACK_IO_ID(i)                   (((i) & 0x3F) << 6)
-#define PACK_DO_VAL(v)                  (((v) & 0x01) << 0)
-#define PACK_DI_TYPE(t)                 (((t) & 0x07) << 0)
-#define PACK_MOT_PARAM_ID(t)            ((t) << 0)
+#define PACK_DO_VAL(v)                  (((v) & 0x01))
+#define PACK_DI_TYPE(t)                 (((t) & 0x07))
+#define PACK_MOT_PARAM_ID(t)            ((t))
 #define PACK_MOT_PARAM_ADDR(t)          ((t) << 4)
 #define PACK_MACH_PARAM_ADDR(t)         ((t) & SYNC_MACH_PARAM_ADDR_MASK)
-//#define PACK_AHC_POLARITY(t)            (((t) & 0x000F) << 4)
 #define PACK_RST_POS(i)                 ((1 << i))
 // memory map for machine config
 enum machine_parameter_addr {

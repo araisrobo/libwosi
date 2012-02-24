@@ -125,6 +125,7 @@ typedef struct wouf_struct {
  * @tid:                transaction id for the upcomming wouf
  * @tidSb:              transaction id for sequence base(Sb)
  * @woufs[NR_OF_CLK]:   circular clock array of WOU_FRAMEs
+ * @rt_wouf:            realtime WOU_FRAME
  * @clock:              clock pointer for next available wouf buffer
  * @Rn:                 request number
  * @Sn:                 sequence number
@@ -135,15 +136,9 @@ typedef struct wou_struct {
   uint8_t     tid;       
   uint8_t     tidSb;
   wouf_t      woufs[NR_OF_CLK];    
-#ifdef HAVE_LIBFTD2XX
-  DWORD       tx_size;
-  DWORD       rx_size;
-#else
-#ifdef HAVE_LIBFTDI
+  wouf_t      rt_wouf;
   int         tx_size;
   int         rx_size;
-#endif  // HAVE_LIBFTDI
-#endif  // HAVE_LIBFTD2XX
   int         rx_req_size;
   int         rx_req;
   uint8_t     buf_tx[NR_OF_WIN*(WOUF_HDR_SIZE+2/*PLOAD_SIZE_RX+TID*/+MAX_PSIZE+CRC_SIZE)];
@@ -227,5 +222,10 @@ void wou_append (board_t* b, const uint8_t func, const uint16_t wb_addr,
 void wou_recv (board_t* b);
 int wou_eof (board_t* b, uint8_t wouf_cmd);
 void wouf_init (board_t* b);
+
+void rt_wouf_init (board_t* b);
+void rt_wou_append (board_t* b, const uint8_t func, const uint16_t wb_addr, 
+        const uint16_t dsize, const uint8_t* buf);
+int rt_wou_eof (board_t* b);
 
 #endif  // __MESA_H__
