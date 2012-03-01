@@ -164,6 +164,8 @@ int wou_prog_risc(wou_param_t *w_param, const char *binfile)
 	return ret;
 }
 
+/* set wou callback functions */
+
 //obsolete: /* set wou mailbox callback function */
 //obsolete: void wou_set_mbox_cb (wou_param_t *w_param, libwou_mailbox_cb_fn callback)
 //obsolete: {
@@ -174,6 +176,11 @@ int wou_prog_risc(wou_param_t *w_param, const char *binfile)
 void wou_set_crc_error_cb(wou_param_t *w_param, libwou_crc_error_cb_fn callback)
 {
     w_param->board->wou->crc_error_callback = callback;
+}
+
+void wou_set_rt_cmd_cb(wou_param_t *w_param, libwou_rt_cmd_cb_fn callback)
+{
+    w_param->board->wou->rt_cmd_callback = callback;
 }
 
 

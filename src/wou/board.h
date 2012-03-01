@@ -153,6 +153,7 @@ typedef struct wou_struct {
   // MAILBOX callback functional pointer
   // libwou_mailbox_cb_fn mbox_callback;
   libwou_crc_error_cb_fn crc_error_callback;
+  libwou_rt_cmd_cb_fn rt_cmd_callback;
 } wou_t;
 
 //

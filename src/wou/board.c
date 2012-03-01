@@ -144,7 +144,7 @@ static struct timespec time_send_begin;
 static int prev_ss;
 
 // #define TX_TIMEOUT 500000000
-#define TX_TIMEOUT 19000000
+#define TX_TIMEOUT 19000000     // unit: nano-sec
 
 static int m7i43u_program_fpga(struct board *board, struct bitfile_chunk *ch);
 
@@ -428,6 +428,7 @@ int board_init (board_t* board, const char* device_type, const int device_id,
     board->wou = (wou_t *) malloc (sizeof(wou_t));
     // board->wou->mbox_callback = NULL;
     board->wou->crc_error_callback = NULL;
+    board->wou->rt_cmd_callback = NULL;
     board->wou->crc_error_counter = 0;
     // for calculating TX_TIMEOUT:
     clock_gettime(CLOCK_REALTIME, &time_send_begin);
@@ -855,7 +856,6 @@ static int wouf_parse (board_t* b, const uint8_t *buf_head)
             assert ((pload_size_tx & 0x8000) == 0);   // no negative pload_size_tx
             buf_head += (WOU_HDR_SIZE + wou_dsize);
         }
-        DP ("TODO: return parsed pload_size_tx for assertion\n");
         return (0);
     }
 } // wouf_parse()
@@ -1414,12 +1414,12 @@ static void rt_wou_send (board_t* b)
     assert(b->io.usb.tx_tc == NULL);
     
     if (dwBytesWritten) {
-        clock_gettime(CLOCK_REALTIME, &time2);
-        dt = diff(time_send_begin,time2);
-        DP ("tx_size(%d), dwBytesWritten(%d,0x%08X), dt.sec(%lu), dt.nsec(%lu)\n", 
-             *tx_size, dwBytesWritten, dwBytesWritten, dt.tv_sec, dt.tv_nsec);
-        DP ("bitrate(%f Mbps)\n", 
-             8.0*dwBytesWritten/(1000000.0*dt.tv_sec+dt.tv_nsec/1000.0));
+        //obsolete: clock_gettime(CLOCK_REALTIME, &time2);
+        //obsolete: dt = diff(time_send_begin,time2);
+        //obsolete: DP ("tx_size(%d), dwBytesWritten(%d,0x%08X), dt.sec(%lu), dt.nsec(%lu)\n", 
+        //obsolete:      *tx_size, dwBytesWritten, dwBytesWritten, dt.tv_sec, dt.tv_nsec);
+        //obsolete: DP ("bitrate(%f Mbps)\n", 
+        //obsolete:      8.0*dwBytesWritten/(1000000.0*dt.tv_sec+dt.tv_nsec/1000.0));
         assert (dwBytesWritten <= *tx_size);
         b->wr_dsize += dwBytesWritten;
         *tx_size -= dwBytesWritten;
@@ -1427,7 +1427,7 @@ static void rt_wou_send (board_t* b)
     }
     
     if (*tx_size < TX_BURST_MIN) {
-        DP ("skip wou_send(), tx_size(%d)\n", *tx_size);
+        DP ("skip rt_wou_send(), tx_size(%d)\n", *tx_size);
         return;
     }
 
@@ -1440,9 +1440,9 @@ static void rt_wou_send (board_t* b)
 
         ERRP("ftdi_write_data_submit(): %s\n", 
              ftdi_get_error_string (ftdic));
-    } else {
+    }/* else {
     	clock_gettime(CLOCK_REALTIME, &time_send_begin);
-    }
+    }*/
     return;
 }
 
@@ -1485,6 +1485,9 @@ int wou_eof (board_t* b, uint8_t wouf_cmd)
     // flush pending [wou] packets
     wou_frame_ = &(b->wou->woufs[b->wou->clock]);
     do {
+        if (b->wou->rt_cmd_callback) {
+            b->wou->rt_cmd_callback();
+        }
         wou_send(b);
         wou_recv(b);    // update GBN pointer if receiving Rn
         if (wou_frame_->use) {

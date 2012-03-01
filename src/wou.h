@@ -44,6 +44,7 @@ typedef struct {
 //obsolete: typedef void (*libwou_mailbox_cb_fn)(const uint8_t *buf_head);
 
 typedef void (*libwou_crc_error_cb_fn)(int32_t crc_count);
+typedef void (*libwou_rt_cmd_cb_fn)(void);
 
 /**
  * rt_wou_cmd - issue a write command to realtime WOU-Frame buffer
@@ -108,10 +109,11 @@ void wou_close (wou_param_t *w_param);
 /* prog risc core */
 int wou_prog_risc(wou_param_t *w_param, const char *binfile);
 
-//obsolete: /* set wou mailbox callback function */
+/* set wou callback functions */
 //obsolete: void wou_set_mbox_cb (wou_param_t *w_param, libwou_mailbox_cb_fn callback);
-
 void wou_set_crc_error_cb (wou_param_t *w_param, libwou_crc_error_cb_fn callback);
+void wou_set_rt_cmd_cb (wou_param_t *w_param, libwou_rt_cmd_cb_fn callback);
+
 #ifdef __cplusplus
 }
 #endif
