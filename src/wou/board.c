@@ -426,7 +426,7 @@ int board_init (board_t* board, const char* device_type, const int device_id,
     DP ("chip_type(%s)\n", board->chip_type);
    
     board->wou = (wou_t *) malloc (sizeof(wou_t));
-    // board->wou->mbox_callback = NULL;
+    board->wou->mbox_callback = NULL;
     board->wou->crc_error_callback = NULL;
     board->wou->rt_cmd_callback = NULL;
     board->wou->crc_error_counter = 0;
@@ -841,9 +841,13 @@ static int wouf_parse (board_t* b, const uint8_t *buf_head)
         
         assert (buf_head[0] > 3);
         assert (buf_head[0] < 254);
-        for (i=0; i < (1 /* sizeof(PLOAD_SIZE_TX) */ + buf_head[0]); i++) {
-            b->mbox_buf[i] = buf_head[i];
+        //obsolete: for (i=0; i < (1 /* sizeof(PLOAD_SIZE_TX) */ + buf_head[0]); i++) {
+        //obsolete:     b->mbox_buf[i] = buf_head[i];
+        //obsolete: }
+        if (b->wou->mbox_callback) {
+            b->wou->mbox_callback(buf_head);
         }
+
         return (0);
     } else if (buf_head[1] == RT_WOUF) {
         // about to parse [WOU][WOU]...

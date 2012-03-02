@@ -123,18 +123,18 @@ const void *wou_reg_ptr (wou_param_t *w_param, uint32_t wou_addr)
   return (ptr);
 }
 
-/**
- * wou_mbox_ptr - return the pointer mailbox buffer
- **/
-const void *wou_mbox_ptr (wou_param_t *w_param)
-{
-    const void *ptr;
-    
-    // force 4-byte aligned ptr:
-    ptr = w_param->board->mbox_buf;
-
-    return (ptr);
-}
+//obsolete: /**
+//obsolete:  * wou_mbox_ptr - return the pointer mailbox buffer
+//obsolete:  **/
+//obsolete: const void *wou_mbox_ptr (wou_param_t *w_param)
+//obsolete: {
+//obsolete:     const void *ptr;
+//obsolete:     
+//obsolete:     // force 4-byte aligned ptr:
+//obsolete:     ptr = w_param->board->mbox_buf;
+//obsolete: 
+//obsolete:     return (ptr);
+//obsolete: }
 
 void wou_flush (wou_param_t *w_param)
 {
@@ -166,12 +166,12 @@ int wou_prog_risc(wou_param_t *w_param, const char *binfile)
 
 /* set wou callback functions */
 
-//obsolete: /* set wou mailbox callback function */
-//obsolete: void wou_set_mbox_cb (wou_param_t *w_param, libwou_mailbox_cb_fn callback)
-//obsolete: {
-//obsolete:     w_param->board->wou->mbox_callback = callback;
-//obsolete:     return;
-//obsolete: }
+/* set wou mailbox callback function */
+void wou_set_mbox_cb (wou_param_t *w_param, libwou_mailbox_cb_fn callback)
+{
+    w_param->board->wou->mbox_callback = callback;
+    return;
+}
 
 void wou_set_crc_error_cb(wou_param_t *w_param, libwou_crc_error_cb_fn callback)
 {

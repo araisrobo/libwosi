@@ -150,8 +150,8 @@ typedef struct wou_struct {
   uint8_t     Sb;    
   uint8_t     Sm;    
   uint32_t    crc_error_counter;
-  // MAILBOX callback functional pointer
-  // libwou_mailbox_cb_fn mbox_callback;
+  // callback functional pointers
+  libwou_mailbox_cb_fn mbox_callback;
   libwou_crc_error_cb_fn crc_error_callback;
   libwou_rt_cmd_cb_fn rt_cmd_callback;
 } wou_t;
@@ -204,8 +204,8 @@ typedef struct board {
     // wisbone register map for this board
     uint8_t wb_reg_map[WB_REG_SIZE];
     
-    // mailbox buffer for this board
-    uint8_t mbox_buf[WOUF_HDR_SIZE+MAX_PSIZE+CRC_SIZE+3];   // +3: for 4 bytes alignment
+    //obsolete: // mailbox buffer for this board
+    //obsolete: uint8_t mbox_buf[WOUF_HDR_SIZE+MAX_PSIZE+CRC_SIZE+3];   // +3: for 4 bytes alignment
     
     int (*program_funct) (struct board *bd, struct bitfile_chunk *ch);
 } board_t;
