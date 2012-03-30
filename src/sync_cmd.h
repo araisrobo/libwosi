@@ -136,6 +136,7 @@ enum machine_parameter_addr {
     PARAM14,
     PARAM15,
     ALR_OUTPUT, 
+    NUM_JOINTS,
     MACHINE_PARAM_ITEM
 };
 
