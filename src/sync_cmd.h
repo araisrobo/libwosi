@@ -198,6 +198,8 @@ enum motion_parameter_addr {
     MAXCMD_DD         ,
     MAXOUTPUT         , //13
     ENABLE            ,
+    MAX_JERK	      ,
+    MAX_JERK_RECIP    ,
     MAX_PARAM_ITEM
 };
 enum motion_type {
