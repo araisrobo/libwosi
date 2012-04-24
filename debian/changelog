@@ -1,3 +1,9 @@
+libwou (0.1-2012.04.24) lucid; urgency=low
+
+  * WOU: support JERK limitations for each joints
+
+ -- Yi-Shin Li <ysli@araisrobo.com>  Tue, 24 Apr 2012 20:40:22 +0800
+
 libwou (0.1-2012.03.29) lucid; urgency=low
 
   * WOU: support up to 6 joints
