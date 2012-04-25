@@ -7,7 +7,7 @@
 #define MT_USB_STATUS   0x0003
 #define MT_TICK         0x0004
 #define MT_DEBUG        0x0005
-
+#define MT_PID          0x0006
 // OR32 ERROR CODE
 #define ERROR_BASE_PERIOD       35
 #define ERROR_SFIFO_EMPTY       36
