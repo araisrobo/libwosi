@@ -43,7 +43,7 @@
 #define SYNC_MOT_PARAM      0x7000
 #define SYNC_AHC            0x8000         // auto height control
 #define SYNC_VEL            0x9000
-// 0xa000
+#define SYNC_USB_CMD        0xA000
 #define SYNC_MACH_PARAM     0xB000
 #define SYNC_DATA           0xC000
 // 0xd000 command not available
@@ -75,6 +75,7 @@
 #define SYNC_MOT_PARAM_ADDR_MASK        0x0FF0
 #define SYNC_MOT_PARAM_ID_MASK          0x000F
 #define SYNC_MACH_PARAM_ADDR_MASK       0x0FFF
+#define SYNC_USB_CMD_TYPE_MASK 			0x0FFF
 // SYNC VEL CMD masks
 #define VEL_MASK                        0x0FFE
 #define VEL_SYNC_MASK                   0x0001
@@ -88,6 +89,7 @@
 #define GET_MOT_PARAM_ADDR(t)           (((t) & SYNC_MOT_PARAM_ADDR_MASK) >> 4)
 #define GET_MOT_PARAM_ID(t)             (((t) & SYNC_MOT_PARAM_ID_MASK))
 #define GET_MACH_PARAM_ADDR(t)          ((t) & SYNC_MACH_PARAM_ADDR_MASK)
+#define GET_USB_CMD_TYPE(t)             ((t) & SYNC_USB_CMD_TYPE_MASK)
 
 #define PACK_SYNC_DATA(t)               ((t & 0xFF))
 #define PACK_IO_ID(i)                   (((i) & 0x3F) << 6)
@@ -96,7 +98,14 @@
 #define PACK_MOT_PARAM_ID(t)            ((t))
 #define PACK_MOT_PARAM_ADDR(t)          ((t) << 4)
 #define PACK_MACH_PARAM_ADDR(t)         ((t) & SYNC_MACH_PARAM_ADDR_MASK)
-#define PACK_RST_POS(i)                 ((1 << i))
+#define PACK_USB_CMD_TYPE(t)            ((t) & SYNC_USB_CMD_TYPE_MASK)
+
+#define PROBE_CMD_TYPE                  0x0001
+#define HOME_CMD_TYPE                   0x0002
+// special command for homig
+#define HOME_ACK                        0x00000100
+#define HOME_NACK                       0x00000200
+#define HOME_ABORT_NOW                  0x00000400
 // memory map for machine config
 enum machine_parameter_addr {
     MACHINE_TYPE,
@@ -114,7 +123,7 @@ enum machine_parameter_addr {
     PROBE_PIN_ID,     // setup while initializing
     PROBE_PIN_TYPE,         // setup while initializing
     PROBE_ANALOG_REF_LEVEL,     // setup while initializing
-    USB_CMD,			// send from host
+    PROBE_CMD,          // send by host: one of usb commands
     USB_STATUS,         // report status response to usb commands
     AHC_STATE,
     AHC_LEVEL,
@@ -171,7 +180,7 @@ enum motion_parameter_addr {
     MAX_VELOCITY      ,
     MAX_ACCEL         ,
     MAX_ACCEL_RECIP   ,
-    HOME_CONFIG       ,  // a parameter from host indicate homing type
+//    HOME_CONFIG       ,  // a parameter from host indicate homing type
     LIMIT_MAX         ,
     LIMIT_MIN         ,
     MAXFOLLWING_ERR   ,
@@ -196,8 +205,7 @@ enum motion_parameter_addr {
     ENABLE            ,
     MAX_JERK	      ,
     MAX_JERK_RECIP    ,
-    HOME_SEARCH_VEL   ,
-    HOME_LATCH_VEL    ,
+    HOME_SW_INPUT_ID  ,
     MAX_PARAM_ITEM
 };
 enum motion_type {
@@ -211,78 +219,46 @@ enum motion_type {
     LOCK_MOVE,
 };
 
-// PROBE_CMD: 0x1*** ****
-#define PROBE_CMD_MASK 0x100000000
-typedef enum {
-    PROBE_STOP_REPORT   	=   0x10000001,
-    PROBE_END				=	0x10000002,   // an ack from host to acknowledge risc when the probing is finish or abort
-    PROBE_HIGH				=	0x10000003,
-    PROBE_LOW				=	0x10000004,
-    PROBE_DECEL				=	0x10000005,
-    PROBE_LOCK_MOVE			=	0x10000006,
-    PROBE_FINAL_MOVE		=	0x10000007,
-    PROBE_REPORT_RISC_ERROR	=	0x10000008, // used by risc probing
-} probe_cmd_t;
-#define PROBE_STATUS_MASK 0x10000000
-typedef enum {
-    USB_STATUS_PROBE_READY 		= 0x10000001,// 1
-    USB_STATUS_PROBE_HIT		= 0x10000002,// 2
-    USB_STATUS_PROBING 			= 0x10000003,//3
-    USB_STATUS_PROBE_ERROR 		= 0x10000004,//4
-    USB_STATUS_ERROR 			= 0x10000005, // 5
-    USB_STATUS_RISC_PROBE_ERROR = 0x10000006, // 6
-} probe_status_t;
 
-// HOME_CMD:0x2*** **** ****
-#define HOME_CMD_MASK 0x20000000
+/* usb to risc: similar to usb_cmd in hal/usb.h */
 typedef enum {
-    HOME_J0 = 0x20000001,
-    HOME_J1 = 0x20000002,
-    HOME_J2 = 0x20000004,
-    HOME_J3 = 0x20000008,
-    HOME_J4 = 0x20000010,
-    HOME_J5 = 0x20000020,
-    HOME_J6 = 0x20000040,
-    HOME_J7 = 0x20000080,
-} home_cmd_t;
+    PROBE_STOP_REPORT,
+    PROBE_END,   // an ack from host to acknowledge risc when the probing is finish or abort
+    PROBE_HIGH,
+    PROBE_LOW,
+    PROBE_DECEL=0xF000,
+    PROBE_LOCK_MOVE=0xF001,
+    PROBE_FINAL_MOVE=0xF002,
+    PROBE_REPORT_RISC_ERROR=0xF003, // used by risc probing
+} probe_state_t;
 
-#define HOME_STATUS_MASK 0x20000000
+/* copy & paste from hal/usb.h */
+/* always sync with hal/usb.h */
 typedef enum {
-    J0_HOME_IDLE = 0x20000001,   // 0'b 0010 0000 0000 0000 0000 0000 0000 0001
-    J0_DO_HOMING = 0x20000002,   // 0'b 0010 0000 0000 0000 0000 0000 0000 0010
-    J0_HOMED =     0x20000003,   // 0'b 0010 0000 0000 0000 0000 0000 0000 0011
-    J1_HOME_IDLE = 0x20000004,   // 0'b 0010 0000 0000 0000 0000 0000 0000 0100
-    J1_DO_HOMING = 0x20000008,   // 0'b 0010 0000 0000 0000 0000 0000 0000 1000
-    J1_HOMED =     0x2000000C,   // 0'b 0010 0000 0000 0000 0000 0000 0000 1100
-    J2_HOME_IDLE = 0x20000010,   // 0'b 0010 0000 0000 0000 0000 0000 0001 0000
-    J2_DO_HOMING = 0x20000020,   // 0'b 0010 0000 0000 0000 0000 0000 0010 0000
-    J2_HOMED =     0x20000030,   // 0'b 0010 0000 0000 0000 0000 0000 0011 0000
-    J3_HOME_IDLE = 0x20000040,   // 0'b 0010 0000 0000 0000 0000 0000 0100 0000
-    J3_DO_HOMING = 0x20000080,   // 0'b 0010 0000 0000 0000 0000 0000 1000 0000
-    J3_HOMED =     0x200000C0,   // 0'b 0010 0000 0000 0000 0000 0000 1100 0000
-    J4_HOME_IDLE = 0x20000100,   // 0'b 0010 0000 0000 0000 0000 0001 0000 0000
-    J4_DO_HOMING = 0x20000200,   // 0'b 0010 0000 0000 0000 0000 0010 0000 0000
-    J4_HOMED =     0x20000300,   // 0'b 0010 0000 0000 0000 0000 0011 0000 0000
-    J5_HOME_IDLE = 0x20000400,   // 0'b 0010 0000 0000 0000 0000 0100 0000 0000
-    J5_DO_HOMING = 0x20000800,   // 0'b 0010 0000 0000 0000 0000 1000 0000 0000
-    J5_HOMED =     0x20000C00,   // 0'b 0010 0000 0000 0000 0000 1100 0000 0000
-    J6_HOME_IDLE = 0x20001000,   // 0'b 0010 0000 0000 0000 0001 0000 0000 0000
-    J6_DO_HOMING = 0x20002000,   // 0'b 0010 0000 0000 0000 0010 0000 0000 0000
-    J6_HOMED =     0x20003000,   // 0'b 0010 0000 0000 0000 0011 0000 0000 0000
-    J7_HOME_IDLE = 0x20004000,   // 0'b 0010 0000 0000 0000 0100 0000 0000 0000
-    J7_DO_HOMING = 0x20008000,   // 0'b 0010 0000 0000 0000 1000 0000 0000 0000
-    J7_HOMED =     0x2000C000,   // 0'b 0010 0000 0000 0000 1100 0000 0000 0000
-} homing_status_t;
+	// 0'b 0000     0000     0000     0000     0000     0000     0000   0000
+	//     reserved reserved reserved reserved reserved reserved homing probing
+    USB_STATUS_READY = 0,
+    USB_STATUS_PROBE_HIT,// 1
+    USB_STATUS_PROBING,//2
+    USB_STATUS_PROBE_ERROR,//3
+    USB_STATUS_ERROR, // 4
+    USB_STATUS_RISC_PROBE_ERROR, // 5
+    // mask: 0x000000f0
+    USB_STATUS_HOME_IDLE  = 0x00000000,
+    USB_STATUS_HOMING 	  = 0x00000010,
+    USB_STATUS_HOMED  	  = 0x00000020,
+    USB_STATUS_HOME_ERROR = 0x00000040,
+} usb_status_t;
 
+typedef enum {
+    USB_CMD_NOOP = 0,           /* no-operation */
+    USB_CMD_ABORT,              /* abort current command */
+    USB_CMD_PROBE_HIGH,         /* probing for probe.input changes from 0->1 */
+    USB_CMD_PROBE_LOW,          /* probing for probe.input changes from 1->0 */
+    USB_CMD_WOU_CMD_SYNC,
+    USB_CMD_STATUS_ACK          /* ack to usb ater receiving USB_STATUS */
+} usb_cmd_t;
 
-// TODO: update emc2: typedef enum {
-// TODO: update emc2:     USB_CMD_NOOP = 0,           /* no-operation */
-// TODO: update emc2:     USB_CMD_ABORT,              /* abort current command */
-// TODO: update emc2:     USB_CMD_PROBE_HIGH,         /* probing for probe.input changes from 0->1 */
-// TODO: update emc2:     USB_CMD_PROBE_LOW,          /* probing for probe.input changes from 1->0 */
-// TODO: update emc2:     USB_CMD_WOU_CMD_SYNC,
-// TODO: update emc2:     USB_CMD_STATUS_ACK          /* ack to usb ater receiving USB_STATUS */
-// TODO: update emc2: } usb_cmd_t;
 
 enum probe_pin_type {
     DIGITAL_PIN,
