@@ -100,9 +100,17 @@
 #define PACK_MACH_PARAM_ADDR(t)         ((t) & SYNC_MACH_PARAM_ADDR_MASK)
 #define PACK_USB_CMD_TYPE(t)            ((t) & SYNC_USB_CMD_TYPE_MASK)
 
-#define PROBE_CMD_TYPE                  0x0001
+#define PROBE_CMD_TYPE                  0x0001  // for usb.cmd
+// command for probing   (usb.param-00)
+#define USB_CMD_NOOP  			1           /* no-operation */
+#define USB_CMD_ABORT  			2              /* abort current command */
+#define USB_CMD_PROBE_HIGH 		3         /* probing for probe.input changes from 0->1 */
+#define USB_CMD_PROBE_LOW  		4          /* probing for probe.input changes from 1->0 */
+#define USB_CMD_WOU_CMD_SYNC 	5
+#define USB_CMD_STATUS_ACK 		6         /* ack to usb ater receiving USB_STATUS */
+
 #define HOME_CMD_TYPE                   0x0002
-// special command for homig
+// command for homig              (usb.param-00 [11:8] )
 #define HOME_ACK                        0x00000100
 #define HOME_NACK                       0x00000200
 #define HOME_ABORT_NOW                  0x00000400
@@ -123,7 +131,7 @@ enum machine_parameter_addr {
     PROBE_PIN_ID,     // setup while initializing
     PROBE_PIN_TYPE,         // setup while initializing
     PROBE_ANALOG_REF_LEVEL,     // setup while initializing
-    PROBE_CMD,          // send by host: one of usb commands
+//    PROBE_CMD,          // send by host: one of usb commands
     USB_STATUS,         // report status response to usb commands
     AHC_STATE,
     AHC_LEVEL,
@@ -208,41 +216,48 @@ enum motion_parameter_addr {
     HOME_SW_INPUT_ID  ,
     MAX_PARAM_ITEM
 };
-enum motion_type {
-    // regular move
-    NORMAL_MOVE,
-    // homing
-    SEARCH_HOME_LOW,
-    SEARCH_HOME_HIGH,
-    SEARCH_INDEX,
-    DECELERATION,
-    LOCK_MOVE,
-};
+//enum motion_type {
+//    // regular move
+//    NORMAL_MOVE,
+//    // homing
+//    SEARCH_HOME_LOW,
+//    SEARCH_HOME_HIGH,
+//    SEARCH_INDEX,
+//    DECELERATION,
+//    LOCK_MOVE,
+//};
 
 
 /* usb to risc: similar to usb_cmd in hal/usb.h */
 typedef enum {
-    PROBE_STOP_REPORT,
-    PROBE_END,   // an ack from host to acknowledge risc when the probing is finish or abort
-    PROBE_HIGH,
-    PROBE_LOW,
+    PROBE_STOP_REPORT = 1,
+    PROBE_END = 2,   // an ack from host to acknowledge risc when the probing is finish or abort
+    PROBE_HIGH = 3,
+    PROBE_LOW = 4,
     PROBE_DECEL=0xF000,
     PROBE_LOCK_MOVE=0xF001,
     PROBE_FINAL_MOVE=0xF002,
     PROBE_REPORT_RISC_ERROR=0xF003, // used by risc probing
 } probe_state_t;
 
+//#define USB_CMD_NOOP  			1           /* no-operation */
+//#define USB_CMD_ABORT  			2              /* abort current command */
+//#define USB_CMD_PROBE_HIGH 		3         /* probing for probe.input changes from 0->1 */
+//#define USB_CMD_PROBE_LOW  		4          /* probing for probe.input changes from 1->0 */
+//#define USB_CMD_WOU_CMD_SYNC 	5
+//#define USB_CMD_STATUS_ACK 		6         /* ack to usb ater receiving USB_STATUS */
+
 /* copy & paste from hal/usb.h */
 /* always sync with hal/usb.h */
 typedef enum {
 	// 0'b 0000     0000     0000     0000     0000     0000     0000   0000
 	//     reserved reserved reserved reserved reserved reserved homing probing
-    USB_STATUS_READY = 0,
-    USB_STATUS_PROBE_HIT,// 1
-    USB_STATUS_PROBING,//2
-    USB_STATUS_PROBE_ERROR,//3
-    USB_STATUS_ERROR, // 4
-    USB_STATUS_RISC_PROBE_ERROR, // 5
+    USB_STATUS_READY = 1,
+    USB_STATUS_PROBE_HIT = 2,// 1
+    USB_STATUS_PROBING = 3,//2
+    USB_STATUS_PROBE_ERROR = 4,//3
+    USB_STATUS_ERROR = 5, // 4
+    USB_STATUS_RISC_PROBE_ERROR = 6, // 5
     // mask: 0x000000f0
     USB_STATUS_HOME_IDLE  = 0x00000000,
     USB_STATUS_HOMING 	  = 0x00000010,
@@ -250,14 +265,6 @@ typedef enum {
     USB_STATUS_HOME_ERROR = 0x00000040,
 } usb_status_t;
 
-typedef enum {
-    USB_CMD_NOOP = 0,           /* no-operation */
-    USB_CMD_ABORT,              /* abort current command */
-    USB_CMD_PROBE_HIGH,         /* probing for probe.input changes from 0->1 */
-    USB_CMD_PROBE_LOW,          /* probing for probe.input changes from 1->0 */
-    USB_CMD_WOU_CMD_SYNC,
-    USB_CMD_STATUS_ACK          /* ack to usb ater receiving USB_STATUS */
-} usb_cmd_t;
 
 
 enum probe_pin_type {
