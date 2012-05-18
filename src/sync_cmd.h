@@ -108,6 +108,10 @@
 #define USB_CMD_PROBE_LOW  		4          /* probing for probe.input changes from 1->0 */
 #define USB_CMD_WOU_CMD_SYNC 	5
 #define USB_CMD_STATUS_ACK 		6         /* ack to usb ater receiving USB_STATUS */
+#define USB_CMD_PROBE_DECEL     7     // innear cmd
+#define USB_CMD_PROBE_LOCK_MOVE 8
+#define USB_CMD_PROBE_FINAL_MOVE 9
+#define USB_CMD_PROBE_PROBE_REPORT_RISC_ERROR 10 // used by risc probing
 
 #define HOME_CMD_TYPE                   0x0002
 // command for homig              (usb.param-00 [11:8] )
@@ -234,6 +238,7 @@ typedef enum {
     PROBE_END = 2,   // an ack from host to acknowledge risc when the probing is finish or abort
     PROBE_HIGH = 3,
     PROBE_LOW = 4,
+    PROBE_ACK = 6,
     PROBE_DECEL=0xF000,
     PROBE_LOCK_MOVE=0xF001,
     PROBE_FINAL_MOVE=0xF002,
@@ -252,12 +257,13 @@ typedef enum {
 typedef enum {
 	// 0'b 0000     0000     0000     0000     0000     0000     0000   0000
 	//     reserved reserved reserved reserved reserved reserved homing probing
-    USB_STATUS_READY = 1,
-    USB_STATUS_PROBE_HIT = 2,// 1
-    USB_STATUS_PROBING = 3,//2
-    USB_STATUS_PROBE_ERROR = 4,//3
-    USB_STATUS_ERROR = 5, // 4
-    USB_STATUS_RISC_PROBE_ERROR = 6, // 5
+//    USB_STATUS_READY = 1,
+	USB_STATUS_READY = 1,
+    USB_STATUS_PROBE_HIT = 2,// 2
+    USB_STATUS_PROBING = 3,//3
+    USB_STATUS_PROBE_ERROR = 4,//4
+    USB_STATUS_ERROR = 5, // 5
+    USB_STATUS_RISC_PROBE_ERROR = 6, // 6
     // mask: 0x000000f0
     USB_STATUS_HOME_IDLE  = 0x00000000,
     USB_STATUS_HOMING 	  = 0x00000010,
