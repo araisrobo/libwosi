@@ -8,6 +8,9 @@
 #define MT_TICK         0x0004
 #define MT_DEBUG        0x0005
 #define MT_PID          0x0006
+#define MT_HOME_SWITCH  0x0007
+#define MT_PROBED_POS   0x0008
+
 // OR32 ERROR CODE
 #define ERROR_BASE_PERIOD       35
 #define ERROR_SFIFO_EMPTY       36

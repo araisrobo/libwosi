@@ -118,6 +118,10 @@
 #define HOME_ACK                        0x00000100
 #define HOME_NACK                       0x00000200
 #define HOME_ABORT_NOW                  0x00000400
+
+#define SPECIAL_CMD_TYPE                0x0008
+#define SPEC_CMD_ACK                    0x00001000
+#define SPEC_CMD_REQ_SYNC               0x00002000
 // memory map for machine config
 enum machine_parameter_addr {
     MACHINE_TYPE,
@@ -132,8 +136,7 @@ enum machine_parameter_addr {
     AHC_ANALOG_CH,
     HOST_TICK,
     WAIT_TIMEOUT,
-    PROBE_PIN_ID,     // setup while initializing
-    PROBE_PIN_TYPE,         // setup while initializing
+    PROBE_CONFIG,     // setup while initializing
     PROBE_ANALOG_REF_LEVEL,     // setup while initializing
 //    PROBE_CMD,          // send by host: one of usb commands
     USB_STATUS,         // report status response to usb commands
@@ -196,7 +199,7 @@ enum motion_parameter_addr {
     LIMIT_MAX         ,
     LIMIT_MIN         ,
     MAXFOLLWING_ERR   ,
-    PROBE_DECEL_CMD   , // scalar(decel) * pos_scale * dt(sec)
+//    PROBE_DECEL_CMD   , // scalar(decel) * pos_scale * dt(sec)
     // section for PID
         // unit: 1/65536
     P_GAIN            ,
@@ -269,6 +272,8 @@ typedef enum {
     USB_STATUS_HOMING 	  = 0x00000010,
     USB_STATUS_HOMED  	  = 0x00000020,
     USB_STATUS_HOME_ERROR = 0x00000040,
+    // mask: 0x00000f00
+    USB_STATUS_REQ_CMD_SYNC = 0x00000100
 } usb_status_t;
 
 
