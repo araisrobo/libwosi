@@ -161,7 +161,7 @@ enum machine_parameter_addr {
     PARAM15,
     ALR_OUTPUT, 
     NUM_JOINTS,
-    JOG_VEL,
+//    JOG_VEL,
     MACHINE_PARAM_ITEM
 };
 
@@ -221,6 +221,9 @@ enum motion_parameter_addr {
     MAX_JERK	      ,
     MAX_JERK_RECIP    ,
     HOME_SW_INPUT_ID  ,
+    JOG_CONFIG        ,         // [7:0] jog+
+                                // [15:8] jog-
+                                // [31:16] jog-vel: pulse/tick
     MAX_PARAM_ITEM
 };
 //enum motion_type {
