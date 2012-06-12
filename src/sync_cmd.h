@@ -196,8 +196,8 @@ enum motion_parameter_addr {
     MAX_ACCEL         ,
     MAX_ACCEL_RECIP   ,
 //    HOME_CONFIG       ,  // a parameter from host indicate homing type
-    LIMIT_MAX         ,
-    LIMIT_MIN         ,
+//    LIMIT_MAX         ,
+//    LIMIT_MIN         ,
     MAXFOLLWING_ERR   ,
 //    PROBE_DECEL_CMD   , // scalar(decel) * pos_scale * dt(sec)
     // section for PID
@@ -220,7 +220,7 @@ enum motion_parameter_addr {
     ENABLE            ,
     MAX_JERK	      ,
     MAX_JERK_RECIP    ,
-    HOME_SW_INPUT_ID  ,
+//    HOME_SW_INPUT_ID  ,
     JOG_CONFIG        ,         // [7:0] jog+
                                 // [15:8] jog-
                                 // [31:16] jog-vel: pulse/tick
