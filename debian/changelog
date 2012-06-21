@@ -1,3 +1,9 @@
+libwou (0.1-2012.06.21) lucid; urgency=low
+
+  * reduce risc code size.
+
+ -- Yi-Shin Li <ysli@araisrobo.com>  Thu, 21 Jun 2012 12:33:14 +0800
+
 libwou (0.1-2012.06.05) lucid; urgency=low
 
   * add jog config for risc jogging control.
