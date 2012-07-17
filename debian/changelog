@@ -1,3 +1,9 @@
+libwou (0.1-2012.07.17) lucid; urgency=low
+
+  * add ALARM_EN bit for GPIO_SYSTEM register
+
+ -- Yi-Shin Li <ysli@araisrobo.com>  Tue, 17 Jul 2012 15:07:54 +0800
+
 libwou (0.1-2012.06.21) lucid; urgency=low
 
   * reduce risc code size.
