@@ -87,8 +87,12 @@ const void *wou_reg_ptr (wou_param_t *w_param, uint32_t wou_addr);
 //obsolete:  **/
 //obsolete: const void *wou_mbox_ptr (wou_param_t *w_param);
 
-
-void wou_flush (wou_param_t *w_param);
+/* wou_flush -
+ *  return value:
+ *   0: There is still empty wou frame.
+ *  -1: No empty wou frame.
+*/
+int wou_flush (wou_param_t *w_param);
 
 /* Initializes the wou_param_t structure for USB
    @device_type: board name

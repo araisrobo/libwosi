@@ -239,7 +239,8 @@ int board_risc_prog(struct board* board, const char* binfile)
     data[0] = 0x00;
     wou_append (board, (const uint8_t) WB_WR_CMD, (const uint16_t)(JCMD_BASE | OR32_CTRL),
     		(const uint16_t)1, data); //wou_cmd
-    wou_eof (board, TYP_WOUF); //wou_flush(&w_param);
+
+    while(wou_eof (board, TYP_WOUF) == -1); //wou_flush(&w_param);
 
 
     // begin: write OR32 iamge
@@ -275,21 +276,21 @@ int board_risc_prog(struct board* board, const char* binfile)
         }
         if (word_counter == WORDS_PER_LINE) {
                 word_counter = 0;
-                wou_eof (board, TYP_WOUF); //wou_flush(&w_param);
+                while(wou_eof (board, TYP_WOUF) == -1);
                 DP ("current_addr(0x%08X)\n", current_addr);
         }
     }
 
     if (word_counter != 0) {
         // terminate pending WOU commands
-    	wou_eof (board, TYP_WOUF); //wou_flush(&w_param);
+    	while(wou_eof (board, TYP_WOUF) == -1);
     }
 
     // enable OR32 again
     value = 0x01;
     wou_append(board, (const uint8_t)WB_WR_CMD, (const uint16_t)(JCMD_BASE | OR32_CTRL),
     		(const uint16_t)1, (const uint8_t*)&value); //wou_cmd
-    wou_eof (board, TYP_WOUF); //wou_flush(&w_param);
+    while(wou_eof (board, TYP_WOUF) == -1);
 //end write OR32 image
     DP ("end:\n");
     return 0;
@@ -1460,45 +1461,48 @@ int wou_eof (board_t* b, uint8_t wouf_cmd)
     cur_clock = (int) b->wou->clock;
     wou_frame_ = &(b->wou->woufs[cur_clock]);
 
-    assert ((wou_frame_->fsize - WOUF_HDR_SIZE) <= MAX_PSIZE);
-    // update PAYLOAD size TX/RX of WOU_FRAME 
-    // PLOAD_SIZE_TX is part of the header
-    wou_frame_->buf[3] = 0xFF & (wou_frame_->fsize - WOUF_HDR_SIZE);
-    wou_frame_->buf[4] = wouf_cmd;
-    wou_frame_->buf[5] = b->wou->tid;
-    wou_frame_->buf[6] = 0xFF & (wou_frame_->pload_size_rx);
+    if (wou_frame_->use == 0) { 
+        assert ((wou_frame_->fsize - WOUF_HDR_SIZE) <= MAX_PSIZE);
+        // update PAYLOAD size TX/RX of WOU_FRAME 
+        // PLOAD_SIZE_TX is part of the header
+        wou_frame_->buf[3] = 0xFF & (wou_frame_->fsize - WOUF_HDR_SIZE);
+        wou_frame_->buf[4] = wouf_cmd;
+        wou_frame_->buf[5] = b->wou->tid;
+        wou_frame_->buf[6] = 0xFF & (wou_frame_->pload_size_rx);
 
-    assert(wou_frame_->buf[3] > 2); // PLOAD_SIZE_TX: 0x03 ~ 0xFF
-    assert(wou_frame_->buf[6] > 1); // PLOAD_SIZE_RX: 0x02 ~ 0xFF
-    
-    // calc CRC for {PLOAD_SIZE_TX, PLOAD_SIZE_RX, TID, WOU_PACKETS}
-    crc16 = crcFast(wou_frame_->buf + (WOUF_HDR_SIZE - 1), 
-                    wou_frame_->fsize - (WOUF_HDR_SIZE - 1)); 
-    memcpy (wou_frame_->buf + wou_frame_->fsize, &crc16, CRC_SIZE);
-    wou_frame_->fsize += CRC_SIZE;
+        assert(wou_frame_->buf[3] > 2); // PLOAD_SIZE_TX: 0x03 ~ 0xFF
+        assert(wou_frame_->buf[6] > 1); // PLOAD_SIZE_RX: 0x02 ~ 0xFF
+        
+        // calc CRC for {PLOAD_SIZE_TX, PLOAD_SIZE_RX, TID, WOU_PACKETS}
+        crc16 = crcFast(wou_frame_->buf + (WOUF_HDR_SIZE - 1), 
+                        wou_frame_->fsize - (WOUF_HDR_SIZE - 1)); 
+        memcpy (wou_frame_->buf + wou_frame_->fsize, &crc16, CRC_SIZE);
+        wou_frame_->fsize += CRC_SIZE;
 
-    // set use flag for CLOCK algorithm
-    wou_frame_->use = 1;    
+        // set use flag for CLOCK algorithm
+        wou_frame_->use = 1;    
 
-    // update the clock pointer
-    b->wou->clock += 1;
-    if (b->wou->clock == NR_OF_CLK) {
-        b->wou->clock = 0;  // clock: 0 ~ (NR_OF_CLK-1)
+        // update the clock pointer
+        b->wou->clock += 1;
+        if (b->wou->clock == NR_OF_CLK) {
+            b->wou->clock = 0;  // clock: 0 ~ (NR_OF_CLK-1)
+        }
+        wou_frame_ = &(b->wou->woufs[b->wou->clock]);
     }
-
     // flush pending [wou] packets
-    wou_frame_ = &(b->wou->woufs[b->wou->clock]);
-    do {
-        if (b->wou->rt_cmd_callback) {
-            b->wou->rt_cmd_callback();
-        }
-        wou_send(b);
-        wou_recv(b);    // update GBN pointer if receiving Rn
-        if (wou_frame_->use) {
-            const struct timespec   req = {0,300000};   // 0.3ms
-            nanosleep(&req, NULL);  // sleep for 0.3ms to avoid busy loop
-        }
-    } while (wou_frame_->use);
+
+    // do {
+    if (b->wou->rt_cmd_callback) {
+        b->wou->rt_cmd_callback();
+    }
+    wou_send(b);
+    wou_recv(b);    // update GBN pointer if receiving Rn
+    if (wou_frame_->use) {
+        // const struct timespec   req = {0,300000};   // 0.3ms
+        // nanosleep(&req, NULL);  // sleep for 0.3ms to avoid busy loop
+        return -1;
+    }
+    // } while (wou_frame_->use);
     
     // init the wouf buffer and tid
     b->wou->tid += 1;   // tid: 0 ~ 255
@@ -1647,7 +1651,13 @@ void wou_append (board_t* b, const uint8_t func, const uint16_t wb_addr,
             > MAX_PSIZE) 
         {
             // CRC_SIZE is not counted in PLOAD_SIZE_TX
-            wou_eof(b, TYP_WOUF);
+//            wou_eof(b, TYP_WOUF);
+
+
+            while(wou_eof (b, TYP_WOUF) == -1) {
+                printf("TODO: \n");
+                assert(0);
+            }
         }
     } else if (func == WB_RD_CMD) {
         if (((wou_frame_->fsize - WOUF_HDR_SIZE + WOU_HDR_SIZE) > MAX_PSIZE) 
@@ -1655,7 +1665,12 @@ void wou_append (board_t* b, const uint8_t func, const uint16_t wb_addr,
             ((wou_frame_->pload_size_rx + WOU_HDR_SIZE + dsize) > MAX_PSIZE))
         {
             // CRC_SIZE is not counted in PLOAD_SIZE_TX
-            wou_eof(b, TYP_WOUF);
+//            wou_eof(b, TYP_WOUF);
+
+            while(wou_eof (b, TYP_WOUF) == -1) {
+                printf("TODO: \n");
+                assert(0);;
+            }
         }
     } else {
         assert (0); // not a valid func
@@ -1727,7 +1742,7 @@ static void m7i43u_reconfig (board_t* board)
         // // use WOUF_COMMAND to reset Expected TID in FPGA
         // bypass TX_TIMEOUT:
         clock_gettime(CLOCK_REALTIME, &time_send_begin);
-        wou_eof(board, RST_TID);
+        while(wou_eof (board, RST_TID) == -1);
         board->wou->tid = 0;
     }
     
@@ -1736,7 +1751,7 @@ static void m7i43u_reconfig (board_t* board)
     wou_append (board, WB_WR_CMD, GPIO_BASE + GPIO_SYSTEM, 1, &cBufWrite);
     // bypass TX_TIMEOUT:
     clock_gettime(CLOCK_REALTIME, &time_send_begin);
-    wou_eof (board, TYP_WOUF);
+    while(wou_eof (board, TYP_WOUF) == -1);
     DP("tx_size(%d)\n", board->wou->tx_size);
 
 #if(TRACE)

@@ -136,10 +136,9 @@ const void *wou_reg_ptr (wou_param_t *w_param, uint32_t wou_addr)
 //obsolete:     return (ptr);
 //obsolete: }
 
-void wou_flush (wou_param_t *w_param)
+int wou_flush (wou_param_t *w_param)
 {
-    wou_eof (w_param->board, TYP_WOUF); // typical WOU_FRAME
-    return;
+    return wou_eof (w_param->board, TYP_WOUF); // typical WOU_FRAME;
 }
 
 /* Initializes the wou_param_t structure for USB

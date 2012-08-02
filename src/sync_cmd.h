@@ -102,16 +102,17 @@
 
 #define PROBE_CMD_TYPE                  0x0001  // for usb.cmd
 // command for probing   (usb.param-00)
-#define USB_CMD_NOOP  			1           /* no-operation */
-#define USB_CMD_ABORT  			2              /* abort current command */
-#define USB_CMD_PROBE_HIGH 		3         /* probing for probe.input changes from 0->1 */
-#define USB_CMD_PROBE_LOW  		4          /* probing for probe.input changes from 1->0 */
-#define USB_CMD_WOU_CMD_SYNC 	5
-#define USB_CMD_STATUS_ACK 		6         /* ack to usb ater receiving USB_STATUS */
-#define USB_CMD_PROBE_DECEL     7     // innear cmd
-#define USB_CMD_PROBE_LOCK_MOVE 8
-#define USB_CMD_PROBE_FINAL_MOVE 9
+#define USB_CMD_NOOP  			       1 /* no-operation */
+#define USB_CMD_ABORT  			       2 /* abort current command */
+#define USB_CMD_PROBE_HIGH 		       3 /* probing for probe.input changes from 0->1 */
+#define USB_CMD_PROBE_LOW  		       4 /* probing for probe.input changes from 1->0 */
+#define USB_CMD_WOU_CMD_SYNC 	               5
+#define USB_CMD_STATUS_ACK 		       6 /* ack to usb ater receiving USB_STATUS */
+#define USB_CMD_PROBE_DECEL                    7 // innear cmd
+#define USB_CMD_PROBE_LOCK_MOVE                8
+#define USB_CMD_PROBE_FINAL_MOVE               9
 #define USB_CMD_PROBE_PROBE_REPORT_RISC_ERROR 10 // used by risc probing
+#define USB_CMD_FAKE_PROBE                    11
 
 #define HOME_CMD_TYPE                   0x0002
 // command for homig              (usb.param-00 [11:8] )
