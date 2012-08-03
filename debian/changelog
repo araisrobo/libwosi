@@ -1,3 +1,9 @@
+libwou (0.1-2012.08.03) lucid; urgency=low
+
+  * Resolve "USB BUSY LOCK" issue
+
+ -- Yi-Shin Li <ysli@araisrobo.com>  Fri, 03 Aug 2012 08:54:02 +0800
+
 libwou (0.1-2012.07.17) lucid; urgency=low
 
   * add ALARM_EN bit for GPIO_SYSTEM register
