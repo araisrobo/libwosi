@@ -500,6 +500,7 @@ int board_reconnect(board_t* board) {
 
 	return 0;
 }
+
 int board_connect (board_t* board)
 {
     int ret;
@@ -570,7 +571,6 @@ int board_connect (board_t* board)
 
     return (0);
 }
-
 
 int board_close (board_t* board)
 {
@@ -1457,11 +1457,20 @@ int wou_eof (board_t* b, uint8_t wouf_cmd)
     int         cur_clock;
     wouf_t      *wou_frame_;
     uint16_t    crc16;
+    int         next_5_clock;
+    wouf_t      *next_5_wouf_;
 
     cur_clock = (int) b->wou->clock;
     wou_frame_ = &(b->wou->woufs[cur_clock]);
+    
+    next_5_clock = (int) (b->wou->clock + 5);
+    if (next_5_clock >= NR_OF_CLK) {
+        next_5_clock -= NR_OF_CLK;
+    }
+    next_5_wouf_ = &(b->wou->woufs[next_5_clock]);
 
-    if (wou_frame_->use == 0) { 
+    if (next_5_wouf_->use == 0) { 
+        assert (wou_frame_->use == 0);  // currnt wouf must be empty to write to
         assert ((wou_frame_->fsize - WOUF_HDR_SIZE) <= MAX_PSIZE);
         // update PAYLOAD size TX/RX of WOU_FRAME 
         // PLOAD_SIZE_TX is part of the header
@@ -1488,27 +1497,31 @@ int wou_eof (board_t* b, uint8_t wouf_cmd)
             b->wou->clock = 0;  // clock: 0 ~ (NR_OF_CLK-1)
         }
         wou_frame_ = &(b->wou->woufs[b->wou->clock]);
+
+        next_5_clock = (int) (b->wou->clock + 5);
+        if (next_5_clock >= NR_OF_CLK) {
+            next_5_clock -= NR_OF_CLK;
+        }
+        next_5_wouf_ = &(b->wou->woufs[next_5_clock]);
     }
     // flush pending [wou] packets
 
-    // do {
     if (b->wou->rt_cmd_callback) {
         b->wou->rt_cmd_callback();
     }
     wou_send(b);
     wou_recv(b);    // update GBN pointer if receiving Rn
-    if (wou_frame_->use) {
-        // const struct timespec   req = {0,300000};   // 0.3ms
-        // nanosleep(&req, NULL);  // sleep for 0.3ms to avoid busy loop
-        return -1;
-    }
-    // } while (wou_frame_->use);
-    
-    // init the wouf buffer and tid
-    b->wou->tid += 1;   // tid: 0 ~ 255
-    wouf_init (b);
 
-    return 0;
+    assert(wou_frame_->use == 0);   // wou protocol assume cur-wouf_ must be empty to write to
+    if (next_5_wouf_->use) {
+        // printf ("woufs almost full\n");
+        return -1;  // WOUFS is almost full
+    } else {
+        // init the wouf buffer and tid
+        b->wou->tid += 1;   // tid: 0 ~ 255
+        wouf_init (b);
+        return 0;
+    }
 }
 
 void wouf_init (board_t* b)
@@ -1650,10 +1663,6 @@ void wou_append (board_t* b, const uint8_t func, const uint16_t wb_addr,
         if ((wou_frame_->fsize - WOUF_HDR_SIZE + WOU_HDR_SIZE + dsize) 
             > MAX_PSIZE) 
         {
-            // CRC_SIZE is not counted in PLOAD_SIZE_TX
-//            wou_eof(b, TYP_WOUF);
-
-
             while(wou_eof (b, TYP_WOUF) == -1) {
                 printf("TODO: \n");
                 assert(0);
@@ -1664,9 +1673,6 @@ void wou_append (board_t* b, const uint8_t func, const uint16_t wb_addr,
             || 
             ((wou_frame_->pload_size_rx + WOU_HDR_SIZE + dsize) > MAX_PSIZE))
         {
-            // CRC_SIZE is not counted in PLOAD_SIZE_TX
-//            wou_eof(b, TYP_WOUF);
-
             while(wou_eof (b, TYP_WOUF) == -1) {
                 printf("TODO: \n");
                 assert(0);;
