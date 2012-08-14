@@ -145,6 +145,7 @@ static int prev_ss;
 
 // #define TX_TIMEOUT 500000000
 #define TX_TIMEOUT 19000000     // unit: nano-sec
+#define BUF_SIZE 80             // the buffer size for tx_str[] and rx_str[]
 
 static int m7i43u_program_fpga(struct board *board, struct bitfile_chunk *ch);
 
@@ -199,7 +200,7 @@ struct bitfile *open_bitfile_or_die(const char *filename)
 
     bf = bitfile_read(filename);
     if (bf == NULL) {
-	ERRP ("reading bitstream file '%s'", filename);
+	ERRP ("reading bitstream file '%s'\n", filename);
 	exit(EC_FILE);
     }
 
@@ -229,11 +230,6 @@ int board_risc_prog(struct board* board, const char* binfile)
     uint32_t word_counter;
 
     DP ("begin:\n");
-    // if (board->io_type == IO_TYPE_USB) {
-    //     board->io.usb.bitfile = binfile;
-    // } else {
-    //     return -1;
-    // }
 
     // or32 disable
     data[0] = 0x00;
@@ -245,6 +241,11 @@ int board_risc_prog(struct board* board, const char* binfile)
 
     // begin: write OR32 iamge
     fd = fopen(binfile, "r" );
+    if (fd == NULL) {
+	ERRP ("%s: %s\n", binfile, strerror(errno));
+	ERRP ("reading RISC program file: %s\n", binfile);
+        return -1;
+    }
     fseek(fd, 0, SEEK_END);
     image_size = ftell(fd);
     fseek(fd,0,SEEK_SET);
@@ -1873,15 +1874,15 @@ static void dsize_to_str(char *buf, uint64_t dsize)
 	    dsize >>= 10;
 	    if ((dsize >> 10) > 0) {	// GB?
 		dsize >>= 10;
-		sprintf(buf, "%llu GB\0", dsize);
+		snprintf(buf, BUF_SIZE, "%llu GB", dsize);
 	    } else {
-		sprintf(buf, "%llu MB\0", dsize);
+		snprintf(buf, BUF_SIZE, "%llu MB", dsize);
 	    }
 	} else {
-	    sprintf(buf, "%llu KB\0", dsize);
+	    snprintf(buf, BUF_SIZE, "%llu KB", dsize);
 	}
     } else {
-	sprintf(buf, "%llu Bytes\0", dsize);
+	snprintf(buf, BUF_SIZE, "%llu Bytes", dsize);
     }
     return;
 }
@@ -1893,7 +1894,7 @@ int board_status (struct board *board)
 {
     struct timespec time2, dt;
     int ss, mm, hh;
-    char tx_str[80], rx_str[80];
+    char tx_str[BUF_SIZE], rx_str[BUF_SIZE];
     double data_rate;
 
     clock_gettime(CLOCK_REALTIME, &time2);
