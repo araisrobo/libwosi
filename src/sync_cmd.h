@@ -4,30 +4,27 @@
  *******************************************************************************
  * SYNC Command Format:
  *    NAME        OP_CODE[15:14]  OPERAND[13:0]   Description
- *    SYNC_JNT    2'b00           {DIR_W, POS_W}  DIR_W[13]:    Direction, (positive(1), negative(0))
+ *    SYNC_JNT           2'b00    {DIR_W, POS_W}  DIR_W[13]:    Direction, (positive(1), negative(0))
  *                                                POS_W[12:0]:  Relative Angle Distance (0 ~ 8191)
  *    NAME        OP_CODE[15:12]  OPERAND[11:0]   Description
- *    SYNC_DOUT     4'b0100         {ID, VAL}       ID[11:6]: Output PIN ID
+ *    SYNC_DOUT          4'b0100  {ID, VAL}       ID[11:6]: Output PIN ID
  *                                                VAL[0]:   ON(1), OFF(0)
- *    SYNC_DIN      4'b0101         {ID, TYPE}      ID[11:6]: Input PIN ID
+ *    SYNC_DIN           4'b0101  {ID, TYPE}      ID[11:6]: Input PIN ID
  *                                                TYPE[2:0]: LOW(000), HIGH(001), FALL(010), RISE(011)
  *                                                           TIMEOUT(100)
- *    SYNC_ST       4'b0110         {}            Set timeout value
- *                                                parser should load immediate data as the timeout
- *    SYNC_PC       4'b1000         {EN}          EN[0]: position compensation  O:disable 1:enable
- *                                                       parser should load immediate data as the ref value
- *    SYNC_ID       4'b1100         {VAL}         Send immediate data
- *                                                      VAL[7:0]: one byte data
- *    SYNC_MOT_PARM 4'b0111         {ADDR}{ID}    ADDR[11:4]
+ *    SYNC_MOT_POS_CMD   4'b0110  {JOINT}         Synchronize motor_pos_cmd/rawcount from HOST.
+ *                                                Take 64-bit data from immediate data buffer.
+ *    SYNC_MOT_PARM      4'b0111  {ADDR}{ID}      ADDR[11:4]
  *                                                ID[3:0]:
  *                                                VAL: from immediate data
- *    SYNC_VEL_CMD  4'b1001          {VEL, VAL}   VEL: velocity in mm/s
+ *    SYNC_AHC           4'b1000  ... TODO        auto height control
+ *    SYNC_VEL           4'b1001  {VEL, VAL}      VEL: velocity in mm/s
  *                                                VAL[0]: 1: velocity sync'd
- *                                                         0: velocity not sync'd
- *    SYNC_PROBE    4'b1010          {VAL}
- *                                    1: start to probe
- *                                    0: stop to probe
- *
+ *                                                        0: velocity not sync'd
+ *    SYNC_USB_CMD       4'b1010  ... TODO
+ *    SYNC_MACH_PARAM    4'b1011  ... TODO      
+ *    SYNC_DATA          4'b1100  ... TODO:       {VAL} Send immediate data
+ *                                                VAL[7:0]: one byte data
  *    Write 2nd byte of SYNC_CMD[] will push it into SFIFO.
  *    The WB_WRITE got stalled if SFIFO is full.
  */
@@ -39,7 +36,7 @@
 // 0x3000 do not use
 #define SYNC_DOUT           0x4000
 #define SYNC_DIN            0x5000
-#define SYNC_BP             0x6000
+#define SYNC_MOT_POS_CMD    0x6000
 #define SYNC_MOT_PARAM      0x7000
 #define SYNC_AHC            0x8000         // auto height control
 #define SYNC_VEL            0x9000
@@ -134,7 +131,6 @@ enum machine_parameter_addr {
     AHC_LEVEL_MAX,
     AHC_LEVEL_MIN,
     AHC_ANALOG_CH,
-    HOST_TICK,
     WAIT_TIMEOUT,
     PROBE_CONFIG,     // setup while initializing
     PROBE_ANALOG_REF_LEVEL,     // setup while initializing
@@ -190,53 +186,34 @@ enum ahc_state_enum {
 
 // memory map for motion parameter for each joint
 enum motion_parameter_addr {
-//    CMD_FRACT_BIT     ,
-//    PARAM_FRACT_BIT   ,  => become FRACTION_BITS, which is const-16
     MAX_VELOCITY      ,
     MAX_ACCEL         ,
     MAX_ACCEL_RECIP   ,
-//    HOME_CONFIG       ,  // a parameter from host indicate homing type
-//    LIMIT_MAX         ,
-//    LIMIT_MIN         ,
     MAXFOLLWING_ERR   ,
-//    PROBE_DECEL_CMD   , // scalar(decel) * pos_scale * dt(sec)
-    // section for PID
-        // unit: 1/65536
-    P_GAIN            ,
-    I_GAIN            ,
-    D_GAIN            ,
-    FF0               ,         // useless for position mode servo
-    FF1               ,
-    FF2               , //5
-        // unit: 1 pulse
-    DEAD_BAND         , //6
-    BIAS              ,         // useless for position mode servo
+                            // PID section: begin
+    P_GAIN            ,     // (unit: 1/65536)
+    I_GAIN            ,     // (unit: 1/65536)
+    D_GAIN            ,     // (unit: 1/65536)
+    FF0               ,     // useless for position mode servo
+    FF1               ,     // (unit: 1/65536)    
+    FF2               ,     // (unit: 1/65536)
+    DEAD_BAND         ,     // unit: 1 pulse
+    BIAS              ,     // useless for position mode servo
     MAXERROR          ,
     MAXERROR_I        ,
     MAXERROR_D        ,
     MAXCMD_D          ,
     MAXCMD_DD         ,
-    MAXOUTPUT         , //13
-    ENABLE            ,
+    MAXOUTPUT         ,     
+                            // PID section: end
+    ENABLE            ,     // set to 1 to enable joint motion
     MAX_JERK	      ,
     MAX_JERK_RECIP    ,
-//    HOME_SW_INPUT_ID  ,
-    JOG_CONFIG        ,         // [7:0] jog+
-                                // [15:8] jog-
-                                // [31:16] jog-vel: pulse/tick
+    JOG_CONFIG        ,     // [7:0] jog+
+                            // [15:8] jog-
+                            // [31:16] jog-vel: pulse/tick
     MAX_PARAM_ITEM
 };
-//enum motion_type {
-//    // regular move
-//    NORMAL_MOVE,
-//    // homing
-//    SEARCH_HOME_LOW,
-//    SEARCH_HOME_HIGH,
-//    SEARCH_INDEX,
-//    DECELERATION,
-//    LOCK_MOVE,
-//};
-
 
 /* usb to risc: similar to usb_cmd in hal/usb.h */
 typedef enum {

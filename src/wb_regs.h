@@ -51,8 +51,8 @@
  * SFIFO_BASE           0x2000
  *******************************************************************************
  * REG_NAME             ADDR_OFFSET   ACCESS  DESCRIPTION
- * SSIF_PULSE_TYPE      0x0000        W       (0x00       )   (0)AB_PHASE  (1)STEP_DIR
- * SSIF_ENC_TYPE        0x0001        W       (0x01       )   (0)w/o (1)with encoder
+ * SSIF_PULSE_TYPE      0x0000        W       (0x00       )   bitwise mapping for pulse type: (0)AB_PHASE  (1)STEP_DIR
+ * SSIF_ENC_TYPE        0x0001        W       (0x01       )   bitwise mapping for encoder type: (0)w/o (1)with encoder
  * SSIF_LOAD_POS        0x0002        W       (0x02 ~ 0x03)   load SWITCH, INDEX, and PULSE positions with ENC_POS 
  *                                                (11:0)[i]   set to 1 by SW to load SWITCH, INDEX, and PULSE positions
  *                                                            reset to 0 by HW one cycle later
@@ -184,10 +184,10 @@
 // begin: registers for SSIF (Servo/Stepper InterFace)
 #define SSIF_BASE       0x2000
 //      REGISTERS       OFFSET  // DESCRIPTION
-#define SSIF_PULSE_TYPE 0x0000  // W(0x00       )   (0)AB_PHASE  (1)STEP_DIR
+#define SSIF_PULSE_TYPE 0x0000  // W(0x00       )   bitwise mapping for pulse type: (0)AB_PHASE  (1)STEP_DIR
 #define PTYPE_AB_PHASE    0x00
 #define PTYPE_STEP_DIR    0x01
-#define SSIF_ENC_TYPE   0x0001  // W(0x01       )   (0)w/o  (1)with encoder
+#define SSIF_ENC_TYPE   0x0001  // W(0x01       )   bitwise mapping for encoder type: (0)w/o  (1)with encoder
 #define SSIF_LOAD_POS   0x0002  // W(0x02 ~ 0x03)   load SWITCH & INDEX with PULSE(stepper) or ENC(servo) 
                                 //                  positions for homing
                                 //      (11:0)[i]   set to 1 by SW to load SWITCH and INDEX position
