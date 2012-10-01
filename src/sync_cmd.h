@@ -121,7 +121,7 @@
 #define SPEC_CMD_REQ_SYNC               0x00002000
 // memory map for machine config
 enum machine_parameter_addr {
-    MACHINE_TYPE,
+    //obsolete: MACHINE_TYPE,
     AHC_JNT,
     AHC_POLARITY,
     TEST_PATTERN_TYPE,
@@ -161,11 +161,11 @@ enum machine_parameter_addr {
     MACHINE_PARAM_ITEM
 };
 
-enum machine_type_enum {
-    XYZA,         // 4 axis
-    XYZY,         // y1 y2 rotate in the same direction
-    XYZY_,        // y1 y2 rotate in different direction
-};
+//obsolete: enum machine_type_enum {
+//obsolete:     XYZA,         // 4 axis
+//obsolete:     XYZY,         // y1 y2 rotate in the same direction
+//obsolete:     XYZY_,        // y1 y2 rotate in different direction
+//obsolete: };
 
 enum ahc_polarity_enum {
     AHC_POSITIVE,        // positive command to lift up axis z
