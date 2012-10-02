@@ -121,7 +121,6 @@
 #define SPEC_CMD_REQ_SYNC               0x00002000
 // memory map for machine config
 enum machine_parameter_addr {
-    //obsolete: MACHINE_TYPE,
     AHC_JNT,
     AHC_POLARITY,
     TEST_PATTERN_TYPE,
@@ -134,7 +133,6 @@ enum machine_parameter_addr {
     WAIT_TIMEOUT,
     PROBE_CONFIG,     // setup while initializing
     PROBE_ANALOG_REF_LEVEL,     // setup while initializing
-//    PROBE_CMD,          // send by host: one of usb commands
     USB_STATUS,         // report status response to usb commands
     AHC_STATE,
     AHC_LEVEL,
@@ -156,16 +154,12 @@ enum machine_parameter_addr {
     PARAM14,
     PARAM15,
     ALR_OUTPUT, 
-    NUM_JOINTS,
-//    JOG_VEL,
+    MACHINE_CTRL,   // [31:24]  RESERVED
+                    // [23:16]  NUM_JOINTS
+                    // [15: 8]  WORLD(1)/JOINT(0) mode
+                    // [ 7: 0]  PID_ENABLE
     MACHINE_PARAM_ITEM
 };
-
-//obsolete: enum machine_type_enum {
-//obsolete:     XYZA,         // 4 axis
-//obsolete:     XYZY,         // y1 y2 rotate in the same direction
-//obsolete:     XYZY_,        // y1 y2 rotate in different direction
-//obsolete: };
 
 enum ahc_polarity_enum {
     AHC_POSITIVE,        // positive command to lift up axis z
