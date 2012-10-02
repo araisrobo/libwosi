@@ -156,7 +156,7 @@ enum machine_parameter_addr {
     ALR_OUTPUT, 
     MACHINE_CTRL,   // [31:24]  RESERVED
                     // [23:16]  NUM_JOINTS
-                    // [15: 8]  WORLD(1)/JOINT(0) mode
+                    // [15: 8]  WORLD_or_TELEOP(1)/FREE(0) mode
                     // [ 7: 0]  PID_ENABLE
     MACHINE_PARAM_ITEM
 };
