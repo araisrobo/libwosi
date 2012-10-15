@@ -72,12 +72,12 @@
 #define SYNC_MOT_PARAM_ADDR_MASK        0x0FF0
 #define SYNC_MOT_PARAM_ID_MASK          0x000F
 #define SYNC_MACH_PARAM_ADDR_MASK       0x0FFF
-#define SYNC_USB_CMD_TYPE_MASK 			0x0FFF
+#define SYNC_USB_CMD_TYPE_MASK 		0x0FFF
 // SYNC VEL CMD masks
 #define VEL_MASK                        0x0FFE
 #define VEL_SYNC_MASK                   0x0001
 // PROBE mask
-#define SYNC_PROBE_MASK                      0x0FFF
+#define SYNC_PROBE_MASK                 0x0FFF
 //      SFIFO DATA MACROS
 #define GET_IO_ID(i)                    (((i) & SYNC_DI_DO_PIN_MASK) >> 6)
 #define GET_DO_VAL(v)                   (((v) & SYNC_DOUT_VAL_MASK))
@@ -97,17 +97,17 @@
 #define PACK_MACH_PARAM_ADDR(t)         ((t) & SYNC_MACH_PARAM_ADDR_MASK)
 #define PACK_USB_CMD_TYPE(t)            ((t) & SYNC_USB_CMD_TYPE_MASK)
 
-#define PROBE_CMD_TYPE                  0x0001  // for usb.cmd
+#define PROBE_CMD_TYPE                  0x0001  // for GET_USB_CMD_TYPE
 // command for probing   (usb.param-00)
-#define USB_CMD_NOOP  			1           /* no-operation */
-#define USB_CMD_ABORT  			2              /* abort current command */
-#define USB_CMD_PROBE_HIGH 		3         /* probing for probe.input changes from 0->1 */
-#define USB_CMD_PROBE_LOW  		4          /* probing for probe.input changes from 1->0 */
-#define USB_CMD_WOU_CMD_SYNC 	5
-#define USB_CMD_STATUS_ACK 		6         /* ack to usb ater receiving USB_STATUS */
-#define USB_CMD_PROBE_DECEL     7     // innear cmd
-#define USB_CMD_PROBE_LOCK_MOVE 8
-#define USB_CMD_PROBE_FINAL_MOVE 9
+#define USB_CMD_NOOP  			1     /* no-operation */
+#define USB_CMD_ABORT  			2     /* abort current command */
+#define USB_CMD_PROBE_HIGH 		3     /* probing for probe.input changes from 0->1 */
+#define USB_CMD_PROBE_LOW  		4     /* probing for probe.input changes from 1->0 */
+#define USB_CMD_WOU_CMD_SYNC 	        5
+#define USB_CMD_STATUS_ACK 		6     /* ack to usb ater receiving USB_STATUS */
+#define USB_CMD_PROBE_DECEL             7     // innear cmd
+#define USB_CMD_PROBE_LOCK_MOVE         8
+#define USB_CMD_PROBE_FINAL_MOVE        9
 #define USB_CMD_PROBE_PROBE_REPORT_RISC_ERROR 10 // used by risc probing
 
 #define HOME_CMD_TYPE                   0x0002
@@ -116,9 +116,39 @@
 #define HOME_NACK                       0x00000200
 #define HOME_ABORT_NOW                  0x00000400
 
+#define RISC_CMD_TYPE                   0x0004  // for SYNC_USB_CMD
+
 #define SPECIAL_CMD_TYPE                0x0008
 #define SPEC_CMD_ACK                    0x00001000
 #define SPEC_CMD_REQ_SYNC               0x00002000
+
+
+typedef enum {
+    // 0'b 0000     0000     0000     0000     0000     0000        0000   0000
+    //     reserved reserved reserved reserved reserved req_to_host homing probing
+    USB_STATUS_READY = 1,
+    USB_STATUS_PROBE_HIT = 2,// 2
+    USB_STATUS_PROBING = 3,//3
+    USB_STATUS_PROBE_ERROR = 4,//4
+    USB_STATUS_ERROR = 5, // 5
+    USB_STATUS_RISC_PROBE_ERROR = 6, // 6
+    // mask: 0x000000f0
+    USB_STATUS_HOME_IDLE  = 0x00000000,
+    USB_STATUS_HOMING 	  = 0x00000010,
+    USB_STATUS_HOMED  	  = 0x00000020,
+    USB_STATUS_HOME_ERROR = 0x00000040,
+    // mask: 0x00000f00
+    USB_STATUS_REQ_CMD_SYNC = 0x00000100
+} usb_status_t;
+
+typedef enum {
+    // naming: RISC_...CMD..._REQ
+    RCMD_IDLE = 0,
+    RCMD_UPDATE_POS_REQ = 1,
+    RCMD_UPDATE_POS_ACK = 2,
+    RCMD_DONE
+} rsic_cmd_t;
+
 // memory map for machine config
 enum machine_parameter_addr {
     AHC_JNT,
@@ -221,35 +251,6 @@ typedef enum {
     PROBE_FINAL_MOVE=0xF002,
     PROBE_REPORT_RISC_ERROR=0xF003, // used by risc probing
 } probe_state_t;
-
-//#define USB_CMD_NOOP  			1           /* no-operation */
-//#define USB_CMD_ABORT  			2              /* abort current command */
-//#define USB_CMD_PROBE_HIGH 		3         /* probing for probe.input changes from 0->1 */
-//#define USB_CMD_PROBE_LOW  		4          /* probing for probe.input changes from 1->0 */
-//#define USB_CMD_WOU_CMD_SYNC 	5
-//#define USB_CMD_STATUS_ACK 		6         /* ack to usb ater receiving USB_STATUS */
-
-/* copy & paste from hal/usb.h */
-/* always sync with hal/usb.h */
-typedef enum {
-	// 0'b 0000     0000     0000     0000     0000     0000     0000   0000
-	//     reserved reserved reserved reserved reserved reserved homing probing
-//    USB_STATUS_READY = 1,
-	USB_STATUS_READY = 1,
-    USB_STATUS_PROBE_HIT = 2,// 2
-    USB_STATUS_PROBING = 3,//3
-    USB_STATUS_PROBE_ERROR = 4,//4
-    USB_STATUS_ERROR = 5, // 5
-    USB_STATUS_RISC_PROBE_ERROR = 6, // 6
-    // mask: 0x000000f0
-    USB_STATUS_HOME_IDLE  = 0x00000000,
-    USB_STATUS_HOMING 	  = 0x00000010,
-    USB_STATUS_HOMED  	  = 0x00000020,
-    USB_STATUS_HOME_ERROR = 0x00000040,
-    // mask: 0x00000f00
-    USB_STATUS_REQ_CMD_SYNC = 0x00000100
-} usb_status_t;
-
 
 
 enum probe_pin_type {
