@@ -1386,12 +1386,19 @@ static void rt_wou_send (board_t* b)
     tx_size = &(b->wou->tx_size);
     buf_tx = b->wou->buf_tx;
     
-    assert(b->wou->rt_wouf.use == 1);
-    buf_src = b->wou->rt_wouf.buf;
-    memcpy (buf_tx + *tx_size, buf_src, b->wou->rt_wouf.fsize);  
-    *tx_size += b->wou->rt_wouf.fsize;
+    // assert(b->wou->rt_wouf.use == 1);
+    /** 
+     * rt_wouf 只有一個 WOU_FRAME 
+     * 當 (*tx_size + rt_wouf) 小於一個 MAX_WOU_FRAME size 時，
+     * 才傳送 RT_WOUF, 否則就將 RT_WOUF 丟掉
+     **/
+    if ((*tx_size + b->wou->rt_wouf.fsize) < WOUF_HDR_SIZE+MAX_PSIZE+CRC_SIZE) {
+        buf_src = b->wou->rt_wouf.buf;
+        memcpy (buf_tx + *tx_size, buf_src, b->wou->rt_wouf.fsize);  
+        *tx_size += b->wou->rt_wouf.fsize;
+    }
     assert (*tx_size < NR_OF_WIN*(WOUF_HDR_SIZE+2+MAX_PSIZE+CRC_SIZE));
-    b->wou->rt_wouf.use = 0;
+    // b->wou->rt_wouf.use = 0;
 
     //async write:
     if (b->io.usb.tx_tc) {
@@ -1635,13 +1642,13 @@ int rt_wou_eof (board_t* b)
     memcpy (wou_frame_->buf + wou_frame_->fsize, &crc16, CRC_SIZE);
     wou_frame_->fsize += CRC_SIZE;
 
-    // set use flag for CLOCK algorithm
-    wou_frame_->use = 1;    
+    /* rt_wouf 只有一個 WOU_FRAME, 不需要 check use bit */
+    // wou_frame_->use = 1;    
 
-    do {
+    // do {
         rt_wou_send(b);
         wou_recv(b);    // update GBN pointer if receiving Rn
-    } while (wou_frame_->use);
+    // } while (wou_frame_->use);
     
     // init the rt_wouf buffer
     rt_wouf_init (b);
