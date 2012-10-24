@@ -121,7 +121,18 @@
 #define SPECIAL_CMD_TYPE                0x0008
 #define SPEC_CMD_ACK                    0x00001000
 #define SPEC_CMD_REQ_SYNC               0x00002000
+    
 
+/**
+ *  MACHINE_CTRL,   // [31:24]  RESERVED
+ *                  // [23:16]  NUM_JOINTS
+ *                  // [15: 3]  RESERVED
+ *                  // [ 2: 1]  MOTION_MODE: FREE(0) TELEOP(1) COORD(2)
+ *                  // [    0]  MACHINE_ON
+ **/
+#define MCTRL_MACHINE_ON_MASK           0x00000001  // MACHINE_ON mask for MACHINE_CTRL
+#define MCTRL_MOTION_TYPE_MASK          0x00000006  // MOTION_TYPE mask for MACHINE_CTRL
+#define MCTRL_NUM_JOINTS_MASK           0x00FF0000  // NUM_JOINTS mask for MACHINE_CTRL
 
 typedef enum {
     // 0'b 0000     0000     0000     0000     0000     0000        0000   0000
@@ -186,8 +197,9 @@ enum machine_parameter_addr {
     ALR_OUTPUT, 
     MACHINE_CTRL,   // [31:24]  RESERVED
                     // [23:16]  NUM_JOINTS
-                    // [15: 8]  WORLD_or_TELEOP(1)/FREE(0) mode
-                    // [ 7: 0]  PID_ENABLE
+                    // [15: 3]  RESERVED
+                    // [ 2: 1]  MOTION_MODE: FREE(0) TELEOP(1) COORD(2)
+                    // [    0]  MACHINE_ON
     MACHINE_PARAM_ITEM
 };
 
