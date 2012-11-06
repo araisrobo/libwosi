@@ -157,6 +157,7 @@ typedef enum {
     RCMD_IDLE = 0,
     RCMD_UPDATE_POS_REQ = 1,
     RCMD_UPDATE_POS_ACK = 2,
+    RCMD_HOST_JOG_REQ,
     RCMD_DONE
 } rsic_cmd_t;
 
