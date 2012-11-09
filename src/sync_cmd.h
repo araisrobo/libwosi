@@ -21,10 +21,11 @@
  *    SYNC_VEL           4'b1001  {VEL, VAL}      VEL: velocity in mm/s
  *                                                VAL[0]: 1: velocity sync'd
  *                                                        0: velocity not sync'd
- *    SYNC_USB_CMD       4'b1010  ... TODO
+ *    SYNC_USB_CMD       4'b1010  
  *    SYNC_MACH_PARAM    4'b1011  ... TODO      
  *    SYNC_DATA          4'b1100  ... TODO:       {VAL} Send immediate data
  *                                                VAL[7:0]: one byte data
+ *    SYNC_EOF           4'b1101                  End of frame                                            
  *    Write 2nd byte of SYNC_CMD[] will push it into SFIFO.
  *    The WB_WRITE got stalled if SFIFO is full.
  */
@@ -43,7 +44,7 @@
 #define SYNC_USB_CMD        0xA000
 #define SYNC_MACH_PARAM     0xB000
 #define SYNC_DATA           0xC000
-// 0xd000 command not available
+#define SYNC_EOF            0xD000
 // 0xe000 command not available
 // 0xf000 command not available
 
@@ -126,12 +127,16 @@
 /**
  *  MACHINE_CTRL,   // [31:24]  RESERVED
  *                  // [23:16]  NUM_JOINTS
- *                  // [15: 3]  RESERVED
- *                  // [ 2: 1]  MOTION_MODE: FREE(0) TELEOP(1) COORD(2)
+ *                  // [15: 4]  RESERVED
+ *                  // [ 3: 1]  MOTION_MODE: 
+ *                                  FREE    (0) 
+ *                                  TELEOP  (1) 
+ *                                  COORD   (2)
+ *                                  HOMING  (4)
  *                  // [    0]  MACHINE_ON
  **/
 #define MCTRL_MACHINE_ON_MASK           0x00000001  // MACHINE_ON mask for MACHINE_CTRL
-#define MCTRL_MOTION_TYPE_MASK          0x00000006  // MOTION_TYPE mask for MACHINE_CTRL
+#define MCTRL_MOTION_TYPE_MASK          0x0000000E  // MOTION_TYPE mask for MACHINE_CTRL
 #define MCTRL_NUM_JOINTS_MASK           0x00FF0000  // NUM_JOINTS mask for MACHINE_CTRL
 
 typedef enum {
@@ -157,9 +162,16 @@ typedef enum {
     RCMD_IDLE = 0,
     RCMD_UPDATE_POS_REQ = 1,
     RCMD_UPDATE_POS_ACK = 2,
-    RCMD_HOST_JOG_REQ,
+    RCMD_PROBE_REQ,
     RCMD_DONE
 } rsic_cmd_t;
+
+typedef enum {
+    RISC_PROBE_LOW = 0,
+    RISC_PROBE_HIGH,
+    RISC_PROBE_FALLING,
+    RISC_PROBE_RISING,
+} rsic_probe_type_t;
 
 // memory map for machine config
 enum machine_parameter_addr {
