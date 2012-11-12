@@ -1902,7 +1902,9 @@ int board_status (struct board *board)
     struct timespec time2, dt;
     int ss, mm, hh;
     char tx_str[BUF_SIZE], rx_str[BUF_SIZE];
-    double data_rate;
+    double data_rate;   // overall data rate
+    double cur_rate;    // current data rate
+    static uint64_t prev_dsize = 0;
 
     clock_gettime(CLOCK_REALTIME, &time2);
 
@@ -1913,22 +1915,16 @@ int board_status (struct board *board)
     // update for every seconds only
     if ((ss > prev_ss) || ((ss == 0) && (prev_ss == 59))) {
 
-        //TODO: FT_STATUS s;
-        //TODO: DWORD r, t, e;
-        //TODO: if (!FT_SUCCESS(s = FT_GetStatus(board->io.usb.ftHandle, &r, &t, &e))) {
-        //TODO:     ERRP("TODO: ERRP()\n");
-        //TODO:     return -1;
-        //TODO: }
-        //TODO: printf ("FT_GetStatus: dwRxBytes(%lu) dwTxBytes(%lu) dwEventDWord(%lu)\n",
-        //TODO:         r, t, e);
-
         dsize_to_str(tx_str, board->wr_dsize);
         dsize_to_str(rx_str, board->rd_dsize);
 
         if (dt.tv_sec > 0) {
             data_rate =
-                (double) ((board->wr_dsize + board->rd_dsize) >> 10) 
-                          * 8.0 / dt.tv_sec;
+                (double) ((board->wr_dsize + board->rd_dsize) >> 10) // divide by 1024 for K-bytes
+                          * 8.0 / dt.tv_sec; // *8 for bps
+            cur_rate = (double) ((board->wr_dsize + board->rd_dsize - prev_dsize) >> 10) // divide by 1024 for K-words
+                          * 8.0; // for bps
+            prev_dsize = board->wr_dsize + board->rd_dsize;
         } else {
             data_rate = 0.0;
         }
@@ -1940,8 +1936,8 @@ int board_status (struct board *board)
 
         // IN(0x%04X), switch_in
         printf
-            ("[%02d:%02d:%02d] tx(%s) rx(%s) (%.2f Kbps)\n",
-             hh, mm, ss, tx_str, rx_str, data_rate);
+            ("[%02d:%02d:%02d] tx(%s) rx(%s) (%.2f, %.2f Kbps)\n",
+             hh, mm, ss, tx_str, rx_str, cur_rate, data_rate);
     }
 
     // okay: printf ("debug: board(%p)\n", board);
