@@ -122,7 +122,9 @@
 #define SPECIAL_CMD_TYPE                0x0008
 #define SPEC_CMD_ACK                    0x00001000
 #define SPEC_CMD_REQ_SYNC               0x00002000
-    
+
+/* PROBE_RESULT bit at machine_status[31:0] */
+#define PROBE_RESULT_BIT                16
 
 /**
  *  MACHINE_CTRL,   // [31:24]  RESERVED
@@ -145,16 +147,7 @@ typedef enum {
     USB_STATUS_READY = 1,
     USB_STATUS_PROBE_HIT = 2,// 2
     USB_STATUS_PROBING = 3,//3
-    USB_STATUS_PROBE_ERROR = 4,//4
     USB_STATUS_ERROR = 5, // 5
-    USB_STATUS_RISC_PROBE_ERROR = 6, // 6
-    // mask: 0x000000f0
-    USB_STATUS_HOME_IDLE  = 0x00000000,
-    USB_STATUS_HOMING 	  = 0x00000010,
-    USB_STATUS_HOMED  	  = 0x00000020,
-    USB_STATUS_HOME_ERROR = 0x00000040,
-    // mask: 0x00000f00
-    USB_STATUS_REQ_CMD_SYNC = 0x00000100
 } usb_status_t;
 
 typedef enum {
@@ -210,8 +203,8 @@ enum machine_parameter_addr {
     ALR_OUTPUT, 
     MACHINE_CTRL,   // [31:24]  RESERVED
                     // [23:16]  NUM_JOINTS
-                    // [15: 3]  RESERVED
-                    // [ 2: 1]  MOTION_MODE: FREE(0) TELEOP(1) COORD(2)
+                    // [15: 4]  RESERVED
+                    // [ 3: 1]  MOTION_MODE: FREE(0) TELEOP(1) COORD(2) HOMING(4)
                     // [    0]  MACHINE_ON
     MACHINE_PARAM_ITEM
 };
