@@ -129,7 +129,8 @@
 /**
  *  MACHINE_CTRL,   // [31:24]  RESERVED
  *                  // [23:16]  NUM_JOINTS
- *                  // [15: 4]  RESERVED
+ *                  // [15: 8]  RESERVED
+ *                  // [ 7: 4]  ACCEL_STATE
  *                  // [ 3: 1]  MOTION_MODE: 
  *                                  FREE    (0) 
  *                                  TELEOP  (1) 
@@ -139,6 +140,7 @@
  **/
 #define MCTRL_MACHINE_ON_MASK           0x00000001  // MACHINE_ON mask for MACHINE_CTRL
 #define MCTRL_MOTION_TYPE_MASK          0x0000000E  // MOTION_TYPE mask for MACHINE_CTRL
+#define MCTRL_ACCEL_STATE_MASK          0x000000F0  // ACCEL_STATE mask for MACHINE_CTRL
 #define MCTRL_NUM_JOINTS_MASK           0x00FF0000  // NUM_JOINTS mask for MACHINE_CTRL
 
 typedef enum {
@@ -203,10 +205,22 @@ enum machine_parameter_addr {
     ALR_OUTPUT, 
     MACHINE_CTRL,   // [31:24]  RESERVED
                     // [23:16]  NUM_JOINTS
-                    // [15: 4]  RESERVED
+                    // [15: 8]  RESERVED
+                    // [ 7: 4]  ACCEL_STATE
                     // [ 3: 1]  MOTION_MODE: FREE(0) TELEOP(1) COORD(2) HOMING(4)
                     // [    0]  MACHINE_ON
     MACHINE_PARAM_ITEM
+};
+
+// accel_state enum for MACHINE_CTRL judgement
+enum accel_state_type {
+  MACH_ACCEL_S0 = (0 << 4), // 0
+  MACH_ACCEL_S1 = (1 << 4),     // 1
+  MACH_ACCEL_S2 = (2 << 4),     // 2
+  MACH_ACCEL_S3 = (3 << 4),     // 3
+  MACH_ACCEL_S4 = (4 << 4),     // 4
+  MACH_ACCEL_S5 = (5 << 4),     // 5
+  MACH_ACCEL_S6 = (6 << 4)      // 6
 };
 
 enum ahc_polarity_enum {
