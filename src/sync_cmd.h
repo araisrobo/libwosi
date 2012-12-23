@@ -123,8 +123,10 @@
 #define SPEC_CMD_ACK                    0x00001000
 #define SPEC_CMD_REQ_SYNC               0x00002000
 
-/* PROBE_RESULT bit at machine_status[31:0] */
+/* bit index for machine_status[31:0] */
+#define FERROR_MASK                     0xFFFF0000  // machine_status[15:0]
 #define PROBE_RESULT_BIT                16
+#define MACHINE_MOVING_BIT              17
 
 /**
  *  MACHINE_CTRL,   // [31:24]  RESERVED
@@ -140,6 +142,7 @@
  **/
 #define MCTRL_MACHINE_ON_MASK           0x00000001  // MACHINE_ON mask for MACHINE_CTRL
 #define MCTRL_MOTION_TYPE_MASK          0x0000000E  // MOTION_TYPE mask for MACHINE_CTRL
+#define MCTRL_HOMING_MASK               0x00000008  // HOMING_MASK for MACHINE_CTRL
 #define MCTRL_ACCEL_STATE_MASK          0x000000F0  // ACCEL_STATE mask for MACHINE_CTRL
 #define MCTRL_NUM_JOINTS_MASK           0x00FF0000  // NUM_JOINTS mask for MACHINE_CTRL
 
