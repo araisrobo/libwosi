@@ -268,9 +268,8 @@ enum motion_parameter_addr {
     ENABLE            ,     // set to 1 to enable joint motion
     MAX_JERK	      ,
     MAX_JERK_RECIP    ,
-    JOG_CONFIG        ,     // [7:0] jog+
-                            // [15:8] jog-
-                            // [31:16] jog-vel: pulse/tick
+    JOG_VEL           ,     // [31:0] jog-vel: pulse/tick
+
     MAX_PARAM_ITEM
 };
 
