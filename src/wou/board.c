@@ -834,18 +834,14 @@ static int wouf_parse (board_t* b, const uint8_t *buf_head)
         return (0);
         // (buf_head[1] == TYP_WOUF)
     } else if (buf_head[1] == MAILBOX) {
-        //debug: fprintf (stderr, "DEBUG: MAILBOX: ");
-        //debug: for (i=0; i < (1 /* sizeof(PLOAD_SIZE_TX) */ + buf_head[0] + CRC_SIZE); i++) {
-        //debug:     fprintf (stderr, "<%.2X>", buf_head[i]);
-        //debug: }
-        //debug: fprintf (stderr, "\n");
-        //debug: fprintf (stderr, "mbox_buf(%p) buf_head(%p)\n", b->mbox_buf, buf_head);
-        
+//        fprintf (stdout, "DEBUG: MAILBOX: ");
+//        for (i=0; i < (1 /* sizeof(PLOAD_SIZE_TX) */ + buf_head[0] + CRC_SIZE); i++) {
+//            fprintf (stdout, "<%.2X>", buf_head[i]);
+//        }
+//        fprintf (stdout, "\n");
+//        fprintf (stdout, "buf_head(%p)\n", buf_head);
         assert (buf_head[0] > 3);
         assert (buf_head[0] < 254);
-        //obsolete: for (i=0; i < (1 /* sizeof(PLOAD_SIZE_TX) */ + buf_head[0]); i++) {
-        //obsolete:     b->mbox_buf[i] = buf_head[i];
-        //obsolete: }
         if (b->wou->mbox_callback) {
             b->wou->mbox_callback(buf_head);
         }
