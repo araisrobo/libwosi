@@ -58,27 +58,6 @@
  * SSIF_RST_POS         0x0004        W       (0x04 ~ 0x05)   reset PULSE/ENC/SWITCH/INDEX positions for homing
  *                                                (11:0)[i]   set to 1 by SW to clear positions 
  *                                                            reset to 0 by HW one cycle after resetting
- * SSIF_SWITCH_EN       0x0006        RW      (0x06 ~ 0x07)   update and lock SWITCH_POS when home switch is toggled
- *                                                  (11:0)[i] set to 1 by SW to update SWITCH_POS[i]
- *                                                            reset to 0 by HW when home switch of JNT[i] is toggled
- * SSIF_INDEX_EN        0x0008        RW      (0x08 ~ 0x09)   update and lock INDEX_POS when motor index switch is toggled
- *                                                  (11:0)[i] set to 1 by SW to update INDEX_POS[i]
- *                                                            reset to 0 by SW after detecting INDEX_LOCK[i]
- * SSIF_INDEX_LOCK      0x000A        R       (0x0A ~ 0x0B)   lock INDEX_POS at posedge of motor index switch
- *                                                  (11:0)[i] set to 1 at posedge of motor index switch 
- *                                                            update INDEX_POS when ((INDEX_LOCK == 0) && (posedge of INDEX))
- *                                                            reset to 0 when INDEX_EN[i] is 0
- * SSIF_MAX_PWM         0x000C        W       (0x0C ~ 0x17)   JNT_0 ~ JNT_11, 8-bits, Max PWM Ratio (Stepper Current Limit)
- * (OR32): SSIF_PULSE_CMD       0X0018        W       (0X18 ~ 0X2F)   JNT_0 ~ JNT_11, PULSE-Position CMD for next BP(Base Period)
- * (OR32):                                                            JNT_ format:    {2'b00, {DIR_W[13], POS_W[12:0]}}
- * SSIF_PULSE_POS       0X0030        R       (0X30 ~ 0X5F)   JNT_0 ~ JNT_11, Current PULSE-Position to Driver
- * SSIF_ENC_POS         0X0060        R       (0X60 ~ 0X8F)   JNT_0 ~ JNT_11, ENCODER-POSITION FROM SERVO DRIVER
- * SSIF_SWITCH_POS      0X0090        R       (0X90 ~ 0XBF)   JNT_0 ~ JNT_11, HOME-SWITCH-POSITION 
- *                                                            servo: based on ENC_POS
- *                                                            stepper: based on PULSE_POS
- * //obsolete: SSIF_INDEX_POS       0X00C0        R       (0XC0 ~ 0XEF)   JNT_0 ~ JNT_11, MOTOR-INDEX-POSITION
- * //obsolete:                                                            servo: based on ENC_POS
- * //obsolete:                                                            stepper: based on PULSE_POS
  *******************************************************************************
  * for 華谷：
  * JNT_0 ~ JNT_2: current limit: 2.12A/phase (DST56EX43A)
@@ -192,24 +171,6 @@
 #define SSIF_RST_POS    0x0004  // W(0x04 ~ 0x05)   reset PULSE/ENC/SWITCH/INDEX positions for homing
                                 //      (11:0)[i]   set to 1 by SW to clear positions 
                                 //                  reset to 0 by HW one cycle after resetting
-#define SSIF_SWITCH_EN  0x0006  //RW(0x06 ~ 0x07)   update and lock SWITCH_POS when home switch is toggled
-                                //        (11:0)[i] set to 1 by SW to update SWITCH_POS[i]
-                                //                  reset to 0 by HW when home switch of JNT[i] is toggled
-#define SSIF_INDEX_EN   0x0008  //RW(0x08 ~ 0x09)   update and lock INDEX_POS when motor index switch is toggled
-                                //        (11:0)[i] set to 1 by SW to update INDEX_POS[i]
-                                //                  reset to 0 by SW after detecting INDEX_LOCK[i]
-#define SSIF_INDEX_LOCK 0x000A  // R(0x0A ~ 0x0B)   lock INDEX_POS at posedge of motor index switch
-                                //        (11:0)[i] set to 1 at posedge of motor index switch 
-                                //                  update INDEX_POS when ((INDEX_LOCK == 0) && (posedge of INDEX))
-                                //                  reset to 0 when INDEX_EN[i] is 0
-#define SSIF_MAX_PWM    0x000C  // W(0x0C ~ 0x17)   JNT_0 ~ JNT_11, 8-bits, Max PWM Ratio (Stepper Current Limit)
-//WB1: #define SSIF_PULSE_CMD  0X0018  // W(0X18 ~ 0X2F)   JNT_0 ~ JNT_11, PULSE-Position CMD for next BP(Base Period)
-//WB1:                                 //                  JNT_ format:    {2'b00, {DIR_W[13], POS_W[12:0]}}
-#define SSIF_PULSE_POS  0X0030  // R(0X30 ~ 0X5F)   JNT_0 ~ JNT_11, Current PULSE-Position to Driver
-#define SSIF_ENC_POS    0X0060  // R(0X60 ~ 0X8F)   JNT_0 ~ JNT_11, ENCODER-POSITION FROM SERVO DRIVER
-#define SSIF_SWITCH_POS 0X0090  // R(0X90 ~ 0XBF)   JNT_0 ~ JNT_11, HOME-SWITCH-POSITION 
-                                //                  servo: based on ENC_POS
-                                //                  stepper: based on PULSE_POS
 // end: registers for SSIF (Servo/Stepper InterFace)
 
 #endif // __wb_regs_h__
