@@ -3,7 +3,7 @@
 
 # the autoconf-2.59 can not process this script correctly
 AC_PREREQ(2.61)
-AC_INIT(libwou, 0.0.1, yishin.li@gmail.com)
+AC_INIT(libwou, 0.0.1, ysli@araisrobo.com)
 AC_CONFIG_SRCDIR([src/wou.c])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])
