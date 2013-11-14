@@ -41,7 +41,7 @@
  * RESERVED             0x17
  * OR32_PROG            0x18          W       0x18 ~ 0x1F, 4 bytes of ADDR and 4 bytes of DATA
  *                                            Write to 0x1F to program OR32.SRAM when (OR32_EN == 0)
- * SYNC_CMD             0x20          W       2-bytes of SYNC commands to JCMD FIFO
+ * JCMD_SYNC_CMD        0x20          W       2-bytes of SYNC commands to JCMD FIFO
  *                                            0x20 ~ 0x3F, size up to 32-bytes
  *******************************************************************************
  
@@ -51,10 +51,14 @@
  * SFIFO_BASE           0x2000
  *******************************************************************************
  * REG_NAME             ADDR_OFFSET   ACCESS  DESCRIPTION
- * SSIF_PULSE_TYPE      0x0000        W       (0x00       )   bitwise mapping for pulse type: (0)AB_PHASE  (1)STEP_DIR
- * SSIF_ENC_TYPE        0x0001        W       (0x01       )   bitwise mapping for encoder type: (0)w/o (1)with encoder
- * SSIF_ENC_POL         0x0002        W       (0x02       )   bitwise mapping for encoder polarity: (0)POSITIVE (1)NEGATIVE 
- * RESERVED             0x0003        W       (0x03       )   RESERVED
+ * SSIF_PULSE_TYPE      0x0000        W       (0x00 ~ 0x01)   bitwise mapping for pulse type: 
+ *                                                            (2'b00)AB_PHASE
+ *                                                            (2'b01)STEP_DIR 
+ *                                                            (2'b10)RESERVED  
+ *                                                            (2'b11)PWM_DIR
+ * SSIF_ENC_TYPE        0x0002        W       (0x02       )   bitwise mapping for encoder type: (0)w/o (1)with encoder
+ * SSIF_ENC_POL         0x0003        W       (0x03       )   bitwise mapping for encoder polarity: (0)POSITIVE (1)NEGATIVE 
+ * TODO: obsolete SSIF_RST_POS
  * SSIF_RST_POS         0x0004        W       (0x04 ~ 0x05)   reset PULSE/ENC/SWITCH/INDEX positions for homing
  *                                                (11:0)[i]   set to 1 by SW to clear positions 
  *                                                            reset to 0 by HW one cycle after resetting
@@ -142,32 +146,17 @@
 #define RT_ABORT        0x00000001
 // end:   OR32_RT_CMD format
 
-// begin: SYNC_CMD format
-// joint command
-// digital input / output command
-//#define POS_COMP_REF(t) ((0x07FF&t) << 1)
-//#define SYNC_IO_ID(i)   ((i & 0x3F) << 6)
-//#define SYNC_DO_VAL(v)  ((v & 0x01) << 0)
-//#define SYNC_DI_TYPE(t) ((t & 0x07) << 0) // support LOW and HIGH ONLY, TODO: support FALL and RISE
-//    NAME        OP_COVDE[15:12]  OPERAND[11:0]   Description
-//    SYNC_DOUT   4'b0100          {ID, VAL}       ID[11:6]: Output PIN ID
-//                                                VAL[0]:   ON(1), OFF(0)
-//    SYNC_DIN    4'b0101          {ID, TYPE}      ID[11:6]: Input PIN ID
-//                                                 TYPE[2:0]: LOW(000), HIGH(001), FALL(010), RISE(011) TIMEOUT(100)
-// immediate data command
-// set motion parameter command
-
-// (0x40 ~ 0x7F) RESERVED
-
 // begin: registers for SSIF (Servo/Stepper InterFace)
 #define SSIF_BASE       0x2000
 //      REGISTERS       OFFSET  // DESCRIPTION
-#define SSIF_PULSE_TYPE 0x0000  // W(0x00       )   bitwise mapping for pulse type: (0)AB_PHASE  (1)STEP_DIR
-#define PTYPE_AB_PHASE    0x00
-#define PTYPE_STEP_DIR    0x01
-#define SSIF_ENC_TYPE   0x0001  // W(0x01       )   bitwise mapping for encoder type: (0)w/o  (1)with encoder
-#define SSIF_ENC_POL    0x0002  // W(0x02       )   bitwise mapping for encoder polarity: (0)POSITIVE (1)NEGATIVE 
-//      RESERVED        0x0003
+#define SSIF_PULSE_TYPE 0x0000  // W(0x00 ~ 0x01)   bitwise mapping for pulse type: 
+#define PTYPE_AB_PHASE    0x00  //                  (2'b00)AB_PHASE
+#define PTYPE_STEP_DIR    0x01  //                  (2'b01)STEP_DIR 
+                                //                  (2'b10)RESERVED  
+#define PTYPE_PWM_DIR     0x03  //                  (2'b11)PWM_DIR
+#define SSIF_ENC_TYPE   0x0002  // W(0x02       )   bitwise mapping for encoder type: (0)w/o  (1)with encoder
+#define SSIF_ENC_POL    0x0003  // W(0x03       )   bitwise mapping for encoder polarity: (0)POSITIVE (1)NEGATIVE 
+// TODO: obsolete SSIF_RST_POS
 #define SSIF_RST_POS    0x0004  // W(0x04 ~ 0x05)   reset PULSE/ENC/SWITCH/INDEX positions for homing
                                 //      (11:0)[i]   set to 1 by SW to clear positions 
                                 //                  reset to 0 by HW one cycle after resetting

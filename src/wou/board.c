@@ -1513,15 +1513,29 @@ int wou_eof (board_t* b, uint8_t wouf_cmd)
     if (b->wou->rt_cmd_callback) {
         b->wou->rt_cmd_callback();
     }
-    wou_send(b);
-    wou_recv(b);    // update GBN pointer if receiving Rn
 
-    assert(wou_frame_->use == 0);   // wou protocol assume cur-wouf_ must be empty to write to
+    do {
+        wou_send(b);
+        wou_recv(b);    // update GBN pointer if receiving Rn
+        if (next_5_wouf_->use)
+        {
+            struct timespec treq, trem;
+            // request for 0.5ms to sleep
+            treq.tv_sec = 0;
+            treq.tv_nsec = 500000;   // 0.5ms
+            if (nanosleep(&treq, &trem))
+            {
+                printf("WARN: wou_eof(): nanosleep got interrupted\n");
+            }
+        }
+    } while (next_5_wouf_->use);
+
     if (next_5_wouf_->use) {
         // printf ("woufs almost full\n");
         return -1;  // WOUFS is almost full
     } else {
         // init the wouf buffer and tid
+        assert(wou_frame_->use == 0);   // wou protocol assume cur-wouf_ must be empty to write to
         b->wou->tid += 1;   // tid: 0 ~ 255
         wouf_init (b);
         return 0;
