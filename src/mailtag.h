@@ -5,7 +5,7 @@
 #define MT_MOTION_STATUS    0x0001
 #define MT_ERROR_CODE       0x0002
 #define MT_USB_STATUS       0x0003
-#define MT_TICK             0x0004
+//      RESERVED            0x0004
 #define MT_DEBUG            0x0005
 #define MT_RISC_CMD         0x0006
 #define MT_HOME_SWITCH      0x0007
