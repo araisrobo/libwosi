@@ -62,14 +62,9 @@ information, go to www.linuxcnc.org.
 #include <time.h>
 #include <sys/param.h>  // for MIN() and MAX()
 
-#include <config.h>
-#ifdef HAVE_LIBFTD2XX
-#include <ftd2xx.h>     // from FTDI
-#else
-#ifdef HAVE_LIBFTDI
+#include <libusb.h>
 #include <ftdi.h>       // from FTDI
-#endif  // HAVE_LIBFTDI
-#endif  // HAVE_LIBFTD2XX
+
 
 #include "wb_regs.h"
 #include "bitfile.h"
@@ -81,7 +76,7 @@ information, go to www.linuxcnc.org.
 #define TRACE 0
 #include "dptrace.h"
 #if (TRACE!=0)
-FILE *dptrace; // dptrace = fopen("dptrace.log","w");
+static FILE *dptrace; // dptrace = fopen("dptrace.log","w");
 #endif
 
 
@@ -390,7 +385,7 @@ int board_init (board_t* board, const char* device_type, const int device_id,
     int i;
 
 #if (TRACE!=0)
-    dptrace = fopen("dptrace.log","w");
+    dptrace = fopen("wou.log","w");
     // dptrace = stderr;
 #endif
 
@@ -440,66 +435,6 @@ int board_init (board_t* board, const char* device_type, const int device_id,
     crcInit();
 
     return 0;
-}
-
-int board_reconnect(board_t* board) {
-	int ret, cfg;
-	struct ftdi_context *ftdic;
-	uint8_t cBufWrite;
-    ftdic = &(board->io.usb.ftdic);
-    if ((ret = ftdi_usb_close(ftdic)) < 0)
-    {
-        ERRP("unable to close ftdi device: %d (%s)\n", ret, ftdi_get_error_string(ftdic));
-        return EXIT_FAILURE;
-    }
-    ftdi_deinit(ftdic);
-    if(board->io.usb.rx_tc) {
-    	free(board->io.usb.rx_tc);
-    }
-    if(board->io.usb.tx_tc){
-
-    	free(board->io.usb.tx_tc);
-    }
-	board->io.usb.rx_tc = NULL;    // init transfer_control for async-read
-	board->io.usb.tx_tc = NULL;    // init transfer_control for async-write
-	ftdic = &(board->io.usb.ftdic);
-	if (ftdi_init(ftdic) < 0)
-	{
-		ERRP("ftdi_init failed\n");
-		return EXIT_FAILURE;
-	}
-	ftdic->usb_read_timeout = 1000;
-	ftdic->usb_write_timeout = 1000;
-	ftdic->writebuffer_chunksize = TX_CHUNK_SIZE;
-	if (ret = ftdi_read_data_set_chunksize(ftdic, RX_CHUNK_SIZE) < 0) {
-		ERRP("ftdi_read_data_set_chunksize(): %d (%s)\n",
-			  ret, ftdi_get_error_string(ftdic));
-		return EXIT_FAILURE;
-	}
-
-	if ((ret = ftdi_usb_open(ftdic, 0x0403, 0x6001)) < 0)
-	{
-		ERRP("unable to open ftdi device: %d (%s)\n", ret, ftdi_get_error_string(ftdic));
-		return EXIT_FAILURE;
-	}
-
-	if ((ret = ftdi_set_latency_timer(ftdic, 1)) < 0)
-	{
-		ERRP("ftdi_set_latency_timer(): %d (%s)\n", ret, ftdi_get_error_string(ftdic));
-		return EXIT_FAILURE;
-	}
-	// RESET TX&RX Registers
-	if (board->io.usb.tx_tc) {
-		// finishing pending async write
-		ftdi_transfer_data_done (board->io.usb.tx_tc);
-		board->io.usb.tx_tc = NULL;
-	}
-	board->wou->tx_size = 0;
-
-	board->wou->Sn = board->wou->Sb;
-	DP("board_reconnect\n");
-
-	return 0;
 }
 
 int board_connect (board_t* board)
@@ -738,7 +673,8 @@ static int wouf_parse (board_t* b, const uint8_t *buf_head)
         advance = tidR - *tidSb;
 
         // about to update Rn
-        if ((advance > 0) && (advance < NR_OF_WIN)) {
+        if (advance <= NR_OF_WIN)
+        {
             // If you receive a request number where Rn > Sb
             // Sm = Sm + (Rn – Sb)
             tmp = *Sm + advance;
@@ -777,7 +713,6 @@ static int wouf_parse (board_t* b, const uint8_t *buf_head)
             ERRP ("got an un-expected tidR: advance(%d)\n", advance);
             ERRP ("tidR(%02X), tidSb(%02X), Sb(%02X), Sn(%02X), Sm(%02X)\n",
                    tidR, *tidSb, *Sb, *Sn, *Sm);
-            assert(0);
             // DEBUG:
             fprintf (stderr, "DEBUG: buf_head: ");
             for (i=0; i < (1 + buf_head[0] + CRC_SIZE); i++) {
@@ -890,9 +825,10 @@ void wou_recv (board_t* b)
         // assert (b->io.usb.rx_tc->transfer != NULL);
         // there's previous pending async read
         if (b->io.usb.rx_tc->transfer) {
-            if (libusb_handle_events_timeout(ftdic->usb_ctx, &poll_timeout) < 0)
+            assert (ftdic->usb_dev != NULL);
+            if (libusb_handle_events_timeout_completed(ftdic->usb_ctx, &poll_timeout, &(b->io.usb.rx_tc->completed)) < 0)
             {
-                ERRP("libusb_handle_events_timeout() (%s)\n", ftdi_get_error_string(ftdic));
+                ERRP("libusb_handle_events_timeout_completed() (%s)\n", ftdi_get_error_string(ftdic));
             }
             DP ("libusb_handle_events...\n");
             DP ("readbuffer_remaining(%u)\n", ftdic->readbuffer_remaining);
@@ -905,7 +841,6 @@ void wou_recv (board_t* b)
                 recvd = 0;  // to issue another ftdi_read_data_submit()
             } 
             b->io.usb.rx_tc = NULL;
-
         } else {
             return;
         }
@@ -1003,8 +938,7 @@ void wou_recv (board_t* b)
                 // CRC pass; about to parse WOU_FRAME
                 if (wouf_parse (b, buf_head)) {
                     // un-expected Rn
-                    fprintf (stderr, "wou: wouf_parse() error ... \n");
-                    assert(0);
+                    ERRP ("wou: wouf_parse() error ... \n");
                 } else {
                     // expected Rn
                     *rx_size -= (1 + pload_size_tx + CRC_SIZE);
@@ -1088,14 +1022,8 @@ void wou_recv (board_t* b)
                             MIN(RX_BURST_MIN + ftdic->readbuffer_remaining, RX_CHUNK_SIZE))) 
                             == NULL) 
     {
-        ERRP("ftdi_read_data_submit(): %s\n", ftdi_get_error_string (ftdic));
-        ERRP("rx_size(%d)\n", *rx_size);
-
-        if(!strcmp(ftdi_get_error_string(ftdic),"cancel transfer failed (-5:libusb_error_not_found)")) {
-            if(board_reconnect(b) == 0 ) assert(0);
-        } else if(!strcmp(ftdi_get_error_string(ftdic),"invalid ftdi context OR invalid usb device")){
-            board_reconnect(b);
-        }
+         ERRP("ftdi_read_data_submit(): %s\n", ftdi_get_error_string (ftdic));
+         ERRP("rx_size(%d)\n", *rx_size);
     }
 #endif
     return;
@@ -1267,8 +1195,9 @@ static void wou_send (board_t* b)
         // there's previous pending async write
         if (b->io.usb.tx_tc->transfer) {
             struct timeval poll_timeout = {0,0};
-            if (libusb_handle_events_timeout(ftdic->usb_ctx, &poll_timeout) < 0) {
-                ERRP("libusb_handle_events_timeout() (%s)\n", ftdi_get_error_string(ftdic));
+            assert (ftdic->usb_dev != NULL);
+            if (libusb_handle_events_timeout_completed(ftdic->usb_ctx, &poll_timeout, &(b->io.usb.tx_tc->completed)) < 0) {
+                ERRP("libusb_handle_events_timeout_completed() (%s)\n", ftdi_get_error_string(ftdic));
             }
             DP ("toggle USB\n");
         }
@@ -1325,20 +1254,12 @@ static void wou_send (board_t* b)
     if(count_tx_fail > TX_FAIL_COUNT + TX_FAIL_NUM_IN_ROW) count_tx_fail = 0;
 
 #else
-    /*fprintf(stderr,"ftdi_poll_modem_status() = %d\n",
-            		ftdi_poll_modem_status(ftdic, &status));
-	fprintf(stderr,"ftdi_poll_modem_status() status (%0X)\n",status);*/
     b->io.usb.tx_tc = ftdi_write_data_submit (
                             ftdic, 
                             buf_tx, 
                             MIN(*tx_size, TX_BURST_MAX));
     if (b->io.usb.tx_tc == NULL) {
-
-        ERRP("ftdi_write_data_submit(): %s\n", 
-             ftdi_get_error_string (ftdic));
-
-      //  assert(0);
-
+         ERRP("ftdi_write_data_submit(): %s\n", ftdi_get_error_string (ftdic));
     } else {
     	clock_gettime(CLOCK_REALTIME, &time_send_begin);
     }
@@ -1346,9 +1267,13 @@ static void wou_send (board_t* b)
 #endif
     // request for rx
     DP ("dwBytesWritten(%d) tx_size(%d)\n", dwBytesWritten, *tx_size);
-    DP("tx_tc.completed(%d)\n", b->io.usb.tx_tc->completed);
-    DP("tx_tc->transfer->status(%d)\n", b->io.usb.tx_tc->transfer->status);
-    DP("tx_tc->transfer->actual_length(%d)\n", b->io.usb.tx_tc->transfer->actual_length);
+    if (b->io.usb.tx_tc) {
+        DP("tx_tc.completed(%d)\n", b->io.usb.tx_tc->completed);
+        if (b->io.usb.tx_tc->transfer) {
+            DP("tx_tc->transfer->status(%d)\n", b->io.usb.tx_tc->transfer->status);
+            DP("tx_tc->transfer->actual_length(%d)\n", b->io.usb.tx_tc->transfer->actual_length);
+        }
+    }
 
 #if(TRACE)
     DP ("buf_tx: tx_size(%d), sent(%d)", *tx_size, MIN(*tx_size, TX_BURST_MAX));
@@ -1401,7 +1326,8 @@ static void rt_wou_send (board_t* b)
         // there's previous pending async write
         if (b->io.usb.tx_tc->transfer) {
             struct timeval poll_timeout = {0,0};
-            if (libusb_handle_events_timeout(ftdic->usb_ctx, &poll_timeout) < 0) {
+            assert (ftdic->usb_dev != NULL);
+            if (libusb_handle_events_timeout_completed(ftdic->usb_ctx, &poll_timeout, &(b->io.usb.tx_tc->completed)) < 0) {
                 ERRP("libusb_handle_events_timeout() (%s)\n", ftdi_get_error_string(ftdic));
             }
             DP ("toggle USB\n");
@@ -1446,9 +1372,7 @@ static void rt_wou_send (board_t* b)
                             buf_tx, 
                             MIN(*tx_size, TX_BURST_MAX));
     if (b->io.usb.tx_tc == NULL) {
-
-        ERRP("ftdi_write_data_submit(): %s\n", 
-             ftdi_get_error_string (ftdic));
+        // ERRP("ftdi_write_data_submit(): %s\n", ftdi_get_error_string (ftdic));
     }/* else {
     	clock_gettime(CLOCK_REALTIME, &time_send_begin);
     }*/
@@ -1515,8 +1439,33 @@ int wou_eof (board_t* b, uint8_t wouf_cmd)
     }
 
     do {
+        int rc;
+        struct timeval tv = {0,0};
+        struct ftdi_context *ftdic;
+    
+        ftdic = &(b->io.usb.ftdic);
+
+        rc = 0;
+        while (ftdic->usb_connected == 0) {
+            struct timespec time;
+            time.tv_sec = 0;
+            time.tv_nsec = 25000000;   // 25ms
+            nanosleep(&time, NULL);
+            libusb_handle_events_timeout_completed(ftdic->usb_ctx, &tv, NULL);
+            if (rc == 0) {
+                printf ("board.c: usb is not connected\n");
+                rc = 1;
+            }
+        }
+
+        assert (ftdic->usb_dev != NULL);
+        rc = libusb_handle_events_timeout_completed(ftdic->usb_ctx, &tv, NULL);
+        if (rc < 0)
+                printf("libusb_handle_events() failed: %s\n", libusb_error_name(rc));
+
         wou_send(b);
         wou_recv(b);    // update GBN pointer if receiving Rn
+
         // if (next_5_wouf_->use)
         // {
         //     struct timespec treq, trem;

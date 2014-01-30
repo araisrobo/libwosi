@@ -1,3 +1,10 @@
+libwou (0.2-2014.01.23) lucid; urgency=low
+
+  * Build with upstream libftdi-1.0 (libftdi1)
+  * Update debian packaging scripts
+
+ -- Yi-Shin Li <ysli@araisrobo.com>  Thu, 23 Jan 2014 22:38:23 +0800
+
 libwou (0.1-2012.10.19) lucid; urgency=low
 
   * BUGFIX to RT_ABORT communication protocol

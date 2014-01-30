@@ -60,7 +60,7 @@ HAVELIBFTDI=no
 AS_IF([test "x$with_libftdi" != xno], [
   save_LIBS=$LIBS
   save_CPPFLAGS=$CPPFLAGS
-  PKG_CHECK_MODULES(LIBFTDI, libftdi, [:;], [dnl
+  PKG_CHECK_MODULES(LIBFTDI, libftdi1, [:;], [dnl
     AS_IF([test "x$with_libftdi" != xyes -a "x$with_libftdi" != xcheck], [
       LIBFTDI_LIBS="-L$with_libftdi -lftdi"
       LIBFTDI_CFLAGS="-I$with_libftdi"
