@@ -829,6 +829,7 @@ void wou_recv (board_t* b)
             if (libusb_handle_events_timeout_completed(ftdic->usb_ctx, &poll_timeout, &(b->io.usb.rx_tc->completed)) < 0)
             {
                 ERRP("libusb_handle_events_timeout_completed() (%s)\n", ftdi_get_error_string(ftdic));
+                return;
             }
             DP ("libusb_handle_events...\n");
             DP ("readbuffer_remaining(%u)\n", ftdic->readbuffer_remaining);
@@ -1198,6 +1199,7 @@ static void wou_send (board_t* b)
             assert (ftdic->usb_dev != NULL);
             if (libusb_handle_events_timeout_completed(ftdic->usb_ctx, &poll_timeout, &(b->io.usb.tx_tc->completed)) < 0) {
                 ERRP("libusb_handle_events_timeout_completed() (%s)\n", ftdi_get_error_string(ftdic));
+                return;
             }
             DP ("toggle USB\n");
         }
@@ -1329,6 +1331,7 @@ static void rt_wou_send (board_t* b)
             assert (ftdic->usb_dev != NULL);
             if (libusb_handle_events_timeout_completed(ftdic->usb_ctx, &poll_timeout, &(b->io.usb.tx_tc->completed)) < 0) {
                 ERRP("libusb_handle_events_timeout() (%s)\n", ftdi_get_error_string(ftdic));
+                return;
             }
             DP ("toggle USB\n");
         }
@@ -1453,7 +1456,8 @@ int wou_eof (board_t* b, uint8_t wouf_cmd)
             nanosleep(&time, NULL);
             libusb_handle_events_timeout_completed(ftdic->usb_ctx, &tv, NULL);
             if (rc == 0) {
-                printf ("board.c: usb is not connected\n");
+                // rc: prevent pollute screen with ERRP()
+                ERRP ("board.c: usb is not connected\n");
                 rc = 1;
             }
         }
@@ -1461,7 +1465,7 @@ int wou_eof (board_t* b, uint8_t wouf_cmd)
         assert (ftdic->usb_dev != NULL);
         rc = libusb_handle_events_timeout_completed(ftdic->usb_ctx, &tv, NULL);
         if (rc < 0)
-                printf("libusb_handle_events() failed: %s\n", libusb_error_name(rc));
+                ERRP ("libusb_handle_events() failed: %s\n", libusb_error_name(rc));
 
         wou_send(b);
         wou_recv(b);    // update GBN pointer if receiving Rn
