@@ -837,7 +837,7 @@ void wou_recv (board_t* b)
         if (b->io.usb.rx_tc->completed) {
             recvd = ftdi_transfer_data_done (b->io.usb.rx_tc);
             if (recvd < 0) {
-                ERRP("recvd(%d) (%s)\n", recvd, ftdi_get_error_string(ftdic));
+                ERRP("recvd(%d)\n", recvd);
                 ERRP("readbuffer_remaining(%u)\n", ftdic->readbuffer_remaining);
                 recvd = 0;  // to issue another ftdi_read_data_submit()
             } 
@@ -1056,7 +1056,11 @@ static void wou_send (board_t* b)
         // RESET TX&RX Registers
         if (b->io.usb.tx_tc) {
             // finishing pending async write
-            ftdi_transfer_data_done (b->io.usb.tx_tc);
+            dwBytesWritten = ftdi_transfer_data_done (b->io.usb.tx_tc);
+            if (dwBytesWritten < 0) {
+                ERRP("dwBytesWritten(%d)\n", dwBytesWritten);
+                dwBytesWritten = 0;  // to issue another ftdi_write_data_submit()
+            }
             b->io.usb.tx_tc = NULL;
         }
         b->wou->tx_size = 0;
@@ -1261,7 +1265,7 @@ static void wou_send (board_t* b)
                             buf_tx, 
                             MIN(*tx_size, TX_BURST_MAX));
     if (b->io.usb.tx_tc == NULL) {
-         ERRP("ftdi_write_data_submit(): %s\n", ftdi_get_error_string (ftdic));
+         ERRP("ftdi_write_data_submit()\n");
     } else {
     	clock_gettime(CLOCK_REALTIME, &time_send_begin);
     }
@@ -1375,10 +1379,10 @@ static void rt_wou_send (board_t* b)
                             buf_tx, 
                             MIN(*tx_size, TX_BURST_MAX));
     if (b->io.usb.tx_tc == NULL) {
-        // ERRP("ftdi_write_data_submit(): %s\n", ftdi_get_error_string (ftdic));
-    }/* else {
+        ERRP("ftdi_write_data_submit()\n");
+    } else {
     	clock_gettime(CLOCK_REALTIME, &time_send_begin);
-    }*/
+    }
     return;
 }
 
