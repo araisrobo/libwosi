@@ -829,6 +829,7 @@ void wou_recv (board_t* b)
             if (libusb_handle_events_timeout_completed(ftdic->usb_ctx, &poll_timeout, &(b->io.usb.rx_tc->completed)) < 0)
             {
                 ERRP("libusb_handle_events_timeout_completed() (%s)\n", ftdi_get_error_string(ftdic));
+                return;
             }
             DP ("libusb_handle_events...\n");
             DP ("readbuffer_remaining(%u)\n", ftdic->readbuffer_remaining);
@@ -836,7 +837,7 @@ void wou_recv (board_t* b)
         if (b->io.usb.rx_tc->completed) {
             recvd = ftdi_transfer_data_done (b->io.usb.rx_tc);
             if (recvd < 0) {
-                ERRP("recvd(%d) (%s)\n", recvd, ftdi_get_error_string(ftdic));
+                ERRP("recvd(%d)\n", recvd);
                 ERRP("readbuffer_remaining(%u)\n", ftdic->readbuffer_remaining);
                 recvd = 0;  // to issue another ftdi_read_data_submit()
             } 
@@ -1055,7 +1056,11 @@ static void wou_send (board_t* b)
         // RESET TX&RX Registers
         if (b->io.usb.tx_tc) {
             // finishing pending async write
-            ftdi_transfer_data_done (b->io.usb.tx_tc);
+            dwBytesWritten = ftdi_transfer_data_done (b->io.usb.tx_tc);
+            if (dwBytesWritten < 0) {
+                ERRP("dwBytesWritten(%d)\n", dwBytesWritten);
+                dwBytesWritten = 0;  // to issue another ftdi_write_data_submit()
+            }
             b->io.usb.tx_tc = NULL;
         }
         b->wou->tx_size = 0;
@@ -1198,6 +1203,7 @@ static void wou_send (board_t* b)
             assert (ftdic->usb_dev != NULL);
             if (libusb_handle_events_timeout_completed(ftdic->usb_ctx, &poll_timeout, &(b->io.usb.tx_tc->completed)) < 0) {
                 ERRP("libusb_handle_events_timeout_completed() (%s)\n", ftdi_get_error_string(ftdic));
+                return;
             }
             DP ("toggle USB\n");
         }
@@ -1259,7 +1265,7 @@ static void wou_send (board_t* b)
                             buf_tx, 
                             MIN(*tx_size, TX_BURST_MAX));
     if (b->io.usb.tx_tc == NULL) {
-         ERRP("ftdi_write_data_submit(): %s\n", ftdi_get_error_string (ftdic));
+         ERRP("ftdi_write_data_submit()\n");
     } else {
     	clock_gettime(CLOCK_REALTIME, &time_send_begin);
     }
@@ -1329,6 +1335,7 @@ static void rt_wou_send (board_t* b)
             assert (ftdic->usb_dev != NULL);
             if (libusb_handle_events_timeout_completed(ftdic->usb_ctx, &poll_timeout, &(b->io.usb.tx_tc->completed)) < 0) {
                 ERRP("libusb_handle_events_timeout() (%s)\n", ftdi_get_error_string(ftdic));
+                return;
             }
             DP ("toggle USB\n");
         }
@@ -1372,10 +1379,10 @@ static void rt_wou_send (board_t* b)
                             buf_tx, 
                             MIN(*tx_size, TX_BURST_MAX));
     if (b->io.usb.tx_tc == NULL) {
-        // ERRP("ftdi_write_data_submit(): %s\n", ftdi_get_error_string (ftdic));
-    }/* else {
+        ERRP("ftdi_write_data_submit()\n");
+    } else {
     	clock_gettime(CLOCK_REALTIME, &time_send_begin);
-    }*/
+    }
     return;
 }
 
@@ -1455,7 +1462,8 @@ int wou_eof (board_t* b, uint8_t wouf_cmd)
             nanosleep(&time, NULL);
             libusb_handle_events_timeout_completed(ftdic->usb_ctx, &tv, NULL);
             if (rc == 0) {
-                printf ("board.c: usb is not connected\n");
+                // rc: prevent pollute screen with ERRP()
+                ERRP ("board.c: usb is not connected\n");
                 rc = 1;
             }
         }
@@ -1463,7 +1471,7 @@ int wou_eof (board_t* b, uint8_t wouf_cmd)
         assert (ftdic->usb_dev != NULL);
         rc = libusb_handle_events_timeout_completed(ftdic->usb_ctx, &tv, NULL);
         if (rc < 0)
-                printf("libusb_handle_events() failed: %s\n", libusb_error_name(rc));
+                ERRP ("libusb_handle_events() failed: %s\n", libusb_error_name(rc));
 
         wou_send(b);
         wou_recv(b);    // update GBN pointer if receiving Rn
