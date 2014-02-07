@@ -1387,6 +1387,7 @@ int wou_eof (board_t* b, uint8_t wouf_cmd)
     uint16_t    crc16;
     int         next_5_clock;
     wouf_t      *next_5_wouf_;
+    uint32_t    idle_cnt;
 
     cur_clock = (int) b->wou->clock;
     wou_frame_ = &(b->wou->woufs[cur_clock]);
@@ -1438,6 +1439,7 @@ int wou_eof (board_t* b, uint8_t wouf_cmd)
         b->wou->rt_cmd_callback();
     }
 
+    idle_cnt = 0;
     do {
         int rc;
         struct timeval tv = {0,0};
@@ -1477,6 +1479,11 @@ int wou_eof (board_t* b, uint8_t wouf_cmd)
         //         printf("WARN: wou_eof(): nanosleep got interrupted\n");
         //     }
         // }
+        if (idle_cnt > 0)
+        {
+            printf ("WOU BUSY: %d\n", idle_cnt);
+        }
+        idle_cnt ++;
     } while (next_5_wouf_->use);
 
     // if (next_5_wouf_->use) {
