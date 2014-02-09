@@ -135,6 +135,7 @@ static uint32_t count_rx_fail = 0;
 // for updating board_status:
 static struct timespec time_begin;
 static struct timespec time_send_begin;
+static struct timespec time_send_success; // time of a success send transfer
 
 static int prev_ss;
 
@@ -230,7 +231,9 @@ int board_risc_prog(struct board* board, const char* binfile)
     data[0] = 0x00;
     wou_append (board, (const uint8_t) WB_WR_CMD, (const uint16_t)(JCMD_BASE | OR32_CTRL),
     		(const uint16_t)1, data); //wou_cmd
-
+    // RESET TX_TIMEOUT:
+    clock_gettime(CLOCK_REALTIME, &time_send_begin);
+    clock_gettime(CLOCK_REALTIME, &time_send_success);
     while(wou_eof (board, TYP_WOUF) == -1); //wou_flush(&w_param);
 
 
@@ -427,8 +430,9 @@ int board_init (board_t* board, const char* device_type, const int device_id,
     board->wou->crc_error_callback = NULL;
     board->wou->rt_cmd_callback = NULL;
     board->wou->crc_error_counter = 0;
-    // for calculating TX_TIMEOUT:
+    // RESET TX_TIMEOUT:
     clock_gettime(CLOCK_REALTIME, &time_send_begin);
+    clock_gettime(CLOCK_REALTIME, &time_send_success);
     gbn_init (board);
 
     // init CRC look-up table
@@ -816,6 +820,8 @@ void wou_recv (board_t* b)
     struct timeval    poll_timeout = {0,0};
 
     ftdic = &(b->io.usb.ftdic);
+    if (ftdic->usb_connected == 0) return;
+
     rx_size = &(b->wou->rx_size);
     buf_rx = b->wou->buf_rx;
     rx_state = &(b->wou->rx_state);
@@ -1045,14 +1051,21 @@ static void wou_send (board_t* b)
     int         *tx_size;
     unsigned short status;
     struct ftdi_context     *ftdic;
+
     ftdic = &(b->io.usb.ftdic);
+    if (ftdic->usb_connected == 0) return;
 
     clock_gettime(CLOCK_REALTIME, &time2);
-    dt = diff(time_send_begin,time2);
-    if (dt.tv_sec > 0 || dt.tv_nsec > TX_TIMEOUT) { 
+    dt = diff(time_send_success, time2);
+    if (dt.tv_sec > 0 || dt.tv_nsec > TX_TIMEOUT) {
+        // reset time_send_success
+        clock_gettime(CLOCK_REALTIME, &time_send_success);
         // TODO: deal with timeout value for GO-BACK-N
         DP ("dt.sec(%lu), dt.nsec(%lu)\n", dt.tv_sec, dt.tv_nsec);
         DP ("TX TIMEOUT, Sm(%d) Sn(%d) Sb(%d)\n", b->wou->Sm, b->wou->Sn, b->wou->Sb);
+        ERRP ("TX TIMEOUT\n");
+        ERRP ("dt.sec(%lu), dt.nsec(%lu)\n", dt.tv_sec, dt.tv_nsec);
+        ERRP ("Sm(%d) Sn(%d) Sb(%d)\n", b->wou->Sm, b->wou->Sn, b->wou->Sb);
         // RESET TX&RX Registers
         if (b->io.usb.tx_tc) {
             // finishing pending async write
@@ -1065,7 +1078,8 @@ static void wou_send (board_t* b)
         }
         b->wou->tx_size = 0;
         b->wou->Sn = b->wou->Sb;
-        DP("TX TIMEOUT,Sm,Sn,Sb reconfig Sm(%d) Sn(%d) Sb(%d)\n", b->wou->Sm, b->wou->Sn, b->wou->Sb);
+        DP ("RESET Sm(%d) Sn(%d) Sb(%d)\n", b->wou->Sm, b->wou->Sn, b->wou->Sb);
+        ERRP ("RESET Sm(%d) Sn(%d) Sb(%d)\n", b->wou->Sm, b->wou->Sn, b->wou->Sb);
      }
 
     tx_size = &(b->wou->tx_size);
@@ -1209,10 +1223,23 @@ static void wou_send (board_t* b)
         }
         if (b->io.usb.tx_tc->completed) {
             dwBytesWritten = ftdi_transfer_data_done (b->io.usb.tx_tc);
-            if (dwBytesWritten < 0) {
+            if (dwBytesWritten <= 0)
+            {
                 ERRP("dwBytesWritten(%d) (%s)\n", dwBytesWritten, ftdi_get_error_string(ftdic));
                 dwBytesWritten = 0;  // to issue another ftdi_write_data_submit()
             } 
+            else
+            {
+                // a successful write
+                clock_gettime(CLOCK_REALTIME, &time_send_success);
+#if (TRACE != 0)
+                dt = diff(time_send_begin, time_send_success);
+#endif
+                DP ("tx_size(%d), dwBytesWritten(%d,0x%08X), dt.sec(%lu), dt.nsec(%lu)\n",
+                     *tx_size, dwBytesWritten, dwBytesWritten, dt.tv_sec, dt.tv_nsec);
+                DP ("bitrate(%f Mbps)\n",
+                     8.0*dwBytesWritten/(1000000.0*dt.tv_sec+dt.tv_nsec/1000.0));
+            }
             b->io.usb.tx_tc = NULL;
         } else {
            return;
@@ -1224,12 +1251,6 @@ static void wou_send (board_t* b)
     assert(b->io.usb.tx_tc == NULL);
     
     if (dwBytesWritten) {
-        clock_gettime(CLOCK_REALTIME, &time2);
-        dt = diff(time_send_begin,time2);
-        DP ("tx_size(%d), dwBytesWritten(%d,0x%08X), dt.sec(%lu), dt.nsec(%lu)\n", 
-             *tx_size, dwBytesWritten, dwBytesWritten, dt.tv_sec, dt.tv_nsec);
-        DP ("bitrate(%f Mbps)\n", 
-             8.0*dwBytesWritten/(1000000.0*dt.tv_sec+dt.tv_nsec/1000.0));
         assert (dwBytesWritten <= *tx_size);
         b->wr_dsize += dwBytesWritten;
         *tx_size -= dwBytesWritten;
@@ -1264,9 +1285,11 @@ static void wou_send (board_t* b)
                             ftdic, 
                             buf_tx, 
                             MIN(*tx_size, TX_BURST_MAX));
-    if (b->io.usb.tx_tc == NULL) {
+    if (b->io.usb.tx_tc == NULL)
+    {
          ERRP("ftdi_write_data_submit()\n");
-    } else {
+    }
+    else {
     	clock_gettime(CLOCK_REALTIME, &time_send_begin);
     }
 
@@ -1341,10 +1364,23 @@ static void rt_wou_send (board_t* b)
         }
         if (b->io.usb.tx_tc->completed) {
             dwBytesWritten = ftdi_transfer_data_done (b->io.usb.tx_tc);
-            if (dwBytesWritten < 0) {
+            if (dwBytesWritten <= 0)
+            {
                 ERRP("dwBytesWritten(%d) (%s)\n", dwBytesWritten, ftdi_get_error_string(ftdic));
                 dwBytesWritten = 0;  // to issue another ftdi_write_data_submit()
             } 
+            else
+            {
+                // a successful write
+                clock_gettime(CLOCK_REALTIME, &time_send_success);
+#if (TRACE != 0)
+                dt = diff(time_send_begin, time_send_success);
+#endif
+                DP ("tx_size(%d), dwBytesWritten(%d,0x%08X), dt.sec(%lu), dt.nsec(%lu)\n",
+                     *tx_size, dwBytesWritten, dwBytesWritten, dt.tv_sec, dt.tv_nsec);
+                DP ("bitrate(%f Mbps)\n",
+                     8.0*dwBytesWritten/(1000000.0*dt.tv_sec+dt.tv_nsec/1000.0));
+            }
             b->io.usb.tx_tc = NULL;
         } else {
            return;
@@ -1476,20 +1512,20 @@ int wou_eof (board_t* b, uint8_t wouf_cmd)
         wou_send(b);
         wou_recv(b);    // update GBN pointer if receiving Rn
 
-        // if (next_5_wouf_->use)
-        // {
-        //     struct timespec treq, trem;
-        //     // request for 0.5ms to sleep
-        //     treq.tv_sec = 0;
-        //     treq.tv_nsec = 500000;   // 0.5ms
-        //     if (nanosleep(&treq, &trem))
-        //     {
-        //         printf("WARN: wou_eof(): nanosleep got interrupted\n");
-        //     }
-        // }
-        if (idle_cnt > 0)
+        if (next_5_wouf_->use)
         {
-            printf ("WOU BUSY: %d\n", idle_cnt);
+            struct timespec treq, trem;
+            // request for 1ms to sleep
+            treq.tv_sec = 0;
+            treq.tv_nsec = 1000000;   // 1ms
+            if (nanosleep(&treq, &trem))
+            {
+                ERRP ("nanosleep got interrupted\n");
+            }
+        }
+        if (idle_cnt > 200)
+        {
+            ERRP ("WOU BUSY: %d\n", idle_cnt);
         }
         idle_cnt ++;
     } while (next_5_wouf_->use);
@@ -1727,9 +1763,10 @@ static void m7i43u_reconfig (board_t* board)
     // do {
     // } while (board->wou->tx_size < ftdic->max_packet_size);
     for (i=0; i<10; i++) {
-        // // use WOUF_COMMAND to reset Expected TID in FPGA
-        // bypass TX_TIMEOUT:
+        // use WOUF_COMMAND to reset Expected TID in FPGA
+        // RESET TX_TIMEOUT:
         clock_gettime(CLOCK_REALTIME, &time_send_begin);
+        clock_gettime(CLOCK_REALTIME, &time_send_success);
         while(wou_eof (board, RST_TID) == -1);
         board->wou->tid = 0;
     }
