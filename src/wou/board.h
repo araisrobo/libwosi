@@ -134,7 +134,7 @@ typedef struct wouf_struct {
  **/
 typedef struct wou_struct {
   uint8_t     tid;       
-  uint8_t     tidSb;
+//  uint8_t     tidSb;
   wouf_t      woufs[NR_OF_CLK];    
   wouf_t      rt_wouf;
   int         tx_size;
@@ -145,7 +145,7 @@ typedef struct wou_struct {
   uint8_t     buf_rx[NR_OF_WIN*(WOUF_HDR_SIZE+1/*TID_SIZE*/+MAX_PSIZE+CRC_SIZE)];
   enum rx_state_type rx_state;
   uint8_t     clock;        
-  uint8_t     Rn;
+//  uint8_t     Rn;
   uint8_t     Sn;
   uint8_t     Sb;    
   uint8_t     Sm;    
@@ -154,6 +154,9 @@ typedef struct wou_struct {
   libwou_mailbox_cb_fn mbox_callback;
   libwou_crc_error_cb_fn crc_error_callback;
   libwou_rt_cmd_cb_fn rt_cmd_callback;
+
+  int           error_gen_en;
+
 } wou_t;
 
 //
@@ -200,6 +203,7 @@ typedef struct board {
 
     uint64_t    rd_dsize; // data size in bytes Received from USB
     uint64_t    wr_dsize; // data size in bytes written to USB
+    uint8_t     ready;
 
     // wisbone register map for this board
     uint8_t wb_reg_map[WB_REG_SIZE];
