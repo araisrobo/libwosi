@@ -65,7 +65,6 @@ information, go to www.linuxcnc.org.
 #include <libusb.h>
 #include <ftdi.h>       // from FTDI
 
-
 #include "wb_regs.h"
 #include "bitfile.h"
 #include "wou.h"
@@ -79,13 +78,16 @@ information, go to www.linuxcnc.org.
 static FILE *dptrace; // dptrace = fopen("dptrace.log","w");
 #endif
 
+#if 1
+// DISABLE ERROR GENERATOR
 #undef DROP_RX_DATA
 #undef CRC_ERR_GEN
 #define ERR_GEN_EN 0
-
-// #define ERR_GEN_EN 1
-// #define DROP_RX_DATA
-
+#else
+// ENABLE ERROR GENERATOR
+#define ERR_GEN_EN 1
+#define DROP_RX_DATA
+#endif
 // wou test config
 #define SHOW_RX_STATUS 0
 
@@ -127,7 +129,6 @@ static uint32_t count_reconnect = 0;
 #define RECONNECT_COUNT 10
 #endif
 
-static uint32_t timeout_count = 0;
 /*
 #define RX_FAIL_TEST 0
 #if TX_FAIL_TEST
@@ -687,6 +688,7 @@ static int wouf_parse (board_t* b, const uint8_t *buf_head)
     uint16_t tmp;
     uint8_t *Sm;
     uint8_t *Sb;
+    uint8_t *Sn;
     uint8_t tidSb;
     uint16_t pload_size_tx;  // PLOAD_SIZE_TX
     uint8_t wou_dsize;
@@ -701,106 +703,82 @@ static int wouf_parse (board_t* b, const uint8_t *buf_head)
 
         Sm = &(b->wou->Sm);
         Sb = &(b->wou->Sb);
+        Sn = &(b->wou->Sn);
 
         wou_frame_ = &(b->wou->woufs[*Sb]);
-        assert(wou_frame_->buf[4] == TYP_WOUF);
-        tidSb = wou_frame_->buf[5]; /* buf[5]: TID of WOUF[Sb] */
-        tidR = buf_head[2];
-        advance = tidR - tidSb;
-        DP ("adv(%d) Sm(0x%02X) Sn(0x%02X) Sb(0x%02X) tidSb(0x%02X) clock(0x%02X) tidR(0x%02X)\n",
-             advance, *Sm, b->wou->Sn, *Sb, b->wou->woufs[*Sb].buf[5], b->wou->clock, tidR);
 
-        // about to update Rn
-        if (advance <= NR_OF_WIN)
+        if (wou_frame_->use == 1)
         {
-            // If you receive a request number where Rn > Sb
-            // Sm = Sm + (Rn – Sb)
-            tmp = *Sm + advance;
-            if (tmp >= NR_OF_CLK) {
-                tmp -= NR_OF_CLK;
+            assert(wou_frame_->buf[4] == TYP_WOUF);
+            tidSb = wou_frame_->buf[5]; /* buf[5]: TID of WOUF[Sb] */
+            tidR = buf_head[2];
+            advance = tidR - tidSb;
+            DP ("adv(%d) Sm(0x%02X) Sn(0x%02X) Sb(0x%02X) tidSb(0x%02X) clock(0x%02X) tidR(0x%02X)\n",
+                 advance, *Sm, b->wou->Sn, *Sb, b->wou->woufs[*Sb].buf[5], b->wou->clock, tidR);
+
+            if (advance == 0)
+            {
+                DP ("NAK Sm(%02X) Sn(%02X) Sb(%02X) tidSb(%02X) tidR(%02X)\n", *Sm, *Sn, *Sb, b->wou->woufs[*Sb].buf[5], tidR);
+                // ysli: 若在這裡要求重送 *Sb ，會嚴重拖累 TX 的效能，還不清楚原因
+                //       jfifo 滿了之後，會開始 flush WOUF, 因此會產生 NAK
+                // *Sn = *Sb; // force to re-transmit from Sb
+                DP ("PLOAD_SIZE_TX(%d)\n", buf_head[0]);
+                assert (buf_head[0] == 2); // {WOUF, TID} only
+//                clock_gettime(CLOCK_REALTIME, &time_send_success);
+                return (0);
             }
-            *Sm = (uint8_t) tmp;
-            // Sb = Rn
-            for (i=0; i<advance; i++) {
-                wou_frame_ = &(b->wou->woufs[*Sb]);
-                assert(wou_frame_->buf[4] == TYP_WOUF);
-                wou_frame_->use = 0;
-                tmp = *Sb + 1;
-                if (tmp >= NR_OF_CLK) {
-                    tmp -= NR_OF_CLK;
+
+            // about to update Rn
+            if (advance <= NR_OF_WIN)
+            {
+                // If you receive a request number where Rn > Sb
+                // Sm = Sm + (Rn – Sb)
+                // Sb = Rn
+                for (i=0; i<advance; i++) {
+                    wou_frame_ = &(b->wou->woufs[*Sb]);
+                    if (wou_frame_->use == 0) break;    // stop moving window for empty TX.WOUF
+                    assert(wou_frame_->buf[4] == TYP_WOUF);
+                    wou_frame_->use = 0;
+
+                    *Sb = *Sb + 1;
+                    if (*Sb >= NR_OF_CLK) {
+                        *Sb -= NR_OF_CLK;
+                    }
+
+                    DP ("Sn(%02X) - Sb(%02X) = %02X\n", *Sn, *Sb, (*Sn - *Sb) & 0xFF);
+                    if (((*Sn - *Sb) & 0xFF) > NR_OF_WIN) *Sn = *Sb;
+
+                    *Sm = *Sm + 1;
+                    if (*Sm >= NR_OF_CLK) {
+                        *Sm -= NR_OF_CLK;
+                    }
+
+                    DP ("Sm(0x%02X) Sn(0x%02X) Sb(0x%02X) Sb.use(%d) tidSb(0x%02X)\n", *Sm, *Sn, *Sb, b->wou->woufs[*Sb].use, b->wou->woufs[*Sb].buf[5]);
+                    assert ((*Sm - *Sn) < NR_OF_WIN);
+                    assert ((*Sn - *Sb) < NR_OF_WIN);
                 }
-                assert (tmp >= 0);
-                assert (tmp < NR_OF_CLK);
-                *Sb = tmp;
-                DP ("adv(%d) Sm(0x%02X) Sn(0x%02X) Sb(0x%02X) tidSb(0x%02X) clock(0x%02X) tidR(0x%02X)\n",
-                     advance, *Sm, b->wou->Sn, *Sb, b->wou->woufs[*Sb].buf[5], b->wou->clock, tidR);
+                // RESET GO-BACK-N TIMEOUT
+                clock_gettime(CLOCK_REALTIME, &time_send_success);
+            } else {
+                // already acked WOUF
+                DP ("ACKED ALREADY\n");
+                return (0);
             }
-            // RESET GO-BACK-N TIMEOUT
-            clock_gettime(CLOCK_REALTIME, &time_send_success);
-        } else {
-            // re-transmit wou_frames where Sb <= Sn <= Sm
-            int ret;
-            struct ftdi_context     *ftdic;
-            ftdic = &(b->io.usb.ftdic);
-            ERRP("We won't meet a NAK\n");
-
-            DP ("got an un-expected tidR: advance(%d)\n", advance);
-            DP ("tidR(%02X), Sb(%02X), Sn(%02X), Sm(%02X)\n",
-                   tidR, *Sb, b->wou->Sn, *Sm);
-            ERRP ("got an un-expected tidR: advance(%d)\n", advance);
-            ERRP ("tidR(%02X), Sb(%02X), Sn(%02X), Sm(%02X)\n",
-                   tidR, *Sb, b->wou->Sn, *Sm);
-
-            // DEBUG:
-            fprintf (stderr, "DEBUG: buf_head: ");
-            for (i=0; i < (1 + buf_head[0] + CRC_SIZE); i++) {
-                fprintf (stderr, "<%.2X>", buf_head[i]);
+            // about to parse [WOU][WOU]...
+            pload_size_tx = buf_head[0];
+            pload_size_tx -= 2;     // TYP_WOUF and TID
+            buf_head += 3;          // point to [WOU]
+            while (pload_size_tx > 0) {
+                wou_dsize = wb_reg_update (b, buf_head);
+                pload_size_tx -= (WOU_HDR_SIZE + wou_dsize);
+                assert ((pload_size_tx & 0x8000) == 0);   // no negative pload_size_tx
+                buf_head += (WOU_HDR_SIZE + wou_dsize);
             }
-            fprintf (stderr, "\n");
-            assert(0);
-
-            b->wou->Sn = *Sb;
-            
-            // RESET TX&RX Registers
-            if (b->io.usb.tx_tc) {
-                // finishing pending async write
-                ftdi_transfer_data_done (b->io.usb.tx_tc);
-                b->io.usb.tx_tc = NULL;
-            }
-            b->wou->tx_size = 0;
-            b->wou->rx_size = 0;
-
-            // // to clear tx and rx queue
-            // if ((ret = ftdi_usb_purge_buffers (ftdic)) < 0)
-            // {
-            //     ERRP ("ftdi_usb_purge_buffers() failed: %d", ret);
-            //     return;
-            // }
-
-            // to flush rx queue
-            while (ret = ftdi_read_data (ftdic, b->wou->buf_rx, 1) > 0) {
-                printf ("flush %d byte\n", ret);
-                if (ftdic->readbuffer_remaining) {
-                    printf ("flush %u byte\n", ftdic->readbuffer_remaining);
-                    ftdi_read_data (ftdic, 
-                                      b->wou->buf_rx,
-                                      ftdic->readbuffer_remaining);
-                }
-            }
-            
-            return (-1);    // about to flush buf_rx[]
         }
-        
-        // about to parse [WOU][WOU]...
-        pload_size_tx = buf_head[0];
-        pload_size_tx -= 2;     // TYP_WOUF and TID
-        buf_head += 3;          // point to [WOU]
-        while (pload_size_tx > 0) {
-            wou_dsize = wb_reg_update (b, buf_head);
-            pload_size_tx -= (WOU_HDR_SIZE + wou_dsize);
-            assert ((pload_size_tx & 0x8000) == 0);   // no negative pload_size_tx
-            buf_head += (WOU_HDR_SIZE + wou_dsize);
-        }
+//        else
+//        {   // wouf[Sb].use == 0
+//            // just flush this RX.WOUF
+//        }
         return (0);
         // (buf_head[1] == TYP_WOUF)
     } else if (buf_head[1] == MAILBOX) {
@@ -810,7 +788,7 @@ static int wouf_parse (board_t* b, const uint8_t *buf_head)
 //        }
 //        fprintf (stdout, "\n");
 //        fprintf (stdout, "buf_head(%p)\n", buf_head);
-        assert (buf_head[0] > 3);
+        assert (buf_head[0] >= 7);
         assert (buf_head[0] < 254);
         if (b->wou->mbox_callback) {
             b->wou->mbox_callback(buf_head);
@@ -886,8 +864,8 @@ void wou_recv (board_t* b)
             }
 #endif
             if (recvd < 0) {
-                ERRP("recvd(%d)\n", recvd);
-                ERRP("readbuffer_remaining(%u)\n", ftdic->readbuffer_remaining);
+                DP ("recvd(%d)\n", recvd);
+                DP ("readbuffer_remaining(%u)\n", ftdic->readbuffer_remaining);
                 recvd = 0;  // to issue another ftdi_read_data_submit()
             }
             b->io.usb.rx_tc = NULL;
@@ -910,13 +888,12 @@ void wou_recv (board_t* b)
     // parsing buf_rx[]:
     buf_head = buf_rx;
     do {
-        int synced;
         DP ("rx_state(%d), rx_size(%d)\n", *rx_state, *rx_size);
         immediate_state = 0;
         switch (*rx_state) {
         case SYNC:
             // locate for {PREAMBLE_0, PREAMBLE_1, SOFD}
-            if (*rx_size < 2*(WOUF_HDR_SIZE + 2/*{WOUF_COMMAND, TID/MAIL_TAG}*/ + CRC_SIZE)) {
+            if (*rx_size < (WOUF_HDR_SIZE + 2/*{WOUF_COMMAND, TID/MAIL_TAG}*/ + CRC_SIZE)) {
                 // block until receiving enough data
                 DP ("block until receiving enough data\n");
                 // return; 
@@ -931,52 +908,56 @@ void wou_recv (board_t* b)
 #endif
 
             // locate {PREAMBLE_0, PREAMBLE_1, SOFD}
-            synced = 0;
             for (i=0; i<(*rx_size - (WOUF_HDR_SIZE + 2/*{WOUF_COMMAND, TID/MAIL_TAG}*/ + CRC_SIZE)); i++) {
                 cmp = memcmp (buf_rx + i, sync_words, 3);
                 // *(buf_rx+i+3);    // PLOAD_SIZE_TX must not be 0
-                if ((cmp == 0) && (*(buf_rx+i+3) != 0)) {
-                    // we got {PREAMBLE_0, PREAMBLE_1, SOFD} and a non-zero PLOAD_SIZE_TX
-                    synced = 1;
+                if ((cmp == 0) && (*(buf_rx+i+3) >= 2)) {
+                    // we got {PREAMBLE_0, PREAMBLE_1, SOFD}
                     break; // break the for-loop
                 }
             }
 
-            if (synced == 1) {
+            // flush scaned bytes
+            if (i > 0)
+            {
+                *rx_size -= i;
+                memmove (buf_rx, buf_rx + i, *rx_size);
+                DP ("after memmove(): buf_rx(%p) buf_head(%p) rx_size(%d)\n", buf_rx, buf_head, *rx_size);
+            }
+
+            if (cmp == 0) {
                 // we got {PREAMBLE_0, PREAMBLE_1, SOFD} and non-zero PLOAD_SIZE_TX
                 // make buf_head point to PLOAD_SIZE_TX
-                buf_head = buf_rx + i + (WOUF_HDR_SIZE - 1);
-                *rx_size -= (i + (WOUF_HDR_SIZE - 1));
-                *rx_state = PLOAD_CRC;
-                immediate_state = 1;    // switch to PLOAD_CRC state ASAP
+                buf_head = buf_rx + (WOUF_HDR_SIZE - 1);
+                if ((WOUF_HDR_SIZE + buf_head[0] + CRC_SIZE) <= *rx_size)
+                {
+                    // we got enough data to check CRC
+                    *rx_state = PLOAD_CRC;
+                    immediate_state = 1;    // switch to PLOAD_CRC state ASAP
+                }
+                // else: not enough data for CRC checking, keep waiting
             } else {
-                // not {PREAMBLE_0, PREAMBLE_1, SOFD}
-                buf_head = buf_rx + i;
-                *rx_size -= i;
-                DP ("memmove(): buf_rx(%p) buf_head(%p) rx_size(%d)\n", buf_rx, buf_head, *rx_size);
-                memmove (buf_rx, buf_head, *rx_size);
+                // no {PREAMBLE_0, PREAMBLE_1, SOFD}
+
                 // next rx_state would still be SYNC;
             }
             break;  // rx_state == SYNC
         
         case PLOAD_CRC:
 #if(TRACE)
-            DP ("buf_head: ");
+            DP ("buf_head(%p)\n", buf_head);
+            DP ("buf_rx  (%p): ", buf_rx);
             for (i=0; i < *rx_size; i++) {
-              DPS ("<%.2X>", buf_head[i]);
+              DPS ("<%.2X>", buf_rx[i]);
             }
             DPS ("\n");
 #endif
+
             pload_size_tx = buf_head[0];    // PLOAD_SIZE_TX
-            if (*rx_size < (1/*PLOAD_SIZE_TX*/ + pload_size_tx + CRC_SIZE)) {
-                // block until receiving enough data
-                if (buf_head != buf_rx) {
-                    // why we get move buf_head to buf_rx?
-                    DP ("CHECK HERE: memmove(): buf_rx(%p) buf_head(%p) rx_size(%d)", buf_rx, buf_head, *rx_size);
-                    memmove (buf_rx, buf_head, *rx_size);
-                }
-                break;
-            }
+
+            assert (buf_head == (buf_rx + WOUF_HDR_SIZE - 1));  // buf_head[] should start from PLOAD_SIZE_TX
+            assert ((pload_size_tx + WOUF_HDR_SIZE + CRC_SIZE) <= *rx_size); // we need enough buf_rx[] to compare CRC
+            assert (pload_size_tx >= 2);
 
             // calc CRC for {PLOAD_SIZE_TX, TID, WOU_PACKETS}
 
@@ -997,40 +978,38 @@ void wou_recv (board_t* b)
 
             if (cmp == 0 ) {
                 DP("CRC PASS\n");
-                // CRC pass; about to parse WOU_FRAME
+                int consumed;
+                // about to parse WOU_FRAME
+                consumed = 0;
                 if (wouf_parse (b, buf_head)) {
                     // un-expected Rn
                     ERRP ("wou: wouf_parse() error ... \n");
+                    assert (0);
                 } else {
-                    // expected Rn
-                    *rx_size -= (1 + pload_size_tx + CRC_SIZE);
-                    buf_head += (1 + pload_size_tx + CRC_SIZE);
-                    timeout_count = 0;
-
+                    // expected Rn, process wouf successfully
+                    consumed = WOUF_HDR_SIZE + pload_size_tx + CRC_SIZE;
+                    *rx_size -= (consumed);
                 }
                 if (*rx_size) {
-                    memmove (buf_rx, buf_head, *rx_size);
+                    memmove (buf_rx, (buf_rx + consumed), *rx_size);
                     immediate_state = 1;
                 }
-                *rx_state = SYNC;
 
                 // finished a WOU_FRAME
             } else {
-                // CRC fail; throw buf_head back to SYNC state
-                if (buf_head != buf_rx) {
-                    memmove (buf_rx, buf_head, *rx_size);
-                }
-                *rx_state = SYNC;
+                DP("CRC ERROR\n");
+                // consume 1 byte, and back to SYNC state
+                *rx_size -= 1;
+                memmove (buf_rx, buf_rx + 1, *rx_size);
                 immediate_state = 1;
-//                b->wou->crc_error_counter ++;
-//                if (b->wou->crc_error_callback) {
-//                    b->wou->crc_error_callback(b->wou->crc_error_counter);
-//                }
-                ERRP ("RX_CRC(0x%04X) pload_size_tx(%d)\n", crc16, pload_size_tx);
-                ERRP ("buf_rx(%p) buf_head(%p) rx_size(%d)\n", buf_rx, buf_head, *rx_size);
-
-                // assert(0);
+                b->wou->crc_error_counter ++;
+                if (b->wou->crc_error_callback) {
+                    b->wou->crc_error_callback(b->wou->crc_error_counter);
+                }
+                DP ("RX_CRC(0x%04X) pload_size_tx(%d)\n", crc16, pload_size_tx);
             }
+            *rx_state = SYNC;
+
             break;  // rx_state == PLOAD_CRC
 
         default:
@@ -1129,9 +1108,9 @@ static void wou_send (board_t* b)
         // reset time_send_success
         clock_gettime(CLOCK_REALTIME, &time_send_success);
         // TODO: deal with timeout value for GO-BACK-N
-        ERRP ("TX TIMEOUT\n");
-        ERRP ("dt.sec(%lu), dt.nsec(%lu)\n", dt.tv_sec, dt.tv_nsec);
-        ERRP ("Sm(0x%02X) Sn(0x%02X) Sb(0x%02X)\n", b->wou->Sm, b->wou->Sn, b->wou->Sb);
+        DP ("TX TIMEOUT\n");
+        DP ("dt.sec(%lu), dt.nsec(%lu)\n", dt.tv_sec, dt.tv_nsec);
+        DP ("Sm(0x%02X) Sn(0x%02X) Sb(0x%02X)\n", b->wou->Sm, b->wou->Sn, b->wou->Sb);
 
         // RESET TX&RX Registers
         if (b->io.usb.tx_tc) {
@@ -1151,18 +1130,30 @@ static void wou_send (board_t* b)
 //        if (b->io.usb.rx_tc) {
 //            if (b->io.usb.rx_tc->transfer)
 //            {
-//                ERRP ("cancel rx_tc(%p) transfer(%p)\n", b->io.usb.rx_tc, b->io.usb.rx_tc->transfer);
-//                ERRP ("rx_tc->offset(%d)\n", b->io.usb.rx_tc->offset);
-//                ERRP ("rx_tc->completed(%d)\n", b->io.usb.rx_tc->completed);
+//                struct timeval tv = {0,0};
+//                assert (ftdic->usb_dev != NULL);
+//                while ((ret = libusb_handle_events_timeout_completed(ftdic->usb_ctx, &tv, NULL)) != 0) {
+//                    ERRP("libusb_handle_events_timeout_completed(%d)\n", ret);
+//                }
+//                DP ("cancel rx_tc(%p) transfer(%p)\n", b->io.usb.rx_tc, b->io.usb.rx_tc->transfer);
+//                DP ("rx_tc->offset(%d)\n", b->io.usb.rx_tc->offset);
+//                DP ("rx_tc->completed(%d)\n", b->io.usb.rx_tc->completed);
 //                ret = libusb_cancel_transfer(b->io.usb.rx_tc->transfer);
-//                ERRP ("libusb_cancel_transfer: %d\n", ret);
+//                DP ("libusb_cancel_transfer: %d\n", ret);
 //                libusb_free_transfer(b->io.usb.rx_tc->transfer);
-//                ERRP ("libusb_free_transfer\n");
+//                DP ("libusb_free_transfer\n");
 //                free (b->io.usb.rx_tc);
 //                b->io.usb.rx_tc = NULL;
+////                assert (ret != -5);
 //            }
 //        }
-
+        {
+            struct timeval tv = {0,0};
+            assert (ftdic->usb_dev != NULL);
+            while ((ret = libusb_handle_events_timeout_completed(ftdic->usb_ctx, &tv, NULL)) != 0) {
+                ERRP("libusb_handle_events_timeout_completed(%d)\n", ret);
+            }
+        }
         DP("TODO: figure out how to flush data from rx-fifo\n");
 //        // to clear tx and rx queue
 //        if ((ret = ftdi_usb_purge_buffers (ftdic)) < 0)
@@ -1182,84 +1173,23 @@ static void wou_send (board_t* b)
 //            }
 //        }
 
-//        if (ftdic->readbuffer_remaining)
-//        {
-//            ERRP ("flush %u byte\n", ftdic->readbuffer_remaining);
-//            ftdi_read_data (ftdic,
-//                              b->wou->buf_rx,
-//                              ftdic->readbuffer_remaining);
-//        }
+        if (ftdic->readbuffer_remaining)
+        {
+            DP ("flush %u byte\n", ftdic->readbuffer_remaining);
+            ftdi_read_data (ftdic,
+                              b->wou->buf_rx,
+                              ftdic->readbuffer_remaining);
+        }
 
         DP("rx_state(%d)\n", b->wou->rx_state);
-        b->wou->rx_state = SYNC;
+        assert (b->wou->rx_state == SYNC);
         b->wou->rx_size = 0;
         b->wou->tx_size = 0;
         b->wou->Sn = b->wou->Sb;
         DP ("RESET Sm(0x%02X) Sn(0x%02X) Sb(0x%02X)\n", b->wou->Sm, b->wou->Sn, b->wou->Sb);
      }
 
-    tx_size = &(b->wou->tx_size);
-    buf_tx = b->wou->buf_tx;
-    Sm = &(b->wou->Sm);
-    Sn = &(b->wou->Sn);
-    DP ("Sm(0x%02X) Sn(0x%02X) Sb(0x%02X) use(%d) clock(%d)\n", 
-        *Sm, *Sn, b->wou->Sb, b->wou->woufs[*Sn].use, b->wou->clock);
 
-    if (*Sm >= *Sn) {
-        if ((*Sm - *Sn) >= NR_OF_WIN) {
-            // case: Sm(255), Sn(0): Sn is behind Sm
-            // stop sending when exceening Max Window Boundary
-            DP("hit Window Boundary\n"); 
-        } else {
-            for (i=*Sn; i<=*Sm; i++) {
-                if (b->wou->woufs[i].use == 0) break;
-                buf_src = b->wou->woufs[i].buf;
-                memcpy (buf_tx + *tx_size, buf_src, b->wou->woufs[i].fsize);  
-                *tx_size += b->wou->woufs[i].fsize;
-                DP ("Sn(0x%02X) tidSn(0x%02X) size(%d) tx_size(%d)\n", *Sn, b->wou->woufs[i].buf[5], b->wou->woufs[i].fsize, *tx_size);
-                if (b->ready) assert (b->wou->woufs[i].buf[4] != RST_TID);
-                *Sn += 1;
-            }
-        }
-    } else {
-        if ((*Sn - *Sm) == 1) {
-            // stop sending when exceeding Max Window Boundary
-            DP("hit Window Boundary\n"); 
-        } else {
-            // round a circle
-            assert ((NR_OF_CLK - *Sn) <= NR_OF_WIN);
-            assert (*Sm <= (NR_OF_WIN - (NR_OF_CLK - *Sn)));
-            for (i=*Sn; i<NR_OF_CLK; i++) {
-                if (b->wou->woufs[i].use == 0) break;
-                buf_src = b->wou->woufs[i].buf;
-                memcpy (buf_tx + *tx_size, buf_src, b->wou->woufs[i].fsize);
-                *tx_size += b->wou->woufs[i].fsize;
-                DP ("Sn(0x%02X) tidSn(0x%02X) size(%d) tx_size(%d)\n", *Sn, b->wou->woufs[i].buf[5], b->wou->woufs[i].fsize, *tx_size);
-                if (b->ready) assert (b->wou->woufs[i].buf[4] != RST_TID);
-                *Sn += 1;
-            }
-            if (*Sn == (NR_OF_CLK & 0xFF)) {
-                *Sn = 0;
-                for (i=0; i<=*Sm; i++) {
-                    if (b->wou->woufs[i].use == 0) break;
-                    buf_src = b->wou->woufs[i].buf;
-                    memcpy (buf_tx + *tx_size, buf_src, b->wou->woufs[i].fsize);  
-                    *tx_size += b->wou->woufs[i].fsize;
-                    DP ("Sn(0x%02X) tidSn(0x%02X) size(%d) tx_size(%d)\n", *Sn, b->wou->woufs[i].buf[5], b->wou->woufs[i].fsize, *tx_size);
-                    if (b->ready) assert (b->wou->woufs[i].buf[4] != RST_TID);
-                    *Sn += 1;
-                }
-            }
-        }
-    }
-       
-    if (*tx_size >= NR_OF_WIN*(WOUF_HDR_SIZE+2+MAX_PSIZE+CRC_SIZE)) {
-        ERRP ("Sm(%d) Sn(%d) Sb(%d) Sn.use(%d) clock(%d)\n", 
-              *Sm, *Sn, b->wou->Sb, b->wou->woufs[*Sn].use, b->wou->clock);
-        ERRP ("tx_size(%d)\n", *tx_size);
-    }
-    assert (*tx_size < NR_OF_WIN*(WOUF_HDR_SIZE+2+MAX_PSIZE+CRC_SIZE));
-    
 //async write:
     if (b->io.usb.tx_tc) {
         // there's previous pending async write
@@ -1277,11 +1207,14 @@ static void wou_send (board_t* b)
             {
                 ERRP("dwBytesWritten(%d): (%s)\n", dwBytesWritten, ftdi_get_error_string(ftdic));
                 dwBytesWritten = 0;  // to issue another ftdi_write_data_submit()
-            } 
+            }
             else
             {
+                // a successful write
+                clock_gettime(CLOCK_REALTIME, &time_send_success);
 #if (TRACE != 0)
                 // a successful write
+                tx_size = &(b->wou->tx_size);
                 clock_gettime(CLOCK_REALTIME, &time2);
                 dt = diff(time_send_begin, time2);
                 DP ("tx_size(%d), dwBytesWritten(%d,0x%08X), dt.sec(%lu), dt.nsec(%lu)\n",
@@ -1300,6 +1233,70 @@ static void wou_send (board_t* b)
     }
 
     assert(b->io.usb.tx_tc == NULL);
+
+    tx_size = &(b->wou->tx_size);
+    buf_tx = b->wou->buf_tx;
+    Sm = &(b->wou->Sm);
+    Sn = &(b->wou->Sn);
+    DP ("Sm(0x%02X) Sn(0x%02X) Sb(0x%02X) use(%d) clock(%d)\n", 
+        *Sm, *Sn, b->wou->Sb, b->wou->woufs[*Sn].use, b->wou->clock);
+
+    if (*Sm >= *Sn) {
+        if ((*Sm - *Sn) >= NR_OF_WIN) {
+            // case: Sm(255), Sn(0): Sn is behind Sm
+            // stop sending when exceening Max Window Boundary
+            DP("hit Window Boundary\n"); 
+        } else {
+            for (i=*Sn; i<=*Sm; i++) {
+                assert (i < NR_OF_CLK);
+                if (b->wou->woufs[i].use == 0) break;
+                buf_src = b->wou->woufs[i].buf;
+                memcpy (buf_tx + *tx_size, buf_src, b->wou->woufs[i].fsize);  
+                *tx_size += b->wou->woufs[i].fsize;
+                DP ("Sn(0x%02X) tidSn(0x%02X) size(%d) tx_size(%d)\n", *Sn, b->wou->woufs[i].buf[5], b->wou->woufs[i].fsize, *tx_size);
+                if (b->ready) assert (b->wou->woufs[i].buf[4] != RST_TID);
+                *Sn += 1;
+            }
+        }
+    } else {
+        if ((*Sn - *Sm) == 1) {
+            // stop sending when exceeding Max Window Boundary
+            DP("hit Window Boundary\n"); 
+        } else {
+            // round a circle
+            assert ((NR_OF_CLK - *Sn) <= NR_OF_WIN);
+            assert (*Sm <= (NR_OF_WIN - (NR_OF_CLK - *Sn)));
+            for (i=*Sn; i<NR_OF_CLK; i++) {
+                assert (i < NR_OF_CLK);
+                if (b->wou->woufs[i].use == 0) break;
+                buf_src = b->wou->woufs[i].buf;
+                memcpy (buf_tx + *tx_size, buf_src, b->wou->woufs[i].fsize);
+                *tx_size += b->wou->woufs[i].fsize;
+                DP ("Sn(0x%02X) tidSn(0x%02X) size(%d) tx_size(%d)\n", *Sn, b->wou->woufs[i].buf[5], b->wou->woufs[i].fsize, *tx_size);
+                if (b->ready) assert (b->wou->woufs[i].buf[4] != RST_TID);
+                *Sn += 1;
+            }
+            if (*Sn == (NR_OF_CLK & 0xFF)) {
+                *Sn = 0;
+                for (i=0; i<=*Sm; i++) {
+                    assert (i < NR_OF_CLK);
+                    if (b->wou->woufs[i].use == 0) break;
+                    buf_src = b->wou->woufs[i].buf;
+                    memcpy (buf_tx + *tx_size, buf_src, b->wou->woufs[i].fsize);  
+                    *tx_size += b->wou->woufs[i].fsize;
+                    DP ("Sn(0x%02X) tidSn(0x%02X) size(%d) tx_size(%d)\n", *Sn, b->wou->woufs[i].buf[5], b->wou->woufs[i].fsize, *tx_size);
+                    if (b->ready) assert (b->wou->woufs[i].buf[4] != RST_TID);
+                    *Sn += 1;
+                }
+            }
+        }
+    }
+
+    DP ("Sm(%02X) tidSm(%02X) Sb(%02X) tidSb(%02X) Sn(%02X) Sn.use(%02X) clock(%02X)\n",
+          *Sm, b->wou->woufs[*Sm].buf[5], b->wou->Sb, b->wou->woufs[b->wou->Sb].buf[5],
+          *Sn,  b->wou->woufs[*Sn].use, b->wou->clock);
+    DP ("tx_size(%d)\n", *tx_size);
+    assert (*tx_size < NR_OF_WIN*(WOUF_HDR_SIZE+2+MAX_PSIZE+CRC_SIZE));
     
     if (dwBytesWritten) {
         assert (dwBytesWritten <= *tx_size);
@@ -1318,7 +1315,8 @@ static void wou_send (board_t* b)
     b->io.usb.tx_tc = ftdi_write_data_submit (
                             ftdic, 
                             buf_tx, 
-                            MIN(*tx_size, TX_BURST_MAX)
+                            *tx_size
+                            // MIN(*tx_size, TX_BURST_MAX)
                       );
     if (b->io.usb.tx_tc == NULL)
     {
@@ -1379,6 +1377,7 @@ static void rt_wou_send (board_t* b)
      **/
     if ((*tx_size + b->wou->rt_wouf.fsize) < WOUF_HDR_SIZE+MAX_PSIZE+CRC_SIZE) {
         buf_src = b->wou->rt_wouf.buf;
+        assert(0);
         memcpy (buf_tx + *tx_size, buf_src, b->wou->rt_wouf.fsize);  
         *tx_size += b->wou->rt_wouf.fsize;
     }
@@ -1446,8 +1445,10 @@ static void rt_wou_send (board_t* b)
     // issue async_write ...
     b->io.usb.tx_tc = ftdi_write_data_submit (
                             ftdic, 
-                            buf_tx, 
-                            MIN(*tx_size, TX_BURST_MAX));
+                            buf_tx,
+                            *tx_size
+                            // MIN(*tx_size, TX_BURST_MAX)
+                            );
     if (b->io.usb.tx_tc == NULL) {
         ERRP("ftdi_write_data_submit()\n");
     } else {
@@ -1491,7 +1492,7 @@ int wou_eof (board_t* b, uint8_t wouf_cmd)
 
         assert(wou_frame_->buf[3] > 2); // PLOAD_SIZE_TX: 0x03 ~ 0xFF
         assert(wou_frame_->buf[6] > 1); // PLOAD_SIZE_RX: 0x02 ~ 0xFF
-        
+        DP ("clock(%02X) tidClk(%02X)\n", b->wou->clock, b->wou->tid);
         // calc CRC for {PLOAD_SIZE_TX, PLOAD_SIZE_RX, TID, WOU_PACKETS}
         crc16 = crcFast(wou_frame_->buf + (WOUF_HDR_SIZE - 1), 
                         wou_frame_->fsize - (WOUF_HDR_SIZE - 1)); 
@@ -1543,9 +1544,9 @@ int wou_eof (board_t* b, uint8_t wouf_cmd)
         }
 
         assert (ftdic->usb_dev != NULL);
-        rc = libusb_handle_events_timeout_completed(ftdic->usb_ctx, &tv, NULL);
-        if (rc < 0)
-                ERRP ("libusb_handle_events() failed: %s\n", libusb_error_name(rc));
+        while ((rc = libusb_handle_events_timeout_completed(ftdic->usb_ctx, &tv, NULL)) != 0) {
+            ERRP("libusb_handle_events_timeout_completed(%d)\n", rc);
+        }
 
         wou_send(b);
         wou_recv(b);    // update GBN pointer if receiving Rn

@@ -82,7 +82,7 @@ static const _Ftstat Ftstat[] = {
 // #define BURST_MAX     1024
 #define TX_BURST_MIN    128
 #define TX_BURST_MAX    512
-#define TX_CHUNK_SIZE   512
+#define TX_CHUNK_SIZE   4096
 // to prevent from pending because of too large RX_CHUNK_SIZE: 
 //will_kill_mailbox: #define RX_CHUNK_SIZE   512
 //will_kill_mailbox: #define RX_BURST_MIN    256
