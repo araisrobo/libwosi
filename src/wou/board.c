@@ -78,15 +78,16 @@ information, go to www.linuxcnc.org.
 static FILE *dptrace; // dptrace = fopen("dptrace.log","w");
 #endif
 
-#if 1
+#define ERR_GEN_EN 0
+
+#if (ERR_GEN_EN)
+// ENABLE ERROR GENERATOR
+#define DROP_RX_DATA
+// #define CRC_ERR_GEN
+#else
 // DISABLE ERROR GENERATOR
 #undef DROP_RX_DATA
 #undef CRC_ERR_GEN
-#define ERR_GEN_EN 0
-#else
-// ENABLE ERROR GENERATOR
-#define ERR_GEN_EN 1
-#define DROP_RX_DATA
 #endif
 // wou test config
 #define SHOW_RX_STATUS 0
@@ -911,7 +912,7 @@ void wou_recv (board_t* b)
             for (i=0; i<(*rx_size - (WOUF_HDR_SIZE + 2/*{WOUF_COMMAND, TID/MAIL_TAG}*/ + CRC_SIZE)); i++) {
                 cmp = memcmp (buf_rx + i, sync_words, 3);
                 // *(buf_rx+i+3);    // PLOAD_SIZE_TX must not be 0
-                if ((cmp == 0) && (*(buf_rx+i+3) >= 2)) {
+                if ((cmp == 0) && (*(buf_rx+i+3) > 0)) {
                     // we got {PREAMBLE_0, PREAMBLE_1, SOFD}
                     break; // break the for-loop
                 }
@@ -925,7 +926,7 @@ void wou_recv (board_t* b)
                 DP ("after memmove(): buf_rx(%p) buf_head(%p) rx_size(%d)\n", buf_rx, buf_head, *rx_size);
             }
 
-            if (cmp == 0) {
+            if ((cmp == 0) && (*(buf_rx+i+3) > 0)) {
                 // we got {PREAMBLE_0, PREAMBLE_1, SOFD} and non-zero PLOAD_SIZE_TX
                 // make buf_head point to PLOAD_SIZE_TX
                 buf_head = buf_rx + (WOUF_HDR_SIZE - 1);
@@ -952,15 +953,12 @@ void wou_recv (board_t* b)
             }
             DPS ("\n");
 #endif
-
             pload_size_tx = buf_head[0];    // PLOAD_SIZE_TX
-
             assert (buf_head == (buf_rx + WOUF_HDR_SIZE - 1));  // buf_head[] should start from PLOAD_SIZE_TX
             assert ((pload_size_tx + WOUF_HDR_SIZE + CRC_SIZE) <= *rx_size); // we need enough buf_rx[] to compare CRC
-            assert (pload_size_tx >= 2);
+            assert (pload_size_tx >= 1);
 
             // calc CRC for {PLOAD_SIZE_TX, TID, WOU_PACKETS}
-
 #ifdef CRC_ERR_GEN
             // generate random CRC error:
             if (b->wou->error_gen_en)
@@ -1310,7 +1308,6 @@ static void wou_send (board_t* b)
         return;
     }
 
-
     // issue async_write ...
     b->io.usb.tx_tc = ftdi_write_data_submit (
                             ftdic, 
@@ -1368,21 +1365,6 @@ static void rt_wou_send (board_t* b)
     // there might be pended async write data
     tx_size = &(b->wou->tx_size);
     buf_tx = b->wou->buf_tx;
-    
-    // assert(b->wou->rt_wouf.use == 1);
-    /** 
-     * rt_wouf 只有一個 WOU_FRAME 
-     * 當 (*tx_size + rt_wouf) 小於一個 MAX_WOU_FRAME size 時，
-     * 才傳送 RT_WOUF, 否則就將 RT_WOUF 丟掉
-     **/
-    if ((*tx_size + b->wou->rt_wouf.fsize) < WOUF_HDR_SIZE+MAX_PSIZE+CRC_SIZE) {
-        buf_src = b->wou->rt_wouf.buf;
-        assert(0);
-        memcpy (buf_tx + *tx_size, buf_src, b->wou->rt_wouf.fsize);  
-        *tx_size += b->wou->rt_wouf.fsize;
-    }
-    assert (*tx_size < NR_OF_WIN*(WOUF_HDR_SIZE+2+MAX_PSIZE+CRC_SIZE));
-    // b->wou->rt_wouf.use = 0;
 
     //async write:
     if (b->io.usb.tx_tc) {
@@ -1404,8 +1386,9 @@ static void rt_wou_send (board_t* b)
             } 
             else
             {
-#if (TRACE != 0)
                 // a successful write
+                clock_gettime(CLOCK_REALTIME, &time_send_success);
+#if (TRACE != 0)
                 clock_gettime(CLOCK_REALTIME, &time2);
                 dt = diff(time_send_begin, time2);
                 DP ("tx_size(%d), dwBytesWritten(%d,0x%08X), dt.sec(%lu), dt.nsec(%lu)\n",
@@ -1424,13 +1407,19 @@ static void rt_wou_send (board_t* b)
 
     assert(b->io.usb.tx_tc == NULL);
     
+    /**
+     * rt_wouf 只有一個 WOU_FRAME
+     * 當 (*tx_size + rt_wouf) 小於一個 MAX_WOU_FRAME size 時，
+     * 才傳送 RT_WOUF, 否則就將 RT_WOUF 丟掉
+     **/
+    if ((*tx_size + b->wou->rt_wouf.fsize) < WOUF_HDR_SIZE+MAX_PSIZE+CRC_SIZE) {
+        buf_src = b->wou->rt_wouf.buf;
+        memcpy (buf_tx + *tx_size, buf_src, b->wou->rt_wouf.fsize);
+        *tx_size += b->wou->rt_wouf.fsize;
+    }
+    assert (*tx_size < NR_OF_WIN*(WOUF_HDR_SIZE+2+MAX_PSIZE+CRC_SIZE));
+
     if (dwBytesWritten) {
-        //obsolete: clock_gettime(CLOCK_REALTIME, &time2);
-        //obsolete: dt = diff(time_send_begin,time2);
-        //obsolete: DP ("tx_size(%d), dwBytesWritten(%d,0x%08X), dt.sec(%lu), dt.nsec(%lu)\n", 
-        //obsolete:      *tx_size, dwBytesWritten, dwBytesWritten, dt.tv_sec, dt.tv_nsec);
-        //obsolete: DP ("bitrate(%f Mbps)\n", 
-        //obsolete:      8.0*dwBytesWritten/(1000000.0*dt.tv_sec+dt.tv_nsec/1000.0));
         assert (dwBytesWritten <= *tx_size);
         b->wr_dsize += dwBytesWritten;
         *tx_size -= dwBytesWritten;
