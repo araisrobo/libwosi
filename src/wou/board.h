@@ -80,9 +80,13 @@ static const _Ftstat Ftstat[] = {
 // #define BURST_MIN     512
 // #define BURST_MIN     128
 // #define BURST_MAX     1024
+// #define TX_BURST_MIN    128 // 2014-02-14
 #define TX_BURST_MIN    128
 #define TX_BURST_MAX    512
-#define TX_CHUNK_SIZE   4096
+//#define TX_CHUNK_SIZE   4096 // fail at MPCS
+//#define TX_CHUNK_SIZE   512  // 2014-02-14
+#define TX_CHUNK_SIZE   512  // 2014-02-14
+
 // to prevent from pending because of too large RX_CHUNK_SIZE: 
 //will_kill_mailbox: #define RX_CHUNK_SIZE   512
 //will_kill_mailbox: #define RX_BURST_MIN    256
@@ -219,7 +223,7 @@ int board_init (board_t* board, const char* device_type, const int device_id,
 int board_connect (board_t* board);
 int board_close (board_t* board);
 int board_status (board_t* board);
-int board_reset (board_t* board);
+//int board_reset (board_t* board);
 // int board_prog (board_t* board, char* filename);
 
 void wou_append (board_t* b, const uint8_t func, const uint16_t wb_addr, 
