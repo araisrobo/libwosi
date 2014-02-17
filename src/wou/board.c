@@ -523,8 +523,8 @@ int board_connect (board_t* board)
     if (ftdic->type == TYPE_R)
     {
         unsigned int chipid;
-        printf("ftdi_read_chipid: %d\n", ftdi_read_chipid(ftdic, &chipid));
-        printf("FTDI chipid: %X\n", chipid);
+        ERRP ("ftdi_read_chipid: %d\n", ftdi_read_chipid(ftdic, &chipid));
+        ERRP ("FTDI chipid: %X\n", chipid);
     }
     
     if (board->io.usb.bitfile) {
@@ -599,42 +599,49 @@ static int m7i43u_cpld_reset(struct board *board)
         ERRP("ftdi_write_data: %d (%s)\n", ret, ftdi_get_error_string(ftdic));
         return -1;
     }
-    return 1;
+    return 0;
 }
 
 static int m7i43u_cpld_send_firmware(struct board *board, struct bitfile_chunk *ch) 
 {
     int i;
     uint8_t *dp;
+    int ret;
+    struct ftdi_context     *ftdic;
     
     dp = ch->body;
     for (i = 0; i < ch->len; i ++) {
         *dp = bit_reverse(*dp);
         dp ++;
     }
-
-    int ret;
-    struct ftdi_context     *ftdic;
     
     ftdic = &(board->io.usb.ftdic);
-
     /* sync Write */
+    i = 0;
     do {
-        if ((ret = ftdi_write_data (ftdic, ch->body, ch->len)) < 0)
+        if ((ret = ftdi_write_data(ftdic, ch->body, ch->len)) < 0)
         {
-            ERRP("ftdi_write_data: %d (%s)\n", ret, ftdi_get_error_string(ftdic));
-        }
-        printf("ftdi_write %d bytes\n", ret);
-        if (ret) {
-            ch->len -= ret;
-            if (ch->len) {
-                memmove (ch->body, ch->body + ret, ch->len);
+            ERRP("ftdi_write_data: %d (%s)\n",
+                    ret, ftdi_get_error_string(ftdic));
+            i++; // error_count
+            if (i > 100)
+                return -1;
+        } else
+        {
+            i = 0; // reset error_count
+            printf("ftdi_write %d bytes\n", ret);
+            if (ret > 0)
+            {
+                ch->len -= ret;
+                if (ch->len)
+                {
+                    memmove(ch->body, ch->body + ret, ch->len);
+                }
             }
         }
-    } while (ch->len != 0);
+    } while (ch->len > 0);
 
-
-    return 1;
+    return 0;
 }
 
 
@@ -1096,7 +1103,7 @@ static void wou_send (board_t* b)
     {
         // bypass TX TIMEOUT when board is not configured
         clock_gettime(CLOCK_REALTIME, &time_send_success);
-        ERRP ("board is not ready\n");
+        DP ("bypass TIMEOUT checking\n");
     }
     clock_gettime(CLOCK_REALTIME, &time2);
     dt = diff(time_send_success, time2);
@@ -1104,7 +1111,7 @@ static void wou_send (board_t* b)
         // reset time_send_success
         clock_gettime(CLOCK_REALTIME, &time_send_success);
         // TODO: deal with timeout value for GO-BACK-N
-        ERRP ("TX TIMEOUT\n");
+        DP ("TX TIMEOUT\n");
         DP ("dt.sec(%lu), dt.nsec(%lu)\n", dt.tv_sec, dt.tv_nsec);
         DP ("Sm(0x%02X) Sn(0x%02X) Sb(0x%02X)\n", b->wou->Sm, b->wou->Sn, b->wou->Sb);
 
@@ -1797,16 +1804,16 @@ static int m7i43u_reconfig (board_t* board)
 
     // to flush rx queue
     while (ret = ftdi_read_data (ftdic, &cBufWrite, 1) > 0) { 
-        printf ("flush %d byte\n", ret);
+        DP ("flush %d byte\n", ret);
         if (ftdic->readbuffer_remaining) {
-            printf ("flush %u byte\n", ftdic->readbuffer_remaining);
+            DP ("flush %u byte\n", ftdic->readbuffer_remaining);
             ftdi_read_data (ftdic, 
                             board->wou->buf_tx,
                             ftdic->readbuffer_remaining);
         }
     }
   
-    printf("ftdic->max_packet_size(%d)\n", ftdic->max_packet_size);
+    DP("ftdic->max_packet_size(%d)\n", ftdic->max_packet_size);
     
     // use WOUF_COMMAND to reset Expected TID in FPGA
     DP ("RST_TID\n");
@@ -1871,14 +1878,14 @@ static int m7i43u_program_fpga(struct board *board,
     if (ret != 0) return ret;
 
     DP ("about to m7i43u_cpld_reset\n");
-    if (!m7i43u_cpld_reset(board)) {
-        printf("error resetting FPGA, aborting load\n");
+    if (m7i43u_cpld_reset(board)) {
+        ERRP ("error resetting FPGA, aborting load\n");
         return -1;
     }
     
     DP ("about to m7i43u_cpld_send_firmware\n");
-    if (!m7i43u_cpld_send_firmware(board, ch)) {
-        printf("ERROR: sending FPGA firmware\n");
+    if (m7i43u_cpld_send_firmware(board, ch) != 0) {
+        ERRP ("ERROR: sending FPGA firmware\n");
         return -1;
     }
     
