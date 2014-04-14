@@ -51,7 +51,7 @@
  * SFIFO_BASE           0x2000
  *******************************************************************************
  * REG_NAME             ADDR_OFFSET   ACCESS  DESCRIPTION
- * SSIF_PULSE_TYPE      0x0000        W       (0x00 ~ 0x01)   bitwise mapping for pulse type: 
+ * SSIF_PULSE_TYPE      0x0000        W       (0x00 ~ 0x01)   bitwise mapping of J0~J7 for pulse type: 
  *                                                            (2'b00)AB_PHASE
  *                                                            (2'b01)STEP_DIR 
  *                                                            (2'b10)RESERVED  
@@ -62,12 +62,6 @@
  * SSIF_RST_POS         0x0004        W       (0x04 ~ 0x05)   reset PULSE/ENC/SWITCH/INDEX positions for homing
  *                                                (11:0)[i]   set to 1 by SW to clear positions 
  *                                                            reset to 0 by HW one cycle after resetting
- *******************************************************************************
- * for 華谷：
- * JNT_0 ~ JNT_2: current limit: 2.12A/phase (DST56EX43A)
- *                set SSIF_MAX_PWM as 180
- * JNT_3:         current limit: 3.0A/phase (DST86EM82A)
- *                set SSIF_MAX_PWM as 255
  *******************************************************************************
  
  **/
