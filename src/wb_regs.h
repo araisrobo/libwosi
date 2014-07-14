@@ -56,12 +56,14 @@
  *                                                            (2'b01)STEP_DIR 
  *                                                            (2'b10)RESERVED  
  *                                                            (2'b11)PWM_DIR
- * SSIF_ENC_TYPE        0x0002        W       (0x02       )   bitwise mapping for encoder type: (0)w/o (1)with encoder
+ * RESERVED             0x0002        
  * SSIF_ENC_POL         0x0003        W       (0x03       )   bitwise mapping for encoder polarity: (0)POSITIVE (1)NEGATIVE 
  * TODO: obsolete SSIF_RST_POS
  * SSIF_RST_POS         0x0004        W       (0x04 ~ 0x05)   reset PULSE/ENC/SWITCH/INDEX positions for homing
  *                                                (11:0)[i]   set to 1 by SW to clear positions 
  *                                                            reset to 0 by HW one cycle after resetting
+ * SSIF_ENC_TYPE        0x0006        W       (0x06 ~ 0x07)   bitwise mapping for encoder type: 
+ *                                                            (00)W/O Encoder, (10)AB-Phase (11)STEP-DIR
  *******************************************************************************
  
  **/
@@ -148,12 +150,14 @@
 #define PTYPE_STEP_DIR    0x01  //                  (2'b01)STEP_DIR 
                                 //                  (2'b10)RESERVED  
 #define PTYPE_PWM_DIR     0x03  //                  (2'b11)PWM_DIR
-#define SSIF_ENC_TYPE   0x0002  // W(0x02       )   bitwise mapping for encoder type: (0)w/o  (1)with encoder
+//      RESERVED        0x0002  
 #define SSIF_ENC_POL    0x0003  // W(0x03       )   bitwise mapping for encoder polarity: (0)POSITIVE (1)NEGATIVE 
 // TODO: obsolete SSIF_RST_POS
 #define SSIF_RST_POS    0x0004  // W(0x04 ~ 0x05)   reset PULSE/ENC/SWITCH/INDEX positions for homing
                                 //      (11:0)[i]   set to 1 by SW to clear positions 
                                 //                  reset to 0 by HW one cycle after resetting
+#define SSIF_ENC_TYPE   0x0006  // W(0x06 ~ 0x07)   bitwise mapping for encoder type: 
+                                //                  // (00)W/O Encoder, (10)AB-Phase (11)STEP-DIR
 // end: registers for SSIF (Servo/Stepper InterFace)
 
 #endif // __wb_regs_h__
