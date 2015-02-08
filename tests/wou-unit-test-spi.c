@@ -10,6 +10,7 @@
 #include "wou.h"
 #include "wb_regs.h"
 #include "sync_cmd.h"
+#include "mailtag.h"
 #define WORDS_PER_LINE 8
 #define BYTES_PER_WORD 4
 
@@ -26,7 +27,8 @@
 
 // pdt:
 #define FPGA_BIT  "./plasma_top.bit"
-#define RISC_BIN  "./stepper.bin"
+// #define RISC_BIN  "./wou_test.bin"
+#define RISC_BIN  "./css.bin"
 
 // #define FPGA_BIT  "./servo_top.bit"
 // #define RISC_BIN  "./sfifo.bin"
@@ -55,7 +57,7 @@ char *max_accel_str[4] = { "155.9",
                            "155.9",
                            "155.9" };
 // PID config
-char **pid_str[4];  
+char **pid_str[6];  
 //          P      I      D    FF0    FF1     FF2     DB      BI   M_ER   M_EI    M_ED    MCD  MCDD     MO     PE      PB
 char *j0_pid_str[16] = 
     { "16000","   0","    0","   0"," 100"," 300","   10","   0","   0","   20","   0","   0","   0"," 656","   0","    0"};
@@ -64,6 +66,10 @@ char *j1_pid_str[16] =
 char *j2_pid_str[16] = 
     { "16000","   0","    0","   0"," 100"," 300","   10","   0","   0","   20","   0","   0","   0"," 656","   0","    0"};
 char *j3_pid_str[16] = 
+    { "16000","   0","    0","   0"," 100"," 300","   10","   0","   0","   20","   0","   0","   0"," 656","   0","    0"};
+char *j4_pid_str[16] = 
+    { "16000","   0","    0","   0"," 100"," 300","   10","   0","   0","   20","   0","   0","   0"," 656","   0","    0"};
+char *j5_pid_str[16] = 
     { "16000","   0","    0","   0"," 100"," 300","   10","   0","   0","   20","   0","   0","   0"," 656","   0","    0"};
 
 
@@ -95,41 +101,141 @@ static void write_mot_param (wou_param_t *w_param, uint32_t joint, uint32_t addr
     return;
 }
 
+static num_joints=6;
 static void fetchmail(const uint8_t *buf_head)
 {
-    int i;
-    uint16_t mail_tag;
-    uint32_t pos;
-    uint32_t *p;
+    // char        *buf_head;
+    int         i;
+    uint16_t    mail_tag;
+    uint32_t    *p, din[3]; //, dout[1];
+    uint8_t     *buf;
+    uint32_t    bp_tick;    // served as previous-bp-tick
+    uint32_t    machine_status;
+    uint32_t    joints_vel;
+    uint32_t    dout0;
+    uint32_t    mpg_count;
+    uint32_t    max_tick_time;
+    uint32_t    rcmd_state;
+    int32_t     enc_pos;
+    int32_t     cmd_fbs;
+    int32_t     enc_vel_p; // encoder velocity in pulses per servo-period
 
+    // buf_head = (char *) wou_mbox_ptr (&w_param);
     memcpy(&mail_tag, (buf_head + 2), sizeof(uint16_t));
 
-    if (mail_tag == 0x0001) {
+    // BP_TICK
+    p = (uint32_t *) (buf_head + 4);
+    bp_tick = *p;
+    
+    printf ("bp_tick(%d) \n", bp_tick);
 
-        // BP_TICK
-        p = (uint32_t *) (buf_head + 4);
-
-        fprintf (mbox_fp, "%11d", *p);
-        // PULSE_POS and ENC_POS
-        for (i=0; i<4; i++) {
-           // PULSE_POS
-           p += 1;
-           fprintf (mbox_fp, "%11d", *p);
-           // ENC_POS
-           p += 1;
-           fprintf(mbox_fp, "%11d", *p);
+    switch(mail_tag)
+    {
+    case MT_MOTION_STATUS:
+        /* for PLASMA with ADC_SPI */
+        //redundant: p = (uint32_t *) (buf_head + 4); // BP_TICK
+        joints_vel = 0;
+        for (i=0; i<num_joints; i++) {
+            p += 1;
+            enc_pos = (int32_t)*p;
+            p += 1;
+            cmd_fbs = (int32_t)*p;
+            p += 1;
+            enc_vel_p  = (int32_t)*p; // encoder velocity in pulses per servo-period
         }
-        
-        // ADC_SPI
-        // original
+
+        // digital input
         p += 1;
-        fprintf(mbox_fp,"%11d\n", (int32_t)*p);
-        // filitered
-        //p += 1;
-        //fprintf(mbox_fp,"%11d\n", (int32_t)*p);
+        din[0] = *p;
+        p += 1;
+        din[1] = *p;
+        p += 1;
+        din[2] = *p;
+        // digital output
+        p += 1;
+        dout0 = *p;
+
+        // copy 16 channel of 16-bit ADC value
+        p += 1;
+        buf = (uint8_t*)p;
+        // for (i=0; i<8; i++) {
+        //     *(analog->in[i*2]) = *(((uint16_t*)buf)+i*2+1);
+        //     *(analog->in[i*2+1]) = *(((uint16_t*)buf)+i*2);
+        // }
+
+        // MPG
+        p += 8; // skip 16ch of 16-bit ADC value
+        mpg_count = *p;
+        // the MPG on my hand is 1-click for a full-AB-phase-wave.
+        // therefore the mpg_count will increase by 4.
+        // divide it by 4 for smooth jogging.
+        // otherwise, there will be 4 units of motions for every MPG click.
+        mpg_count >>= 2;
+        p += 1;
+        machine_status = *p;
+        // stepgen = stepgen_array;
+        // for (i=0; i<num_joints; i++) {
+        //     *stepgen->ferror_flag = machine_status & (1 << i);
+        //     stepgen += 1;   // point to next joint
+        // }
+        // *machine_control->ahc_doing = (machine_status >> AHC_DOING_BIT) & 1;
+        // *machine_control->rtp_running = (machine_status >> TP_RUNNING_BIT) & 1;
+
+        p += 1;
+        max_tick_time = *p;
+
+        p += 1;
+        rcmd_state = *p;
+
+        break;
+
+    case MT_ERROR_CODE:
+        // error code
+        p = (uint32_t *) (buf_head + 4);    // prev_bp_tick - bp_offset
+        p += 1;
+        bp_tick = *p;                      
+        p += 1;
+//        printf ("MT_ERROR_CODE: code(%d) bp_tick(%d) \n", *p, bp_tick);
+        break;
+
+    case MT_DEBUG:
+        p = (uint32_t *) (buf_head + 4);
+        bp_tick = *p;
+        for (i=0; i<8; i++) {
+            p += 1;
+            // *machine_control->debug[i] = *p;
+        }
+        break;
+
+    case MT_PROBED_POS:
+//         stepgen = stepgen_array;
+//         p = (uint32_t *) (buf_head + 4);
+//         for (i=0; i<num_joints; i++) {
+//             p += 1;
+//             *(stepgen->probed_pos) = (double) ((int32_t)*p) * (stepgen->scale_recip);
+//             stepgen += 1;   // point to next joint
+//         }
+//         p += 1;
+//         *machine_control->trigger_result = ((uint8_t)*p);
+// 
+//         p += 1;
+//         *machine_control->rcmd_state = *p;
+//         if (*p == RCMD_UPDATE_POS_REQ)
+//         {
+//             // SET update_pos_req here
+//             // will RESET it after sending a RCMD_UPDATE_POS_ACK packet
+//             *machine_control->update_pos_req = 1;
+//             p += 1;
+//             *machine_control->rcmd_seq_num_req = *p;
+//         }
+
+        break;
+
+    default:
+        fprintf(stderr, "ERROR: wou_stepgen.c unknown mail tag (%d)\n", mail_tag);
+        break;
     }
 }
-
 
 static void diff_time(struct timespec *start, struct timespec *end,
 		      struct timespec *diff)
@@ -166,6 +272,8 @@ static void dsize_to_str(char *buf, uint64_t dsize)
     return;
 }
 
+#define JOINT_NUM   6
+
 int main(void)
 {
     wou_param_t w_param;
@@ -176,17 +284,17 @@ int main(void)
     int ret;
     int i, j, n;
     uint8_t data[MAX_DSIZE];
-    uint16_t sync_cmd[4];
-    int rev[4];             // revolution for each joints
-    double acc_usteps[4];   // accumulated micro steps
-    double speed[4];        // target speed for each joints (unit: pps)
-    double accel[4];        // acceleration for each joints (unit: p/s^2)
-    double cur_speed[4];    // current speed for each joints (unit: p/bp)
+    uint16_t sync_cmd[JOINT_NUM];
+    int rev[JOINT_NUM];             // revolution for each joints
+    double acc_usteps[JOINT_NUM];   // accumulated micro steps
+    double speed[JOINT_NUM];        // target speed for each joints (unit: pps)
+    double accel[JOINT_NUM];        // acceleration for each joints (unit: p/s^2)
+    double cur_speed[JOINT_NUM];    // current speed for each joints (unit: p/bp)
     uint8_t sync_do_val;
     double max_vel, max_accel, pos_scale, thc_vel, f_value, max_following_error;
     int32_t immediate_data;
-    int32_t pulse_cmd[4];
-    int32_t enc_pos[4];
+    int32_t pulse_cmd[JOINT_NUM];
+    int32_t enc_pos[JOINT_NUM];
     uint16_t switch_in;
     struct timespec time1, time2, dt;
     int ss, mm, hh, prev_ss;
@@ -209,8 +317,8 @@ int main(void)
 
     wou_prog_risc(&w_param, RISC_BIN);
     
-    mbox_fp = fopen ("./mbox.log", "w");
-    fprintf(mbox_fp,"%11s%11s%11s%11s%11s%11s%11s%11s%11s%11s%11s\n","bp_tick","j0","j1","j2","j3","e0","e1","e2","e3","adc_spi","filtered adc");
+//    mbox_fp = fopen ("./mbox.log", "w");
+//    fprintf(mbox_fp,"%11s%11s%11s%11s%11s%11s%11s%11s%11s%11s%11s\n","bp_tick","j0","j1","j2","j3","e0","e1","e2","e3","adc_spi","filtered adc");
     wou_set_mbox_cb (&w_param, fetchmail);
         
 //??    // setup sync timeout
@@ -300,6 +408,8 @@ int main(void)
     pid_str[1] = j1_pid_str;
     pid_str[2] = j2_pid_str;
     pid_str[3] = j3_pid_str;
+    pid_str[4] = j4_pid_str;
+    pid_str[5] = j5_pid_str;
     for(n=0; n<4; n++) {
 
         // accurate 0.0001 mm
@@ -329,16 +439,6 @@ int main(void)
         assert(immediate_data>0);
         write_mot_param (&w_param, n, (MAX_ACCEL), immediate_data);
 
-        /* config acceleration recip */
-        immediate_data = (uint32_t)(((1/(max_accel*pos_scale*f_dt*
-                                        f_dt))*(1 << FRACTION_BITS)));
-        immediate_data = immediate_data > 0? immediate_data:-immediate_data;
-        fprintf(stderr, "(1/(max_accel*scale)=(1/(%f*%f*(%f^2)))*(2^%d) = (%d) ",
-                max_accel, pos_scale, f_dt, FRACTION_BITS, immediate_data);
-        // assert(immediate_data>0);
-
-        write_mot_param (&w_param, n, (MAX_ACCEL_RECIP), immediate_data);
-
         /* config max following error */
         // following error send with unit pulse
         max_following_error = atof(ferror_str[n]);
@@ -349,10 +449,6 @@ int main(void)
         fprintf(stderr, "(max ferror) = (%d) (%d) ",
                        ((uint32_t) (immediate_data/pos_scale)),(immediate_data));
         write_mot_param (&w_param, n, (MAXFOLLWING_ERR), immediate_data);
-
-        // set move type as normal by default
-        immediate_data = NORMAL_MOVE;
-        write_mot_param (&w_param, n, (MOTION_TYPE), immediate_data);
 
         // test valid PID parameter for joint[n]
         if (pid_str[n][0] != NULL) {
@@ -373,9 +469,6 @@ int main(void)
                 fprintf(stderr, "pid(%d) = %s (%d)\n",i, pid_str[n][i], immediate_data);
             }
 
-            value = 1;
-            immediate_data = (int32_t) (value);
-            write_mot_param (&w_param, n, (ENABLE), immediate_data);
             fprintf(stderr, "\n");
         }
 
@@ -514,7 +607,22 @@ int main(void)
  
  
     accel[3] = 0.01;
-    for (j=0; j<4; j++) {
+    
+    rev[4] = -65535;    // RUN-forever
+    speed[4] = 50       // MAX_PWM=200, stable@800, unstable@900 full stepper pulse per seconds
+             * 16         // microStepping #
+             * 2
+             / (1000/0.65535); // base_period is 0.65535ms
+    accel[4] = 0.01;    // increase X usteps per base_period
+    
+    rev[5] = -65535;    // RUN-forever
+    speed[5] = 50       // MAX_PWM=200, stable@800, unstable@900 full stepper pulse per seconds
+             * 16         // microStepping #
+             * 2
+             / (1000/0.65535); // base_period is 0.65535ms
+    accel[5] = 0.01;    // increase X usteps per base_period
+
+    for (j=0; j<JOINT_NUM; j++) {
         acc_usteps[j] = 0;
         cur_speed[j] = 0;
     }
@@ -537,8 +645,8 @@ int main(void)
                     sizeof(uint16_t), data);
 	}
       
-	// prepare servo command for 4 axes
-	for (j = 0; j < 4; j++) {
+	// prepare servo command for 6 axes
+	for (j = 0; j < JOINT_NUM; j++) {
 	    int k;
             
             cur_speed[j] += accel[j];
@@ -563,33 +671,34 @@ int main(void)
                     k = 0;
                 }
             }
+            
+            // // for THC test, make Z axis at the same position
+            // if((j==2) & THC_ENABLE) {
+            //     sync_cmd[j] = SYNC_JNT | DIR_P | (POS_MASK & 0);
+            // }
 
             // SYNC_JNT: opcode for SYNC_JNT command
             // DIR_P: Direction, (positive(1), negative(0))
             // POS_MASK: relative position mask
+            // integer part
             sync_cmd[j] = SYNC_JNT | DIR_P | (POS_MASK & k);
-            // for THC test, make Z axis at the same position
-            if((j==2) & THC_ENABLE) {
-                sync_cmd[j] = SYNC_JNT | DIR_P | (POS_MASK & 0);
-            }
-            memcpy (data+j*sizeof(uint16_t), &(sync_cmd[j]), sizeof(uint16_t));
+            memcpy (data+(2*j)*sizeof(uint16_t), &(sync_cmd[j]), sizeof(uint16_t));
+            // fraction part
+            sync_cmd[j] = 0;    // force faction part to 0
+            memcpy (data+(2*j+1)*sizeof(uint16_t), &(sync_cmd[j]), sizeof(uint16_t));
 	}
+
 	wou_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD), 
-                j*sizeof(uint16_t), data); // j axes
+                (j*2)*sizeof(uint16_t), data); // j axes
 	
+        sync_cmd[0] = SYNC_EOF;
+        memcpy(data, &(sync_cmd[0]), sizeof(uint16_t));
+        wou_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), sizeof(uint16_t), data);
 
 	// obtain base_period updated wou registers
 	wou_update(&w_param);
 
         wou_status (&w_param);  // print out tx/rx data rate
-
- 	if ((i % 2) == 0) {
-             wou_cmd (&w_param,
-                      WB_RD_CMD,
-                      (SSIF_BASE | SSIF_SWITCH_POS),
-                      16,
-                      data);
- 	}
 
         // we NEED this wou_flush(), otherwise libwou will get into
         // grid-lock state easily. (one possible reason is that tx-size

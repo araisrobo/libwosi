@@ -23,7 +23,7 @@ int main(void)
 
     // do not load fpga bitfile:
     // wou_init_usb(&w_param, "7i43u", 0, NULL);
-    wou_init(&w_param, "7i43u", 0, "./servo_top.bit");
+    wou_init(&w_param, "7i43u", 0, "./plasma_top.bit");
     // wou_set_debug(&w_param, TRUE);
     // printf ("debug: about to wou_connect()\n"); 
     // getchar();
@@ -58,8 +58,8 @@ int main(void)
 //obsolete:    // printf("send a wou-frame ... press key ...\n");
 //obsolete:    // getchar();
   
-    value = 1;
-    wou_cmd (&w_param, WB_WR_CMD, GPIO_OUT, 1, &value);
+//obsolete:    value = 1;
+//obsolete:    wou_cmd (&w_param, WB_WR_CMD, GPIO_OUT, 1, &value);
     //debug: check if the first packet is correct?
     // printf("about to switch SON on ... press enter ...\n"); getchar();
     wou_flush(&w_param);
@@ -97,44 +97,33 @@ int main(void)
         // obtain base_period updated wou registers
 	wou_update(&w_param);
 
-	for (j = 0; j < 4; j++) {
-	    memcpy((pulse_cmd + j),
-		   wou_reg_ptr(&w_param,
-			       SSIF_BASE + SSIF_PULSE_POS + j * 4), 4);
-	    memcpy((enc_pos + j),
-		   wou_reg_ptr(&w_param, SSIF_BASE + SSIF_ENC_POS + j * 4),
-		   4);
-	}
-	memcpy(&switch_in,
-	       wou_reg_ptr(&w_param, GPIO_BASE + GPIO_IN), 2);
-
         wou_status (&w_param);  // print out tx/rx data rate
         
-        // replace "bp_reg_update":
-        // send WB_RD_CMD to read registers back
-        wou_cmd (&w_param,
-                 WB_RD_CMD,
-                 (SSIF_BASE | SSIF_PULSE_POS),
-                 16,
-                 data);
-        
-        wou_cmd (&w_param,
-                 WB_RD_CMD,
-                 (GPIO_BASE | GPIO_IN),
-                 2,
-                 data);
+        //obsolete: // replace "bp_reg_update":
+        //obsolete: // send WB_RD_CMD to read registers back
+        //obsolete: wou_cmd (&w_param,
+        //obsolete:          WB_RD_CMD,
+        //obsolete:          (SSIF_BASE | SSIF_PULSE_POS),
+        //obsolete:          16,
+        //obsolete:          data);
+        //obsolete: 
+        //obsolete: wou_cmd (&w_param,
+        //obsolete:          WB_RD_CMD,
+        //obsolete:          (GPIO_BASE | GPIO_IN),
+        //obsolete:          2,
+        //obsolete:          data);
 
-        wou_cmd (&w_param,
-                 WB_RD_CMD,
-                 (SSIF_BASE | SSIF_SWITCH_POS),
-                 16,
-                 data);
-        
-        wou_cmd (&w_param,
-                 WB_RD_CMD,
-                 (SSIF_BASE | SSIF_INDEX_POS),
-                 16,
-                 data);
+        //obsolete: wou_cmd (&w_param,
+        //obsolete:          WB_RD_CMD,
+        //obsolete:          (SSIF_BASE | SSIF_SWITCH_POS),
+        //obsolete:          16,
+        //obsolete:          data);
+        //obsolete: 
+        //obsolete: wou_cmd (&w_param,
+        //obsolete:          WB_RD_CMD,
+        //obsolete:          (SSIF_BASE | SSIF_INDEX_POS),
+        //obsolete:          16,
+        //obsolete:          data);
 
         // wou_flush(&w_param);
 	// printf("send a wou-frame ... press key ...\n"); getchar();
