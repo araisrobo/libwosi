@@ -92,23 +92,23 @@
 // #error "Unsupported C Compiler"
 // #endif
 
-// for WOU protocol (wishbone over usb)
-#define WOUF_PREAMBLE   0x55    // Preamble
-#define WOUF_SOFD       0xD5    // Start of Frame Delimiter
-#define WOUF_HDR_SIZE   4       // header size of WOU Frame
-#define MAX_PSIZE       255     // Maximum WOU Frame Payload Size
+// for WOSI protocol (wishbone over usb)
+#define WOSIF_PREAMBLE  0x55    // Preamble
+#define WOSIF_SOFD      0xD5    // Start of Frame Delimiter
+#define WOSIF_HDR_SIZE  4       // header size of WOSI Frame
+#define MAX_PSIZE       255     // Maximum WOSI Frame Payload Size
 #define CRC_SIZE        2       // the size for CRC-16
 #define WB_REG_SIZE     65536   // addressable wishbone register size (2^16)
-#define WOU_HDR_SIZE    3       // header size of WOU_HEADER
+#define WOSI_HDR_SIZE   3       // header size of WOSI_HEADER
 #define WB_ADDR_SIZE    2       // size in bytes for WB_ADDR
-#define MAX_DSIZE       127     // Maximum WOU data size
+#define MAX_DSIZE       127     // Maximum WOSI data size
 #define WB_RD_CMD       0x00
 #define WB_WR_CMD       0x80
-// WOUF_COMMAND (5th byte of wou_frame)
-#define TYP_WOUF        0x00
+// WOSIF_COMMAND (5th byte of wosi_frame)
+#define TYP_WOSIF       0x00
 #define RST_TID         0x01
 #define MAILBOX         0x02
-#define RT_WOUF         0x03    // REALTIME WOU-FRAME
+#define RT_WOSIF        0x03    // REALTIME WOSI-FRAME
 
 // GPIO register space: (8-bit GPIO for LEDs, purpose: test Wishbone protocol)
 #define GPIO_BASE       0x0000

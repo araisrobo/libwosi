@@ -21,24 +21,16 @@
 # Written by Marcel Telka <marcel@telka.sk>, 2002.
 #
 
-noinst_LTLIBRARIES = libwou.la
+noinst_LTLIBRARIES = libwosi.la
 
-libwou_la_SOURCES = \
+libwosi_la_SOURCES = \
 	bitfile.h \
 	bitfile.c \
 	board.h \
 	board.c \
 	crc.h \
-	crc.c
+	crc.c \
+	gpio.h \
+	gpio.c
 
 INCLUDES = -I../
-
-# if ENABLE_LOWLEVEL_FTDI
-# libmou_a_SOURCES += \
-# 	usbconn/libftdi.c
-# endif
-# 
-# if ENABLE_LOWLEVEL_FTD2XX
-# libmou_a_SOURCES += \
-# 	usbconn/libftd2xx.c
-# endif
