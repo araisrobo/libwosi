@@ -85,7 +85,7 @@ information, go to www.linuxcnc.org.
 #define TRACE 1
 #include "dptrace.h"
 #if (TRACE!=0)
-static FILE *dptrace; // dptrace = fopen("dptrace.log","w");
+FILE *dptrace; // dptrace = fopen("dptrace.log","w");
 #endif
 
 #define ERR_GEN_EN 0
@@ -157,7 +157,7 @@ static struct timespec time_send_success; // time of a success send transfer
 
 static int prev_ss;
 
-#define TX_TIMEOUT   50000000
+#define TX_TIMEOUT   50000000   // 50ms, unit: nano-sec
 // #define TX_TIMEOUT 19000000     // unit: nano-sec
 #define BUF_SIZE 80             // the buffer size for tx_str[] and rx_str[]
 
@@ -424,6 +424,7 @@ static void gbn_init (board_t* board)
     int i;
     board->rd_dsize = 0;
     board->wr_dsize = 0;
+    board->wosi->tx_timeout = 0;
     board->wosi->tx_size = 0;
     board->wosi->rx_size = 0;
     board->wosi->rx_state = SYNC;
@@ -1309,131 +1310,81 @@ void wosi_recv (board_t* b)
 } // wosi_recv()
 
 
-static void wosi_send (board_t* b)
+void wosi_send (board_t* b)
 {
-//    static struct timespec  time1 = {0, 0};
-    struct timespec         time2, dt;
+    struct timespec         dt, cur_time;
     uint8_t *buf_tx;
     uint8_t *buf_src;
     uint8_t *Sm;
     uint8_t *Sn;
     int     i,j;
 
-    int         dwBytesWritten;
     int         *tx_size;
     unsigned short status;
     int ret;
 
-    if (b->ready == 0)
-    {
-        // bypass TX TIMEOUT when board is not configured
-        clock_gettime(CLOCK_REALTIME, &time_send_success);
-        DP ("bypass TIMEOUT checking\n");
-    }
-    clock_gettime(CLOCK_REALTIME, &time2);
-    dt = diff(time_send_success, time2);
+    clock_gettime(CLOCK_REALTIME, &cur_time);
+    dt = diff(time_send_success, cur_time);
+    b->wosi->tx_timeout = 0;
     if (dt.tv_sec > 0 || dt.tv_nsec > TX_TIMEOUT) {
-        // reset time_send_success
-        clock_gettime(CLOCK_REALTIME, &time_send_success);
         DP ("TX TIMEOUT for GO-BACK-N\n");
         DP ("dt.sec(%lu), dt.nsec(%lu)\n", dt.tv_sec, dt.tv_nsec);
         DP ("Sm(0x%02X) Sn(0x%02X) Sb(0x%02X)\n", b->wosi->Sm, b->wosi->Sn, b->wosi->Sb);
         DP("rx_state(%d)\n", b->wosi->rx_state);
         assert (b->wosi->rx_state == SYNC);
+        b->wosi->tx_timeout = 1;
         b->wosi->rx_size = 0;
         b->wosi->tx_size = 0;
         b->wosi->Sn = b->wosi->Sb;
         DP ("RESET Sm(0x%02X) Sn(0x%02X) Sb(0x%02X)\n", b->wosi->Sm, b->wosi->Sn, b->wosi->Sb);
-     }
-
-#if 0
-    //async write:
-    dwBytesWritten = 0;
-    if (b->io.usb.tx_tc) {
-        // there's previous pending async write
-        if (b->io.usb.tx_tc->transfer) {
-            struct timeval poll_timeout = {0,0};
-            assert (ftdic->usb_dev != NULL);
-            if (libusb_handle_events_timeout_completed(ftdic->usb_ctx, &poll_timeout, &(b->io.usb.tx_tc->completed)) < 0) {
-                ERRP("libusb_handle_events_timeout_completed() (%s)\n", ftdi_get_error_string(ftdic));
-                return;
-            }
-        }
-        if (b->io.usb.tx_tc->completed) {
-            dwBytesWritten = ftdi_transfer_data_done (b->io.usb.tx_tc);
-            if (dwBytesWritten <= 0)
-            {
-                ERRP("dwBytesWritten(%d): (%s)\n", dwBytesWritten, ftdi_get_error_string(ftdic));
-                dwBytesWritten = 0;  // to issue another ftdi_write_data_submit()
-            }
-            else
-            {
-                // a successful write
-                clock_gettime(CLOCK_REALTIME, &time_send_success);
-#if (TRACE != 0)
-                // a successful write
-                tx_size = &(b->wosi->tx_size);
-                clock_gettime(CLOCK_REALTIME, &time2);
-                dt = diff(time_send_begin, time2);
-                DP ("tx_size(%d), dwBytesWritten(%d,0x%08X), dt.sec(%lu), dt.nsec(%lu)\n",
-                     *tx_size, dwBytesWritten, dwBytesWritten, dt.tv_sec, dt.tv_nsec);
-                DP ("bitrate(%f Mbps)\n",
-                     8.0*dwBytesWritten/(1000000.0*dt.tv_sec+dt.tv_nsec/1000.0));
-#endif
-            }
-            b->io.usb.tx_tc = NULL;
-        } else {
-            DP ("tx_tc->completed(%d)\n", b->io.usb.tx_tc->completed);
-            return;
-        }
     }
 
-    assert(b->io.usb.tx_tc == NULL);
-#endif // async usb write
-
     tx_size = &(b->wosi->tx_size);
+    *tx_size = 0;
     buf_tx = b->wosi->buf_tx;
     Sm = &(b->wosi->Sm);
     Sn = &(b->wosi->Sn);
     DP ("Sm(0x%02X) Sn(0x%02X) Sb(0x%02X) use(%d) clock(%d)\n", 
         *Sm, *Sn, b->wosi->Sb, b->wosi->wosifs[*Sn].use, b->wosi->clock);
 
-    // skip updating dwBytesWritten after TIMEOUT
-    if (*tx_size == 0)
-        dwBytesWritten = 0;
-
-    // 避免 buf_tx 爆掉，只有在 tx_size 小於 TX_CHUNK_SIZE 時，才發送新的 WOSIF：
-    if (*tx_size >= TX_CHUNK_SIZE)
-        DP ("tx_size(%d), skip appending WOSIFs\n", *tx_size);
-
-    if (*tx_size < TX_CHUNK_SIZE)
-    {
-        if (*Sm >= *Sn) {
-            if ((*Sm - *Sn) >= NR_OF_WIN) {
-                // case: Sm(255), Sn(0): Sn is behind Sm
-                // stop sending when exceening Max Window Boundary
-                DP("hit Window Boundary\n");
-            } else {
-                for (i=*Sn; i<=*Sm; i++) {
-                    assert (i < NR_OF_CLK);
-                    if (b->wosi->wosifs[i].use == 0) break;
-                    buf_src = b->wosi->wosifs[i].buf;
-                    memcpy (buf_tx + *tx_size, buf_src, b->wosi->wosifs[i].fsize);
-                    *tx_size += b->wosi->wosifs[i].fsize;
-                    DP ("Sn(0x%02X) tidSn(0x%02X) size(%d) tx_size(%d)\n", *Sn, b->wosi->wosifs[i].buf[5], b->wosi->wosifs[i].fsize, *tx_size);
-                    if (b->ready) assert (b->wosi->wosifs[i].buf[4] != RST_TID);
-                    *Sn += 1;
-                }
-            }
+    if (*Sm >= *Sn) {
+        if ((*Sm - *Sn) >= NR_OF_WIN) {
+            // case: Sm(255), Sn(0): Sn is behind Sm
+            // stop sending when exceening Max Window Boundary
+            DP("hit Window Boundary\n");
         } else {
-            if ((*Sn - *Sm) == 1) {
-                // stop sending when exceeding Max Window Boundary
-                DP("hit Window Boundary\n");
-            } else {
-                // round a circle
-                assert ((NR_OF_CLK - *Sn) <= NR_OF_WIN);
-                assert (*Sm <= (NR_OF_WIN - (NR_OF_CLK - *Sn)));
-                for (i=*Sn; i<NR_OF_CLK; i++) {
+            for (i=*Sn; i<=*Sm; i++) {
+                assert (i < NR_OF_CLK);
+                if (b->wosi->wosifs[i].use == 0) break;
+                buf_src = b->wosi->wosifs[i].buf;
+                memcpy (buf_tx + *tx_size, buf_src, b->wosi->wosifs[i].fsize);
+                *tx_size += b->wosi->wosifs[i].fsize;
+                DP ("Sn(0x%02X) tidSn(0x%02X) size(%d) tx_size(%d)\n", *Sn, b->wosi->wosifs[i].buf[5], b->wosi->wosifs[i].fsize, *tx_size);
+                if (b->ready) assert (b->wosi->wosifs[i].buf[4] != RST_TID);
+                *Sn += 1;
+            }
+        }
+    } else {
+        if ((*Sn - *Sm) == 1) {
+            // stop sending when exceeding Max Window Boundary
+            DP("hit Window Boundary\n");
+        } else {
+            // round a circle
+            assert ((NR_OF_CLK - *Sn) <= NR_OF_WIN);
+            assert (*Sm <= (NR_OF_WIN - (NR_OF_CLK - *Sn)));
+            for (i=*Sn; i<NR_OF_CLK; i++) {
+                assert (i < NR_OF_CLK);
+                if (b->wosi->wosifs[i].use == 0) break;
+                buf_src = b->wosi->wosifs[i].buf;
+                memcpy (buf_tx + *tx_size, buf_src, b->wosi->wosifs[i].fsize);
+                *tx_size += b->wosi->wosifs[i].fsize;
+                DP ("Sn(0x%02X) tidSn(0x%02X) size(%d) tx_size(%d)\n", *Sn, b->wosi->wosifs[i].buf[5], b->wosi->wosifs[i].fsize, *tx_size);
+                if (b->ready) assert (b->wosi->wosifs[i].buf[4] != RST_TID);
+                *Sn += 1;
+            }
+            if (*Sn == (NR_OF_CLK & 0xFF)) {
+                *Sn = 0;
+                for (i=0; i<=*Sm; i++) {
                     assert (i < NR_OF_CLK);
                     if (b->wosi->wosifs[i].use == 0) break;
                     buf_src = b->wosi->wosifs[i].buf;
@@ -1442,19 +1393,6 @@ static void wosi_send (board_t* b)
                     DP ("Sn(0x%02X) tidSn(0x%02X) size(%d) tx_size(%d)\n", *Sn, b->wosi->wosifs[i].buf[5], b->wosi->wosifs[i].fsize, *tx_size);
                     if (b->ready) assert (b->wosi->wosifs[i].buf[4] != RST_TID);
                     *Sn += 1;
-                }
-                if (*Sn == (NR_OF_CLK & 0xFF)) {
-                    *Sn = 0;
-                    for (i=0; i<=*Sm; i++) {
-                        assert (i < NR_OF_CLK);
-                        if (b->wosi->wosifs[i].use == 0) break;
-                        buf_src = b->wosi->wosifs[i].buf;
-                        memcpy (buf_tx + *tx_size, buf_src, b->wosi->wosifs[i].fsize);
-                        *tx_size += b->wosi->wosifs[i].fsize;
-                        DP ("Sn(0x%02X) tidSn(0x%02X) size(%d) tx_size(%d)\n", *Sn, b->wosi->wosifs[i].buf[5], b->wosi->wosifs[i].fsize, *tx_size);
-                        if (b->ready) assert (b->wosi->wosifs[i].buf[4] != RST_TID);
-                        *Sn += 1;
-                    }
                 }
             }
         }
@@ -1463,58 +1401,37 @@ static void wosi_send (board_t* b)
     DP ("Sm(%02X) tidSm(%02X) Sb(%02X) tidSb(%02X) Sn(%02X) Sn.use(%02X) clock(%02X)\n",
           *Sm, b->wosi->wosifs[*Sm].buf[5], b->wosi->Sb, b->wosi->wosifs[b->wosi->Sb].buf[5],
           *Sn,  b->wosi->wosifs[*Sn].use, b->wosi->clock);
-    DP ("tx_size(%d) dwBytesWritten(%d)\n", *tx_size, dwBytesWritten);
     assert (*tx_size < NR_OF_WIN*(WOSIF_HDR_SIZE+2+MAX_PSIZE+CRC_SIZE));
-    assert (dwBytesWritten >= 0);
 
-    if (dwBytesWritten) {
-        assert (dwBytesWritten <= *tx_size);
-        b->wr_dsize += dwBytesWritten;
-        *tx_size -= dwBytesWritten;
-        memmove(buf_tx, buf_tx+dwBytesWritten, *tx_size);
-    }
-    
-    if (*tx_size < TX_BURST_MIN) {
+    if (*tx_size == 0) {
         DP ("skip wosi_send(), tx_size(%d)\n", *tx_size);
         return;
     }
 
-    // issue async_write ...
-//    b->io.usb.tx_tc = ftdi_write_data_submit (
-//                            ftdic,
-//                            buf_tx,
-//                            MIN(*tx_size, TX_BURST_MAX)
-//                      );
-    i = MIN(*tx_size, TX_BURST_MAX);
-    if(write(b->io.spi.fd_wr, buf_tx, i) < i)
+    // issue spi write ...
+    clock_gettime(CLOCK_REALTIME, &time_send_begin);
+    if(write(b->io.spi.fd_wr, buf_tx, *tx_size) < *tx_size)
     {
-        printf("spi write error \n");
+        ERRP("spi write error \n");
     }
     else
     {
-        clock_gettime(CLOCK_REALTIME, &time_send_begin);
-    }
-
-    // request for rx
+        clock_gettime(CLOCK_REALTIME, &time_send_success);
 #if (TRACE)
-    DP ("tx_size(%d) write_size_req(%d)\n", *tx_size, MIN(*tx_size, TX_BURST_MAX));
-    if (b->io.usb.tx_tc) {
-        DP("tx_tc.completed(%d)\n", b->io.usb.tx_tc->completed);
-        if (b->io.usb.tx_tc->transfer) {
-            DP("tx_tc->transfer->status(%d)\n", b->io.usb.tx_tc->transfer->status);
-            DP("tx_tc->transfer->actual_length(%d)\n", b->io.usb.tx_tc->transfer->actual_length);
+        dt = diff(time_send_begin, time_send_success);
+        DP ("tx_size(%d), dt.nsec(%lu)\n", *tx_size, dt.tv_nsec);
+        DP ("bitrate(%f Mbps)\n", 8.0*(*tx_size)/(1000000.0*dt.tv_sec+dt.tv_nsec/1000.0));
+
+        DP ("buf_tx: tx_size(%d)", *tx_size);
+        // for (i=0; ((i<*tx_size) && (i<50)) ; i++)
+        for (i=0; i<*tx_size; i++)
+        {
+            DPS ("<%.2X>", buf_tx[i]);
         }
+        DPS ("\n");
+#endif
     }
 
-    DP ("buf_tx: tx_size(%d), sent(%d)", *tx_size, MIN(*tx_size, TX_BURST_MAX));
-    // for (i=0; ((i<*tx_size) && (i<50)) ; i++)
-    for (i=0; i<*tx_size; i++)
-    {
-        DPS ("<%.2X>", buf_tx[i]);
-    }
-    DPS ("\n");
-#endif
-    
     return;
 }
 
@@ -1656,10 +1573,10 @@ int wosi_eof (board_t* b, uint8_t wosif_cmd)
 {
     // took from vip/ftdi/generator.cpp::send_frame()
     int         cur_clock;
-    wosif_t      *wosi_frame_;
+    wosif_t     *wosi_frame_;
     uint16_t    crc16;
     int         next_5_clock;
-    wosif_t      *next_5_wosif_;
+    wosif_t     *next_5_wosif_;
     uint32_t    idle_cnt;
 
     cur_clock = (int) b->wosi->clock;
@@ -1716,40 +1633,37 @@ int wosi_eof (board_t* b, uint8_t wosif_cmd)
         b->wosi->rt_cmd_callback();
     }
 
-    idle_cnt = 0;
-    do {
-//        if (b->io_type == IO_TYPE_USB) {
-//            handle_usb_reconnect(b);
+//    idle_cnt = 0;
+//    do {
+//
+//        wosi_send(b);
+//        wosi_recv(b);    // update GBN pointer if receiving Rn
+//
+//        if (next_5_wosif_->use)
+//        {
+//            struct timespec treq, trem;
+//            // request for 1ms to sleep
+//            treq.tv_sec = 0;
+//            treq.tv_nsec = 1000000;   // 1ms
+//            if (nanosleep(&treq, &trem))
+//            {
+//                ERRP ("nanosleep got interrupted\n");
+//            }
 //        }
-
-        wosi_send(b);
-        wosi_recv(b);    // update GBN pointer if receiving Rn
-
-        if (next_5_wosif_->use)
-        {
-            struct timespec treq, trem;
-            // request for 1ms to sleep
-            treq.tv_sec = 0;
-            treq.tv_nsec = 1000000;   // 1ms
-            if (nanosleep(&treq, &trem))
-            {
-                ERRP ("nanosleep got interrupted\n");
-            }
-        }
-
-        if (idle_cnt > 200)
-        {
-            ERRP ("WOSI BUSY: %d\n", idle_cnt);
-            ERRP ("Sm(0x%02X) Sn(0x%02X) Sb(0x%02X) Sn.use(%d) clock(0x%02X)\n",
-                   b->wosi->Sm, b->wosi->Sn, b->wosi->Sb, b->wosi->wosifs[b->wosi->Sn].use, b->wosi->clock);
-            // tidSb is the request of Rn from Receiver(FPGA)
-            ERRP ("Sm.use(%d) Sb.use(%d) clock(0x%02X)\n",
-                   b->wosi->wosifs[b->wosi->Sm].use,
-                   b->wosi->wosifs[b->wosi->Sb].use,
-                   b->wosi->clock);
-        }
-        idle_cnt ++;
-    } while (next_5_wosif_->use);
+//
+//        if (idle_cnt > 200)
+//        {
+//            ERRP ("WOSI BUSY: %d\n", idle_cnt);
+//            ERRP ("Sm(0x%02X) Sn(0x%02X) Sb(0x%02X) Sn.use(%d) clock(0x%02X)\n",
+//                   b->wosi->Sm, b->wosi->Sn, b->wosi->Sb, b->wosi->wosifs[b->wosi->Sn].use, b->wosi->clock);
+//            // tidSb is the request of Rn from Receiver(FPGA)
+//            ERRP ("Sm.use(%d) Sb.use(%d) clock(0x%02X)\n",
+//                   b->wosi->wosifs[b->wosi->Sm].use,
+//                   b->wosi->wosifs[b->wosi->Sb].use,
+//                   b->wosi->clock);
+//        }
+//        idle_cnt ++;
+//    } while (next_5_wosif_->use);
 
     // init the wosif buffer and tid
     assert(wosi_frame_->use == 0);   // wosi protocol assume cur-wosif_ must be empty to write to

@@ -201,7 +201,7 @@ unsigned int gpio_get_value_fd(int fd)
 
     pread(fd, &ch, 1, 0);
 
-    printf("%s (%s:%d) fd(%d) ch('%c',%d)\n", __FILE__, __FUNCTION__, __LINE__, fd, ch, (int)ch);
+//    printf("%s (%s:%d) fd(%d) ch('%c',%d)\n", __FILE__, __FUNCTION__, __LINE__, fd, ch, (int)ch);
     if (ch == '0') {
         value = 0;
     } else {

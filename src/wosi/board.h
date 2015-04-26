@@ -143,30 +143,30 @@ typedef struct wosif_struct {
  * @Sm:                 sequence max of GBN
  **/
 typedef struct wosi_struct {
-  uint8_t     tid;       
-//  uint8_t     tidSb;
-  wosif_t      wosifs[NR_OF_CLK];    
-  wosif_t      rt_wosif;
-  int         tx_size;
-  int         rx_size;
-  int         rx_req_size;
-  int         rx_req;
-  uint8_t     buf_tx[NR_OF_WIN*(WOSIF_HDR_SIZE+2/*PLOAD_SIZE_RX+TID*/+MAX_PSIZE+CRC_SIZE)];
-  uint8_t     buf_rx[NR_OF_WIN*(WOSIF_HDR_SIZE+1/*TID_SIZE*/+MAX_PSIZE+CRC_SIZE)];
-  enum rx_state_type rx_state;
-  uint8_t     clock;        
-//  uint8_t     Rn;
-  uint8_t     Sn;
-  uint8_t     Sb;    
-  uint8_t     Sm;    
-  uint32_t    crc_error_counter;
-  // callback functional pointers
-  libwosi_mailbox_cb_fn mbox_callback;
-  libwosi_crc_error_cb_fn crc_error_callback;
-  libwosi_rt_cmd_cb_fn rt_cmd_callback;
+    uint8_t     tid;
+    //  uint8_t     tidSb;
+    wosif_t      wosifs[NR_OF_CLK];
+    wosif_t      rt_wosif;
+    int         tx_size;
+    int         rx_size;
+    int         rx_req_size;
+    int         rx_req;
+    uint8_t     buf_tx[NR_OF_WIN*(WOSIF_HDR_SIZE+2/*PLOAD_SIZE_RX+TID*/+MAX_PSIZE+CRC_SIZE)];
+    uint8_t     buf_rx[NR_OF_WIN*(WOSIF_HDR_SIZE+1/*TID_SIZE*/+MAX_PSIZE+CRC_SIZE)];
+    enum rx_state_type rx_state;
+    uint8_t     clock;
+    //  uint8_t     Rn;
+    uint8_t     Sn;
+    uint8_t     Sb;
+    uint8_t     Sm;
+    uint32_t    crc_error_counter;
+    // callback functional pointers
+    libwosi_mailbox_cb_fn mbox_callback;
+    libwosi_crc_error_cb_fn crc_error_callback;
+    libwosi_rt_cmd_cb_fn rt_cmd_callback;
 
-  int           error_gen_en;
-
+    int           error_gen_en;
+    uint8_t     tx_timeout;
 } wosi_t;
 
 //
@@ -231,6 +231,7 @@ int board_status (board_t* board);
 void wosi_append (board_t* b, const uint8_t func, const uint16_t wb_addr, 
                  const uint16_t dsize, const uint8_t* buf);
 void wosi_recv (board_t* b);
+void wosi_send (board_t* b);
 int wosi_eof (board_t* b, uint8_t wosif_cmd);
 void wosif_init (board_t* b);
 
