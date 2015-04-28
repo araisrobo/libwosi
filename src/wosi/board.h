@@ -156,16 +156,14 @@ typedef struct wosi_struct {
     enum rx_state_type rx_state;
     uint8_t     clock;
     //  uint8_t     Rn;
-    uint8_t     Sn;
-    uint8_t     Sb;
-    uint8_t     Sm;
+    uint8_t     Sb;     // window Base
+    uint8_t     Sm;     // window Max
+    uint8_t     Sn;     // current pointer between Sb and Sm
     uint32_t    crc_error_counter;
     // callback functional pointers
     libwosi_mailbox_cb_fn mbox_callback;
     libwosi_crc_error_cb_fn crc_error_callback;
     libwosi_rt_cmd_cb_fn rt_cmd_callback;
-
-    int           error_gen_en;
     uint8_t     tx_timeout;
 } wosi_t;
 
@@ -223,6 +221,7 @@ int board_risc_prog(board_t* board, const char* binfile);
 int board_init (board_t* board, const char* device_type, const int device_id,
                 const char* bitfile);
 int board_connect (board_t* board);
+int board_reset (board_t* board);
 int board_close (board_t* board);
 int board_status (board_t* board);
 //int board_reset (board_t* board);

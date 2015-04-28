@@ -91,7 +91,8 @@ void wosi_init (wosi_param_t *w_param, const char *device_type,
 /* Establishes a wosi connexion.
    Returns 0 on success or -1 on failure. */
 int wosi_connect (wosi_param_t *w_param);
-
+/* wiso_sys_rst() - send a WOSIF(SYS_RST) to reset FPGA and Expected TID */
+void wosi_sys_rst (wosi_param_t *w_param);
 /* Closes a wosi connection */
 void wosi_close (wosi_param_t *w_param);
 

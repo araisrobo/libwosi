@@ -125,7 +125,12 @@ const void *wosi_reg_ptr (wosi_param_t *w_param, uint32_t wosi_addr)
 
 int wosi_flush (wosi_param_t *w_param)
 {
-    return wosi_eof (w_param->board, TYP_WOSIF); // typical WOSI_FRAME;
+    int ret;
+
+    ret = wosi_eof (w_param->board, TYP_WOSIF); // typical WOSI_FRAME;
+    wosi_send(w_param->board);             // send
+    wosi_recv(w_param->board);             // receive
+    return ret;
 }
 
 /* Initializes the wosi_param_t structure for USB
@@ -143,9 +148,21 @@ void wosi_init (wosi_param_t *w_param, const char *device_type,
     rt_wosif_init(w_param->board);
 }
 
+/* wosi_sys_rst: to send a WOSIF(SYS_RST) to reset the system
+   @device_type: board name
+   @device_id:   usb device id
+   @bitfile:     fpga bitfile; skip programming FPGA if (bitfile == NULL)
+*/
+void wosi_sys_rst (wosi_param_t *w_param)
+{
+    board_reset(w_param->board);
+}
+
 int wosi_prog_risc(wosi_param_t *w_param, const char *binfile)
 {
 	int ret;
+
+	board_reset(w_param->board);
 	ret = board_risc_prog(w_param->board, binfile);
 	return ret;
 }

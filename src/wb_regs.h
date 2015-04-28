@@ -9,11 +9,9 @@
  *******************************************************************************
  * REG_NAME                 ADDR_OFFSET   ACCESS  DESCRIPTION
  * GPIO_SYSTEM    [ 2: 0]   0x0000        W       System Registers
- *    SOFT_RST    [    0]   0x0000        W       issue a RESET pulse for logic modules
- *    RECONFIG    [    1]   0x0000        W       make the FPGA in re-configuration mode, 
- *                                                let CPLD control the USB ports.
  *    ALARM_EN    [    2]   0x0000        W       set to enable ext_pad_in.bit0 
  *                                                as hardware alarm signal
+ * RESERVED       [ 1: 0]   0x0000
  * RESERVED       [ 7: 3]   0x0000
  *                                                0x06~0x07                                                
  *******************************************************************************
@@ -106,7 +104,7 @@
 #define WB_WR_CMD       0x80
 // WOSIF_COMMAND (5th byte of wosi_frame)
 #define TYP_WOSIF       0x00
-#define RST_TID         0x01
+#define SYS_RST         0x01
 #define MAILBOX         0x02
 #define RT_WOSIF        0x03    // REALTIME WOSI-FRAME
 
@@ -114,8 +112,6 @@
 #define GPIO_BASE       0x0000
 // offset to GPIO registers:
 #define GPIO_SYSTEM     0x0000  // GPIO_SYSTEM.[2:0]
-#define GPIO_SOFT_RST   0x01    // GPIO_SYSTEM.[0]
-#define GPIO_RECONFIG   0x02    // GPIO_SYSTEM.[1]
 #define GPIO_ALARM_EN   0x04    // GPIO_SYSTEM.[2]
 // JCMD register space:
 #define JCMD_BASE       0x1000  // 

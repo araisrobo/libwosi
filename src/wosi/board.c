@@ -155,7 +155,7 @@ static struct timespec time_begin;
 static struct timespec time_send_begin;
 static struct timespec time_send_success; // time of a success send transfer
 
-static int prev_ss;
+static int prev_ss;     // second for board_status()
 
 #define TX_TIMEOUT   50000000   // 50ms, unit: nano-sec
 // #define TX_TIMEOUT 19000000     // unit: nano-sec
@@ -263,16 +263,12 @@ int board_risc_prog(struct board* board, const char* binfile)
     DP ("begin:\n");
 
     // or32 disable
-    data[0] = 0x00;
+    data[0] = 0x00 & OR32_EN_MASK;      // keep resetting OR32
     wosi_append (board, (const uint8_t) WB_WR_CMD, (const uint16_t)(JCMD_BASE | OR32_CTRL),
     		(const uint16_t)1, data); //wosi_cmd
-    // RESET TX_TIMEOUT:
-    clock_gettime(CLOCK_REALTIME, &time_send_begin);
-    while(wosi_eof (board, TYP_WOSIF) == -1)
-    {
-        clock_gettime(CLOCK_REALTIME, &time_send_success);
-    }
-
+    while(wosi_eof (board, TYP_WOSIF) == -1);
+    wosi_send(board);             // send
+    wosi_recv(board);             // receive
 
     // begin: write OR32 iamge
     fd = fopen(binfile, "r" );
@@ -307,16 +303,14 @@ int board_risc_prog(struct board* board, const char* binfile)
             word_counter++;
             byte_counter=0;
             // issue an OR32_PROG command
-            clock_gettime(CLOCK_REALTIME, &time_send_success);
             wosi_append (board, (const uint8_t)WB_WR_CMD, (const uint16_t)(JCMD_BASE | OR32_PROG),
             		(const uint16_t) 2*sizeof(uint32_t),  (const uint8_t*)data);//wosi_cmd
         }
         if (word_counter == WORDS_PER_LINE) {
                 word_counter = 0;
-                while(wosi_eof (board, TYP_WOSIF) == -1)
-                {
-                    clock_gettime(CLOCK_REALTIME, &time_send_success);
-                }
+                while(wosi_eof (board, TYP_WOSIF) == -1);
+                wosi_send(board);             // send
+                wosi_recv(board);             // receive
                 DP ("current_addr(0x%08X)\n", current_addr);
         }
     }
@@ -331,23 +325,31 @@ int board_risc_prog(struct board* board, const char* binfile)
     if (word_counter != 0)
     {
         // terminate pending WOSI commands
-        while(wosi_eof (board, TYP_WOSIF) == -1)
-        {
-            clock_gettime(CLOCK_REALTIME, &time_send_success);
-        }
+        while(wosi_eof (board, TYP_WOSIF) == -1);
+        wosi_send(board);             // send
+        wosi_recv(board);             // receive
+    }
+
+    // wait for all WOSIF requests are ACKed
+    while (board->wosi->Sn != board->wosi->Sb)
+    {
+        wosi_recv(board);             // receive; to move Sb (window base)
+        wosi_send(board);             // send if TX_TIMEOUT
     }
 
     // enable OR32 again
-    value = 0x01;
+    value = 0x01 & OR32_EN_MASK;
     wosi_append(board, (const uint8_t)WB_WR_CMD, (const uint16_t)(JCMD_BASE | OR32_CTRL),
     		(const uint16_t)1, (const uint8_t*)&value); //wosi_cmd
-    while(wosi_eof (board, TYP_WOSIF) == -1)
+    wosi_eof (board, TYP_WOSIF);        // prepare WOSIF
+    wosi_send(board);                   // send
+    // wait for all WOSIF requests are ACKed
+    while (board->wosi->Sn != board->wosi->Sb)
     {
-        clock_gettime(CLOCK_REALTIME, &time_send_success);
+        wosi_recv(board);             // receive; to move Sb (window base)
+        wosi_send(board);             // send if TX_TIMEOUT
     }
 
-    DP ("start WOSI ERROR generator\n");
-    board->wosi->error_gen_en = ERR_GEN_EN;
     DP ("start TX TIMEOUT checking\n");
     board->ready = 1;
 
@@ -428,7 +430,7 @@ static void gbn_init (board_t* board)
     board->wosi->tx_size = 0;
     board->wosi->rx_size = 0;
     board->wosi->rx_state = SYNC;
-    board->wosi->tid = 0xFF;
+    board->wosi->tid = 0;
     board->wosi->clock = 0;
     board->wosi->Sn = 0;
     board->wosi->Sb = 0;
@@ -506,12 +508,6 @@ int board_init (board_t* board, const char* device_type, const int device_id,
     board->wosi->crc_error_callback = NULL;
     board->wosi->rt_cmd_callback = NULL;
     board->wosi->crc_error_counter = 0;
-    board->wosi->error_gen_en = 0;
-
-    // RESET TX_TIMEOUT:
-    clock_gettime(CLOCK_REALTIME, &time_send_begin);
-    clock_gettime(CLOCK_REALTIME, &time_send_success);
-    gbn_init (board);
 
     // init CRC look-up table
     crcInit();
@@ -727,12 +723,33 @@ int board_connect (board_t* board)
         ret = board_connect_spi (board);
     }
 
+    board_reset (board);
+
+    return (ret);
+}
+
+int board_reset (board_t* board)
+{
+    int ret;
+
     // for updating board_status:
     clock_gettime(CLOCK_REALTIME, &time_begin);
-    clock_gettime(CLOCK_REALTIME, &time_send_begin);
-    prev_ss = 0;
+    prev_ss = 0;        // reset second for board_status()
 
-    gbn_init (board);   // go_back_n
+    // RESET TX_TIMEOUT:
+    clock_gettime(CLOCK_REALTIME, &time_send_begin);
+    clock_gettime(CLOCK_REALTIME, &time_send_success);
+
+    // use WOSIF_COMMAND(SYS_RST) to reset FPGA and Expected TID
+    DP ("SYS_RST\n");
+    gbn_init (board);   // gbn: go_back_n
+    wosi_eof (board, SYS_RST);
+    wosi_send(board);   // send WOSIF.SYS_RST command
+    // there is NO RX WOSIF for SYS_RST
+    usleep (1000); // sleep for 1ms before start driving SPI signals
+    gbn_init (board);   // reset TID to 0 after WOSIF(SYS_RST)
+    DP ("next WOSIF tid(%d)\n", board->wosi->tid);
+    DP ("tx_size(%d)\n", board->wosi->tx_size);
 
     return (ret);
 }
@@ -926,7 +943,7 @@ static int wosif_parse (board_t* b, const uint8_t *buf_head)
 
         if (wosi_frame_->use == 1)
         {
-            assert(wosi_frame_->buf[4] == TYP_WOSIF);
+//            assert(wosi_frame_->buf[4] == TYP_WOSIF);
             tidSb = wosi_frame_->buf[5]; /* buf[5]: TID of WOSIF[Sb] */
             tidR = buf_head[2];
             advance = tidR - tidSb;
@@ -951,10 +968,11 @@ static int wosif_parse (board_t* b, const uint8_t *buf_head)
                 // If you receive a request number where Rn > Sb
                 // Sm = Sm + (Rn – Sb)
                 // Sb = Rn
+                DP("advance (%d) window frame\n", advance);
                 for (i=0; i<advance; i++) {
                     wosi_frame_ = &(b->wosi->wosifs[*Sb]);
                     if (wosi_frame_->use == 0) break;    // stop moving window for empty TX.WOSIF
-                    assert(wosi_frame_->buf[4] == TYP_WOSIF);
+//                    assert(wosi_frame_->buf[4] == TYP_WOSIF);
                     wosi_frame_->use = 0;
 
                     *Sb = *Sb + 1;
@@ -1042,18 +1060,14 @@ void wosi_recv (board_t* b)
     static uint8_t sync_words[3] = {WOSIF_PREAMBLE, WOSIF_PREAMBLE, WOSIF_SOFD};
 
     int recvd;
-//    struct ftdi_context     *ftdic;
     struct timeval    poll_timeout = {0,0};
-
-//    ftdic = &(b->io.usb.ftdic);
-//    if (ftdic->usb_connected == 0) return;
 
     rx_size = &(b->wosi->rx_size);
     buf_rx = b->wosi->buf_rx;
     rx_state = &(b->wosi->rx_state);
-    recvd = 0;
 
 #if 0
+    recvd = 0;
     if (b->io.usb.rx_tc) {
         // rx_tc->transfer could be NULL if (size <= ftdi->readbuffer_remaining)
         // at ftdi_read_data_submit();
@@ -1100,22 +1114,23 @@ void wosi_recv (board_t* b)
 
     DP ("rx_size(%d)\n", *rx_size);
     DP ("fd_rd(%d) RX_CHUNK_SIZE(%d)\n", b->io.spi.fd_rd, RX_CHUNK_SIZE);
-    if (gpio_get_value_fd(b->io.spi.fd_burst_rd_rdy) == 0)
+    while (gpio_get_value_fd(b->io.spi.fd_burst_rd_rdy) != 0)
     {
-        DP ("SPI burst read is not READY\n");
-        return;
+        DP ("SPI burst read is READY\n");
+        recvd = read(b->io.spi.fd_rd, buf_rx + *rx_size, RX_CHUNK_SIZE);
+        if (recvd < RX_CHUNK_SIZE) {
+            ERRP("spi read error \n");
+        }
+        DP ("recvd(%d)\n", recvd);
+        // append data from USB to buf_rx[]
+        b->rd_dsize += recvd;
+        *rx_size += recvd;
+        if ((*rx_size + RX_CHUNK_SIZE) >
+            NR_OF_WIN*(WOSIF_HDR_SIZE+1/*TID_SIZE*/+MAX_PSIZE+CRC_SIZE))
+        {   // approaching buf_rx limit
+            break;
+        }
     }
-    DP ("SPI burst read is READY\n");
-
-    recvd = read(b->io.spi.fd_rd, buf_rx + *rx_size, RX_CHUNK_SIZE);
-    if (recvd < RX_CHUNK_SIZE) {
-        printf("spi read error \n");
-    }
-    DP ("recvd(%d)\n", recvd);
-    /* recvd > 0 */
-    // append data from USB to buf_rx[]
-    b->rd_dsize += recvd;
-    *rx_size += recvd;
     
     // parsing buf_rx[]:
     buf_head = buf_rx;
@@ -1248,64 +1263,6 @@ void wosi_recv (board_t* b)
         } /* end of switch(rx_state) */
     } while (immediate_state);
        
-//    DP ("readbuffer_remaining(%u)\n", b->io.usb.ftdic.readbuffer_remaining);
-
-#if RX_FAIL_TEST
-    count_rx_fail ++;
-    if(count_rx_fail < RX_FAIL_COUNT) {
-        // issue async_read ...
-        if ((b->io.usb.rx_tc = 
-                ftdi_read_data_submit (
-                    ftdic,
-                    buf_rx + *rx_size,
-                    MIN(RX_BURST_MIN + ftdic->readbuffer_remaining, RX_CHUNK_SIZE))) 
-                    == NULL) 
-        {
-            ERRP("ftdi_read_data_submit(): %s\n", ftdi_get_error_string (ftdic));
-            ERRP("rx_size(%d)\n", *rx_size);
-            assert(0);
-        }
-    }
-    if(count_rx_fail < RX_FAIL_COUNT + RX_FAIL_NUM_IN_ROW) count_rx_fail = 0;
-#elif RECONNECT_TEST
-    count_reconnect ++;
-    // issue async_read ...
-    if ((count_reconnect > RECONNECT_COUNT) || (b->io.usb.rx_tc = ftdi_read_data_submit (
-                            ftdic,
-                            buf_rx + *rx_size,
-                            // ftdic->readbuffer_remaining + 1))
-                            // MAX(1, ftdic->readbuffer_remaining)))
-                            MIN(RX_BURST_MIN + ftdic->readbuffer_remaining, RX_CHUNK_SIZE))) 
-                            // MIN(RX_BURST_MIN, *rx_req)))
-                            == NULL) 
-    {
-        int r;
-        count_reconnect=0;
-        board_reconnect(b);
-    }
-#else
-    // REGULAR OPERATION
-    // issue async_read ...
-#if 0
-    assert ((*rx_size + MIN(RX_BURST_MIN + ftdic->readbuffer_remaining, RX_CHUNK_SIZE))
-            <
-            NR_OF_WIN*(WOSIF_HDR_SIZE+1/*TID_SIZE*/+MAX_PSIZE+CRC_SIZE)
-            );
-    DP ("rx_size_req(%d)\n", MIN(RX_BURST_MIN + ftdic->readbuffer_remaining, RX_CHUNK_SIZE));
-    DP ("rx_size(%d)\n", *rx_size);
-    if ((b->io.usb.rx_tc = ftdi_read_data_submit (
-                            ftdic, 
-                            buf_rx + *rx_size, 
-                            MIN(RX_BURST_MIN + ftdic->readbuffer_remaining, RX_CHUNK_SIZE))) 
-                            == NULL) 
-    {
-         ERRP("ftdi_read_data_submit(): %s\n", ftdi_get_error_string (ftdic));
-         ERRP("rx_size(%d)\n", *rx_size);
-    }
-    DP ("after ftdi_read_data_submit(), rx_tc=%p\n", b->io.usb.rx_tc);
-#endif  // async_read
-
-#endif
     return;
 } // wosi_recv()
 
@@ -1360,7 +1317,6 @@ void wosi_send (board_t* b)
                 memcpy (buf_tx + *tx_size, buf_src, b->wosi->wosifs[i].fsize);
                 *tx_size += b->wosi->wosifs[i].fsize;
                 DP ("Sn(0x%02X) tidSn(0x%02X) size(%d) tx_size(%d)\n", *Sn, b->wosi->wosifs[i].buf[5], b->wosi->wosifs[i].fsize, *tx_size);
-                if (b->ready) assert (b->wosi->wosifs[i].buf[4] != RST_TID);
                 *Sn += 1;
             }
         }
@@ -1379,7 +1335,6 @@ void wosi_send (board_t* b)
                 memcpy (buf_tx + *tx_size, buf_src, b->wosi->wosifs[i].fsize);
                 *tx_size += b->wosi->wosifs[i].fsize;
                 DP ("Sn(0x%02X) tidSn(0x%02X) size(%d) tx_size(%d)\n", *Sn, b->wosi->wosifs[i].buf[5], b->wosi->wosifs[i].fsize, *tx_size);
-                if (b->ready) assert (b->wosi->wosifs[i].buf[4] != RST_TID);
                 *Sn += 1;
             }
             if (*Sn == (NR_OF_CLK & 0xFF)) {
@@ -1391,7 +1346,6 @@ void wosi_send (board_t* b)
                     memcpy (buf_tx + *tx_size, buf_src, b->wosi->wosifs[i].fsize);
                     *tx_size += b->wosi->wosifs[i].fsize;
                     DP ("Sn(0x%02X) tidSn(0x%02X) size(%d) tx_size(%d)\n", *Sn, b->wosi->wosifs[i].buf[5], b->wosi->wosifs[i].fsize, *tx_size);
-                    if (b->ready) assert (b->wosi->wosifs[i].buf[4] != RST_TID);
                     *Sn += 1;
                 }
             }
@@ -1597,10 +1551,6 @@ int wosi_eof (board_t* b, uint8_t wosif_cmd)
         wosi_frame_->buf[4] = wosif_cmd;
         wosi_frame_->buf[5] = b->wosi->tid;
         wosi_frame_->buf[6] = 0xFF & (wosi_frame_->pload_size_rx);
-        if (b->ready)
-        {
-            assert (wosif_cmd != RST_TID);
-        }
 
         assert(wosi_frame_->buf[3] > 2); // PLOAD_SIZE_TX: 0x03 ~ 0xFF
         assert(wosi_frame_->buf[6] > 1); // PLOAD_SIZE_RX: 0x02 ~ 0xFF
@@ -1858,6 +1808,7 @@ void wosi_append (board_t* b, const uint8_t func, const uint16_t wb_addr,
 
 static int m7i43u_reconfig (board_t* board)
 {
+#if 0
     struct timespec  time1, time2, dt;
     uint8_t cBufWrite;
     int     i;
@@ -1935,6 +1886,7 @@ static int m7i43u_reconfig (board_t* board)
                             ftdic->readbuffer_remaining);
         }
     }
+#endif
     
     DP ("end of m7i43u_reconfig()\n");
     return (0);
