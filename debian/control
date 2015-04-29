@@ -1,23 +1,22 @@
-Source: libwou
+Source: libwosi
 Priority: extra
 Maintainer: Yi-Shin Li <ysli@araisrobo.com>
 Build-Depends:  debhelper (>= 7), autotools-dev, build-essential, autoconf,
-                automake, libtool, pkg-config (>= 0.18), libusb-1.0-0-dev,
-                libftdi1
+                automake, libtool, pkg-config (>= 0.18)
 Standards-Version: 3.8.1
 Section: libs
 Homepage: http://www.araisrobo.com/
 
-Package: libwou-dev
+Package: libwosi-dev
 Section: libdevel
 Architecture: any
-Depends: libwou (= ${binary:Version}), libusb-1.0-0-dev
-Description: Development files for libwou
- To pack WOU(Wishbone Over USB) packets into WOU frames
+Depends: libwosi (= ${binary:Version})
+Description: Development files for libwosi
+ To pack WOSI(Wishbone Over Serial Interface) packets into WOSI frames
 
-Package: libwou
+Package: libwosi
 Section: libs
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, libusb-1.0-0, libftdi1
-Description: Library to pack WOU(Wishbone Over USB) packets
- To pack WOU(Wishbone Over USB) packets into WOU frames
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Library to pack WOSI(Wishbone Over Serial Interface) packets
+ To pack WOSI(Wishbone Over Serial Interface) packets into WOSI frames

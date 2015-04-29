@@ -1,3 +1,11 @@
+libwosi (2015-04-29) lucid; urgency=low
+
+  * Rename from libwou to libwosi -- Wishbone Over Serial Interface
+  * Switch from USB to SPI
+  * Testing with BeagleBoneBlack and AR11
+
+ -- Yi-Shin Li <ysli@araisrobo.com>  Wed, 29 Apr 2015 07:44:49 +0800
+
 libwou (0.2-2014.01.23) lucid; urgency=low
 
   * Build with upstream libftdi-1.0 (libftdi1)

@@ -1,9 +1,10 @@
 EXTRA_DIST = README
 
-TESTS = \
-	check_ar11-bbb
+# TESTS = \
+# 	check_ar11-bbb
 
 #TODO: noinst_PROGRAMS = \
+#TODO:	wosi-unit-test-spi \
 #TODO: 	wosi-unit-test-gpio \
 #TODO: 	wosi-unit-test-axis \
 #TODO: 	wosi-unit-test-bp_reg_update \
@@ -13,7 +14,6 @@ TESTS = \
 # wosi-unit-test-spi: ysli 2015-02-08
 
 noinst_PROGRAMS = \
-	wosi-unit-test-spi \
 	check_ar11-bbb
 
 common_ldflags = \
@@ -23,9 +23,9 @@ common_ldflags = \
 # for debugging, static linking of test programs:
 AM_LDFLAGS = -static
 
-wosi_unit_test_spi_SOURCES = wosi-unit-test-spi.c
-wosi_unit_test_spi_CFLAGS = @CHECK_CFLAGS@
-wosi_unit_test_spi_LDADD = $(common_ldflags)
+#TODO: wosi_unit_test_spi_SOURCES = wosi-unit-test-spi.c
+#TODO: wosi_unit_test_spi_CFLAGS = @CHECK_CFLAGS@
+#TODO: wosi_unit_test_spi_LDADD = $(common_ldflags)
 
 check_ar11_bbb_SOURCES = check_ar11-bbb.c
 check_ar11_bbb_CFLAGS = @CHECK_CFLAGS@

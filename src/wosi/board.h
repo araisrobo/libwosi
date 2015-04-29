@@ -10,40 +10,6 @@
 
 struct bitfile_chunk;
 
-#ifdef HAVE_LIBFTD2XX
-/* _Ftstat[]: take from _d2xx.h, PyUSB project, http://bleyer.org/pyusb/ */
-typedef struct _Ftstat _Ftstat; ///< FT_STATUS values and their descriptions
-struct _Ftstat {
-	FT_STATUS status;
-	const char* desc;
-};
-
-static const _Ftstat Ftstat[] = {
-	{FT_OK, "Ok"},
-	{FT_INVALID_HANDLE, "Invalid handle."},
-	{FT_DEVICE_NOT_FOUND, "Device not found."},
-	{FT_DEVICE_NOT_OPENED, "Not opened."},
-	{FT_IO_ERROR, "IO error"},
-	{FT_INSUFFICIENT_RESOURCES, "Insufficient resources."},
-	{FT_INVALID_PARAMETER, "Invalid parameter."},
-	{FT_INVALID_BAUD_RATE, "Invalid baud rate."},
-	{FT_DEVICE_NOT_OPENED_FOR_ERASE, "Device not opened for erase."},
-	{FT_DEVICE_NOT_OPENED_FOR_WRITE, "Device not opened for write."},
-	{FT_FAILED_TO_WRITE_DEVICE, "Failed to write device."},
-	{FT_EEPROM_READ_FAILED, "EEPROM read failed."},
-	{FT_EEPROM_WRITE_FAILED, "EEPROM write failed."},
-	{FT_EEPROM_ERASE_FAILED, "EEPROM erase failed."},
-	{FT_EEPROM_NOT_PRESENT, "EEPROM not present."},
-	{FT_EEPROM_NOT_PROGRAMMED, "EEPROM not programmed."},
-	{FT_INVALID_ARGS, "Invalid args."},
-	{FT_NOT_SUPPORTED, "Not supported."},
-	{FT_OTHER_ERROR, "Other error."}
-#if (!__linux__)
-        , {FT_DEVICE_LIST_NOT_READY, "Device list not ready."}
-#endif
-};
-#endif  // HAVE_LIBFTD2XX
-
 #define ERRP(fmt, args...)                                              \
     do {                                                                \
         fprintf(stderr, "%s: (%s:%d) ERROR: ",                          \
@@ -63,24 +29,6 @@ static const _Ftstat Ftstat[] = {
 // #define MIN(a,b)        ((a) < (b) ? (a) : (b))
 // #define ABS(a)          (((a) < 0) ? (-(a)) : (a))
 
-
-//obsolete:  #define TID_LIMIT     256
-//obsolete:  #define DSIZE_LIMIT   256
-//obsolete:  #define REQ_H_SIZE    4
-//obsolete:  #define MAX_SEQ       250 // reserve TID: FF(SYNC) and FE(BPRU, base period reg update) 
-//obsolete:  #define MAX_SEQ       4
-
-// #define BURST_LIMIT   4096
-// #define BURST_LIMIT   64  // FT_Write delay: 0.8 ~ 2.6ms
-// #define BURST_LIMIT   128  // FT_Write delay: 0.6 ~ 1.1ms
-// #define BURST_LIMIT   256 // FT_Write delay: 0.8 ~ 5.6ms
-//failed@1.2KV,16ms:
-// #define BURST_LIMIT   512 // FT_Write delay: 0.8 ~ 5.6ms (best bandwidth utilization for 1ms time slot)
-// #define BURST_MIN     512: failed for ftdi_write_data() (synchronous mode)
-// #define BURST_MIN     512
-// #define BURST_MIN     128
-// #define BURST_MAX     1024
-// #define TX_BURST_MIN    128 // 2014-02-14
 #define TX_BURST_MIN    128
 #define TX_BURST_MAX    512
 //#define TX_CHUNK_SIZE   4096 // fail at MPCS
@@ -91,12 +39,6 @@ static const _Ftstat Ftstat[] = {
 //will_kill_mailbox: #define RX_CHUNK_SIZE   512
 //will_kill_mailbox: #define RX_BURST_MIN    256
 //kill_mailbox? #define RX_CHUNK_SIZE   2048
-
-#if 0
-// for libftdi:
-#define RX_CHUNK_SIZE   512
-#define RX_BURST_MIN    32
-#endif
 
 // for SPI
 #define RX_CHUNK_SIZE   8
@@ -127,11 +69,6 @@ typedef struct wosif_struct {
 
 /**
  * wosi_t - circular buffer to keep track of wosi packets
- * //obsolete: @frame_id:     // frame_id (appeared at 1st WOSI packet: FF00<frame_id>00)
- * //obsolete:                   refer to board.c::wosi_eof() and board_init()
- * //obsolete: @psize:              size in bytes for pending wosi packets
- * //obsolete: @head_pend:          head of pending wosi packets to be send
- * //obsolete: @head_wait:          head of wosi packets which is waiting for ACK
  * @tid:                transaction id for the upcomming wosif
  * @tidSb:              transaction id for sequence base(Sb)
  * @wosifs[NR_OF_CLK]:   circular clock array of WOSI_FRAMEs
@@ -179,14 +116,14 @@ typedef struct board {
     const char*     risc_bin_file;    // RISC binary image
     
     union {
-        struct {
-            unsigned short  vendor_id;
-            unsigned short  device_id;
-            int             usb_devnum;
-            struct ftdi_context ftdic;
-            struct ftdi_transfer_control *rx_tc;
-            struct ftdi_transfer_control *tx_tc;
-        } usb;
+        // struct {
+        //     unsigned short  vendor_id;
+        //     unsigned short  device_id;
+        //     int             usb_devnum;
+        //     struct ftdi_context ftdic;
+        //     struct ftdi_transfer_control *rx_tc;
+        //     struct ftdi_transfer_control *tx_tc;
+        // } usb;
         
         struct {
             const char*         device_wr;

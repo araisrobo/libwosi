@@ -1,5 +1,5 @@
 /**
- * board.c - wishbone over usb 
+ * board.c - WOSI, wishbone over serial interface
  * Original from bfload.c of EMC2 project
  * Modified for Mesa 7i43 USB board with FTDI chip
  *
@@ -62,9 +62,6 @@ information, go to www.linuxcnc.org.
 #include <time.h>
 #include <sys/param.h>  // for MIN() and MAX()
 
-#include <libusb.h>
-#include <ftdi.h>       // from FTDI
-
 // include files for SPI device
 #include <fcntl.h>
 #include <sys/ioctl.h>
@@ -80,12 +77,13 @@ information, go to www.linuxcnc.org.
 #include "board.h"
 #include "gpio.h"
 
-// to disable DP(): #define TRACE 1
-// to dump more info: #define TRACE 2
-#define TRACE 1
+// to disable DP():     #define TRACE 0
+// to enable  DP():     #define TRACE 1
+// to dump more info:   #define TRACE 2
+#define TRACE 0
 #include "dptrace.h"
 #if (TRACE!=0)
-FILE *dptrace; // dptrace = fopen("dptrace.log","w");
+static FILE *dptrace; // dptrace = fopen("dptrace.log","w");
 #endif
 
 #define ERR_GEN_EN 0
@@ -161,19 +159,11 @@ static int prev_ss;     // second for board_status()
 // #define TX_TIMEOUT 19000000     // unit: nano-sec
 #define BUF_SIZE 80             // the buffer size for tx_str[] and rx_str[]
 
-static int m7i43u_program_fpga(struct board *board, struct bitfile_chunk *ch);
-
 // 
 // this array describes all the boards we know how to program
 //
 
 struct board board_table[] = {
-    {
-        .board_type = "7i43u\0",
-        .chip_type = "3s400tq144\0",
-        .io_type = IO_TYPE_USB,
-        .program_funct = m7i43u_program_fpga
-    },
     {
         .board_type = "ar11-bbb\0",
         .chip_type = "xc6slx9tqg144\0",
@@ -350,7 +340,6 @@ int board_risc_prog(struct board* board, const char* binfile)
         wosi_send(board);             // send if TX_TIMEOUT
     }
 
-    DP ("start TX TIMEOUT checking\n");
     board->ready = 1;
 
     //end write OR32 image
@@ -401,10 +390,9 @@ static int board_prog (struct board* board)
     printf ("after bitfile_find_chunk(bf, 'e', 0); \n");
 
     printf(
-        "Loading configuration %s into %s at USB-%x...\n",
+        "Loading configuration %s into %s...\n",
         bf->filename,
-        board->board_type,
-        board->io.usb.usb_devnum
+        board->board_type
     );
     
     if (board->program_funct != NULL) {
@@ -476,11 +464,7 @@ int board_init (board_t* board, const char* device_type, const int device_id,
             board->io_type = board_table[i].io_type;
             board->fpga_bit_file = bitfile;
             board->program_funct = board_table[i].program_funct;
-            if (board->io_type == IO_TYPE_USB)
-            {
-                board->io.usb.usb_devnum = device_id;
-            }
-            else if (board->io_type == IO_TYPE_SPI)
+            if (board->io_type == IO_TYPE_SPI)
             {
                 board->io.spi.device_wr         = board_table[i].io.spi.device_wr;
                 board->io.spi.device_rd         = board_table[i].io.spi.device_rd;
@@ -513,77 +497,6 @@ int board_init (board_t* board, const char* device_type, const int device_id,
     crcInit();
 
     return 0;
-}
-
-static int board_connect_usb (board_t* board)
-{
-    int ret;
-    struct ftdi_context *ftdic;
-
-    board->io.usb.rx_tc = NULL;    // init transfer_control for async-read
-    board->io.usb.tx_tc = NULL;    // init transfer_control for async-write
-    ftdic = &(board->io.usb.ftdic);
-    if (ftdi_init(ftdic) < 0)
-    {
-        ERRP("ftdi_init failed\n");
-        return EXIT_FAILURE;
-    }
-    
-    ftdic->usb_read_timeout = 1000;
-    ftdic->usb_write_timeout = 1000;
-    ftdic->writebuffer_chunksize = TX_CHUNK_SIZE;
-    if (ret = ftdi_read_data_set_chunksize(ftdic, RX_CHUNK_SIZE) < 0) {
-        ERRP("ftdi_read_data_set_chunksize(): %d (%s)\n", 
-              ret, ftdi_get_error_string(ftdic));
-        return EXIT_FAILURE;
-    }
-    
-    if ((ret = ftdi_usb_open(ftdic, 0x0403, 0x6001)) < 0)
-    {
-        ERRP("unable to open ftdi device: %d (%s)\n", ret, ftdi_get_error_string(ftdic));
-        return EXIT_FAILURE;
-    }
-    
-    if ((ret = ftdi_set_latency_timer(ftdic, 1)) < 0)
-    {
-        ERRP("ftdi_set_latency_timer(): %d (%s)\n", ret, ftdi_get_error_string(ftdic));
-        return EXIT_FAILURE;
-    }
-
-    if ((ret = ftdi_usb_reset (ftdic)) < 0)
-    {
-        ERRP ("ftdi_usb_reset() failed: %d", ret);
-        return EXIT_FAILURE;
-    }
-
-    if ((ret = ftdi_usb_purge_buffers (ftdic)) < 0)
-    {
-        ERRP ("ftdi_usb_purge_buffers() failed: %d", ret);
-        return EXIT_FAILURE;
-    }
-
-    // Read out FTDIChip-ID of R type chips
-    if (ftdic->type == TYPE_R)
-    {
-        unsigned int chipid;
-        ERRP ("ftdi_read_chipid: %d\n", ftdi_read_chipid(ftdic, &chipid));
-        ERRP ("FTDI chipid: %X\n", chipid);
-    }
-    
-    if (board->fpga_bit_file) {
-        board_prog(board);  // program FPGA if bitfile is provided
-    }
-    
-    DP ("ftdic->max_packet_size(%u)\n", ftdic->max_packet_size);
-    
-    // for updating board_status:
-    clock_gettime(CLOCK_REALTIME, &time_begin);
-    clock_gettime(CLOCK_REALTIME, &time_send_begin);
-    prev_ss = 0;
-    
-    gbn_init (board);   // go_back_n
-
-    return (0);
 }
 
 static int init_spi (int *fd, const char *device, unsigned int *mode,
@@ -714,11 +627,7 @@ int board_connect (board_t* board)
 {
     int ret;
 
-    if (board->io_type == IO_TYPE_USB)
-    {
-        ret = board_connect_usb (board);
-    }
-    else if (board->io_type == IO_TYPE_SPI)
+    if (board->io_type == IO_TYPE_SPI)
     {
         ret = board_connect_spi (board);
     }
@@ -758,18 +667,7 @@ int board_close (board_t* board)
 {
     int ret;
 
-    if (board->io_type == IO_TYPE_USB)
-    {
-        struct ftdi_context *ftdic;
-        ftdic = &(board->io.usb.ftdic);
-        if ((ret = ftdi_usb_close(ftdic)) < 0)
-        {
-            ERRP("unable to close ftdi device: %d (%s)\n", ret, ftdi_get_error_string(ftdic));
-            return EXIT_FAILURE;
-        }
-        ftdi_deinit(ftdic);
-    }
-    else if (board->io_type == IO_TYPE_SPI)
+    if (board->io_type == IO_TYPE_SPI)
     {
         ret = gpio_fd_close(board->io.spi.fd_burst_rd_rdy);
         if (ret)
@@ -794,82 +692,6 @@ int board_close (board_t* board)
     free(board->wosi);
     return 0;
 }   
-    
-
-
-/**
- * m7i43u_cpld_reset - reset the CPLD on 7i43
- *                     call this only when FPGA is in RECONFIG mode
- * TODO: returns TRUE if the FPGA reset, FALSE on error
- **/
-static int m7i43u_cpld_reset(struct board *board) 
-{
-    uint8_t                 *buf_tx;
-    int                     ret;
-    struct ftdi_context     *ftdic;
-    
-    ftdic = &(board->io.usb.ftdic);
-    buf_tx = board->wosi->buf_tx;
-
-    // d[0]: 4bit of 0: turn USB_ECHO off
-    buf_tx[0] = 0;
-    buf_tx[1] = 0;
-    buf_tx[2] = 0;
-    buf_tx[3] = 0;
-    /* Write */
-    buf_tx[4] = 0;
-    /* Write */
-    buf_tx[5] = 1;
-    if ((ret = ftdi_write_data (ftdic, buf_tx, 6)) != 6)
-    {
-        ERRP("ftdi_write_data: %d (%s)\n", ret, ftdi_get_error_string(ftdic));
-        return -1;
-    }
-    return 0;
-}
-
-static int m7i43u_cpld_send_firmware(struct board *board, struct bitfile_chunk *ch) 
-{
-    int i;
-    uint8_t *dp;
-    int ret;
-    struct ftdi_context     *ftdic;
-    
-    dp = ch->body;
-    for (i = 0; i < ch->len; i ++) {
-        *dp = bit_reverse(*dp);
-        dp ++;
-    }
-    
-    ftdic = &(board->io.usb.ftdic);
-    /* sync Write */
-    i = 0;
-    do {
-        if ((ret = ftdi_write_data(ftdic, ch->body, ch->len)) < 0)
-        {
-            ERRP("ftdi_write_data: %d (%s)\n",
-                    ret, ftdi_get_error_string(ftdic));
-            i++; // error_count
-            if (i > 100)
-                return -1;
-        } else
-        {
-            i = 0; // reset error_count
-            printf("ftdi_write %d bytes\n", ret);
-            if (ret > 0)
-            {
-                ch->len -= ret;
-                if (ch->len)
-                {
-                    memmove(ch->body, ch->body + ret, ch->len);
-                }
-            }
-        }
-    } while (ch->len > 0);
-
-    return 0;
-}
-
 
 static struct timespec diff(struct timespec start, struct timespec end)
 {
@@ -1066,52 +888,6 @@ void wosi_recv (board_t* b)
     buf_rx = b->wosi->buf_rx;
     rx_state = &(b->wosi->rx_state);
 
-#if 0
-    recvd = 0;
-    if (b->io.usb.rx_tc) {
-        // rx_tc->transfer could be NULL if (size <= ftdi->readbuffer_remaining)
-        // at ftdi_read_data_submit();
-        // assert (b->io.usb.rx_tc->transfer != NULL);
-        // there's previous pending async read
-        if (b->io.usb.rx_tc->transfer) {
-            assert (ftdic->usb_dev != NULL);
-            if (libusb_handle_events_timeout_completed(ftdic->usb_ctx, &poll_timeout, &(b->io.usb.rx_tc->completed)) < 0)
-            {
-                ERRP("libusb_handle_events_timeout_completed() (%s)\n", ftdi_get_error_string(ftdic));
-                return;
-            }
-            DP ("libusb_handle_events...\n");
-            DP ("readbuffer_remaining(%u)\n", ftdic->readbuffer_remaining);
-        }
-
-        if (b->io.usb.rx_tc->completed) {
-            recvd = ftdi_transfer_data_done (b->io.usb.rx_tc);
-
-#ifdef DROP_RX_DATA
-            // generate random error to drop packet:
-            if (b->wosi->error_gen_en)
-            {
-                if ((rand() % 10) < 3) /* 30% error rate */
-                {
-                    recvd = -1;
-                }
-            }
-#endif
-            if (recvd < 0) {
-                DP ("recvd(%d)\n", recvd);
-                DP ("readbuffer_remaining(%u)\n", ftdic->readbuffer_remaining);
-                recvd = 0;  // to issue another ftdi_read_data_submit()
-            }
-            b->io.usb.rx_tc = NULL;
-        } else {
-            DP ("b->io.usb.rx_tc->completed(%d)\n", b->io.usb.rx_tc->completed);
-            return;
-        }
-    }
-
-    assert(b->io.usb.rx_tc == NULL);
-#endif
-
     DP ("rx_size(%d)\n", *rx_size);
     DP ("fd_rd(%d) RX_CHUNK_SIZE(%d)\n", b->io.spi.fd_rd, RX_CHUNK_SIZE);
     while (gpio_get_value_fd(b->io.spi.fd_burst_rd_rdy) != 0)
@@ -1155,11 +931,11 @@ void wosi_recv (board_t* b)
 #endif
 
             // locate {PREAMBLE_0, PREAMBLE_1, SOFD}
-            for (i=0; i<(*rx_size - (WOSIF_HDR_SIZE + 2/*{WOSIF_COMMAND, TID/MAIL_TAG}*/ + CRC_SIZE)); i++) {
+            for (i=0; i<=(*rx_size - (WOSIF_HDR_SIZE + 2/*{WOSIF_COMMAND, TID/MAIL_TAG}*/ + CRC_SIZE)); i++) {
                 cmp = memcmp (buf_rx + i, sync_words, 3);
                 // *(buf_rx+i+3);    // PLOAD_SIZE_TX must not be 0
                 if ((cmp == 0) && (*(buf_rx+i+3) > 0)) {
-                    // we got {PREAMBLE_0, PREAMBLE_1, SOFD}
+                    DP ("got {PREAMBLE_0, PREAMBLE_1, SOFD}\n");
                     break; // break the for-loop
                 }
             }
@@ -1172,10 +948,11 @@ void wosi_recv (board_t* b)
                 DP ("after memmove(): buf_rx(%p) buf_head(%p) rx_size(%d)\n", buf_rx, buf_head, *rx_size);
             }
 
-            if ((cmp == 0) && (*(buf_rx+i+3) > 0)) {
+            if ((cmp == 0) && (*(buf_rx + WOSIF_HDR_SIZE - 1) > 0)) {
                 // we got {PREAMBLE_0, PREAMBLE_1, SOFD} and non-zero PLOAD_SIZE_TX
                 // make buf_head point to PLOAD_SIZE_TX
                 buf_head = buf_rx + (WOSIF_HDR_SIZE - 1);
+                DP ("buf_head[0](%d) rx_size(%d)\n", buf_head[0], *rx_size);
                 if ((WOSIF_HDR_SIZE + buf_head[0] + CRC_SIZE) <= *rx_size)
                 {
                     // we got enough data to check CRC
@@ -1401,6 +1178,8 @@ static void rt_wosi_send (board_t* b)
     int         dwBytesWritten;
     int         *tx_size;
     unsigned short status;
+
+#if 0 // TODO: port to WOSI
     struct ftdi_context     *ftdic;
 
     ftdic = &(b->io.usb.ftdic);
@@ -1492,40 +1271,14 @@ static void rt_wosi_send (board_t* b)
     } else {
     	clock_gettime(CLOCK_REALTIME, &time_send_begin);
     }
+#endif
+
     return;
 }
 
-#if 0
-static void handle_usb_reconnect (board_t* b)
-{
-    int rc;
-    struct timeval tv = {0,0};
-
-    struct ftdi_context *ftdic;
-    ftdic = &(b->io.usb.ftdic);
-    rc = 0;
-    while (ftdic->usb_connected == 0) {
-        struct timespec time;
-        time.tv_sec = 0;
-        time.tv_nsec = 25000000;   // 25ms
-        nanosleep(&time, NULL);
-        libusb_handle_events_timeout_completed(ftdic->usb_ctx, &tv, NULL);
-        if (rc == 0) {
-            // rc: prevent pollute screen with ERRP()
-            ERRP ("board.c: usb is not connected\n");
-            rc = 1;
-        }
-    }
-    assert (ftdic->usb_dev != NULL);
-    while ((rc = libusb_handle_events_timeout_completed(ftdic->usb_ctx, &tv, NULL)) != 0) {
-        ERRP("libusb_handle_events_timeout_completed(%d)\n", rc);
-    }
-}
-#endif
-
 int wosi_eof (board_t* b, uint8_t wosif_cmd)
 {
-    // took from vip/ftdi/generator.cpp::send_frame()
+    // took from vip/spi/generator.cpp::send_frame()
     int         cur_clock;
     wosif_t     *wosi_frame_;
     uint16_t    crc16;
@@ -1624,7 +1377,7 @@ int wosi_eof (board_t* b, uint8_t wosif_cmd)
 
 void wosif_init (board_t* b)
 {
-    // took from vip/ftdi/generator.cpp::init_frame()
+    // took from vip/spi/generator.cpp::init_frame()
     int         cur_clock;
     wosif_t      *wosi_frame_;
 
@@ -1648,7 +1401,7 @@ void wosif_init (board_t* b)
 
 void rt_wosif_init (board_t* b)
 {
-    // took from vip/ftdi/generator.cpp::rt_init_frame()
+    // took from vip/spi/generator.cpp::rt_init_frame()
     wosif_t      *wosi_frame_;
 
     wosi_frame_ = &(b->wosi->rt_wosif);
@@ -1695,7 +1448,7 @@ void rt_wosi_append (
         assert (0); // not a valid func
     }
 
-    // code took from vip/ftdi/generator.cpp:
+    // code took from vip/spi/generator.cpp:
     i = wosi_frame_->fsize;
     wosi_frame_->buf[i] = 0xFF & (func | (0x7F & dsize));
     i++;
@@ -1713,7 +1466,7 @@ void rt_wosi_append (
 
 int rt_wosi_eof (board_t* b)
 {
-    // took from vip/ftdi/generator.cpp::send_frame()
+    // took from vip/spi/generator.cpp::send_frame()
     wosif_t      *wosi_frame_;
     uint16_t    crc16;
 
@@ -1786,7 +1539,7 @@ void wosi_append (board_t* b, const uint8_t func, const uint16_t wb_addr,
     // DP ("func(0x%02X) dsize(0x%02X) wb_addr(0x%04X)\n", 
     //      func, dsize, wb_addr);
     
-    // code took from vip/ftdi/generator.cpp:
+    // code took from vip/spi/generator.cpp:
     i = wosi_frame_->fsize;
     wosi_frame_->buf[i] = 0xFF & (func | (0x7F & dsize));
     i++;
@@ -1803,128 +1556,6 @@ void wosi_append (board_t* b, const uint8_t func, const uint16_t wb_addr,
         wosi_frame_->pload_size_rx += (WOSI_HDR_SIZE + dsize);
     }
     return;    
-}
-
-
-static int m7i43u_reconfig (board_t* board)
-{
-#if 0
-    struct timespec  time1, time2, dt;
-    uint8_t cBufWrite;
-    int     i;
-    int ret;
-    // unsigned int tx_chunksize;
-    struct ftdi_context *ftdic;
-    
-    ftdic = &(board->io.usb.ftdic);
-        
-    DP ("Park 7i43u in RECONFIG mode\n");
-    DP ("readbuffer_remaining(%u)\n",
-        board->io.usb.ftdic.readbuffer_remaining);
-    
-    // to clear tx and rx queue
-    if ((ret = ftdi_usb_purge_buffers (ftdic)) < 0)
-    {
-        ERRP ("ftdi_usb_purge_buffers() failed: %d", ret);
-        return ret;
-    }
-
-    // to flush rx queue
-    while (ret = ftdi_read_data (ftdic, &cBufWrite, 1) > 0) { 
-        DP ("flush %d byte\n", ret);
-        if (ftdic->readbuffer_remaining) {
-            DP ("flush %u byte\n", ftdic->readbuffer_remaining);
-            ftdi_read_data (ftdic, 
-                            board->wosi->buf_tx,
-                            ftdic->readbuffer_remaining);
-        }
-    }
-  
-    DP("ftdic->max_packet_size(%d)\n", ftdic->max_packet_size);
-    
-    // use WOSIF_COMMAND to reset Expected TID in FPGA
-    DP ("RST_TID\n");
-    gbn_init (board);
-    wosi_eof (board, RST_TID);
-    DP ("next WOSIF tid(%d)\n", board->wosi->tid);
-    DP ("tx_size(%d)\n", board->wosi->tx_size);
-
-    cBufWrite = GPIO_RECONFIG;
-    wosi_append (board, WB_WR_CMD, GPIO_BASE + GPIO_SYSTEM, 1, &cBufWrite);
-    wosi_eof (board, TYP_WOSIF);
-    DP ("tx_size(%d)\n", board->wosi->tx_size);
-
-#if(TRACE)
-    DP ("buf_tx: tx_size(%d), ", board->wosi->tx_size);
-    for (i=0; i<board->wosi->tx_size; i++) {
-      DPS ("<%.2X>", board->wosi->buf_tx[i]);
-    }
-    DPS ("\n");
-#endif
-    
-    if ((ret = ftdi_write_data (ftdic, board->wosi->buf_tx, board->wosi->tx_size)) 
-        != board->wosi->tx_size)
-    {
-        ERRP("ftdi_write_data: %d (%s)\n", ret, ftdi_get_error_string(ftdic));
-        return ret;
-    }
-    
-    ERRP ("tx_size(%d)\n", board->wosi->tx_size);
-    // the delay is mandatory:
-    time2.tv_sec = 0;
-    time2.tv_nsec = 100000000;   // 100ms
-    nanosleep(&time2, NULL);
-    
-    DP ("rd_dsize(%llu), rx_tc(%p)\n", board->rd_dsize, board->io.usb.rx_tc);
-    // to flush rx queue
-    while (ret = ftdi_read_data (ftdic, &cBufWrite, 1) > 0) { 
-        printf ("flush %d byte\n", ret);
-        if (ftdic->readbuffer_remaining) {
-            printf ("flush %u byte\n", ftdic->readbuffer_remaining);
-            ftdi_read_data (ftdic, 
-                            board->wosi->buf_tx,
-                            ftdic->readbuffer_remaining);
-        }
-    }
-#endif
-    
-    DP ("end of m7i43u_reconfig()\n");
-    return (0);
-}
-
-// for 7i43 USB version
-static int m7i43u_program_fpga(struct board *board, 
-                               struct bitfile_chunk *ch) 
-{
-    int ret;
-    // 
-    // reset the FPGA, then send appropriate firmware
-    //
-    
-    DP ("DEBUG: about to m7i43u_reconfig\n");
-    ret = m7i43u_reconfig (board);
-    if (ret != 0) return ret;
-
-    DP ("about to m7i43u_cpld_reset\n");
-    if (m7i43u_cpld_reset(board)) {
-        ERRP ("error resetting FPGA, aborting load\n");
-        return -1;
-    }
-    
-    DP ("about to m7i43u_cpld_send_firmware\n");
-    if (m7i43u_cpld_send_firmware(board, ch) != 0) {
-        ERRP ("ERROR: sending FPGA firmware\n");
-        return -1;
-    }
-    
-    // in Linux, there are 519 bytes show up on the RxQueue after
-    // programming. TODO: where does it come from?
-    struct timespec time;
-    time.tv_sec = 0;
-    time.tv_nsec = 500000000;   // 500ms
-    nanosleep(&time, NULL);
-    
-    return 0;
 }
 
 static void diff_time(struct timespec *start, struct timespec *end,

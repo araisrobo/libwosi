@@ -14,17 +14,15 @@
 #include "mailtag.h"
 
 // include files to check board.c:
-#include <libusb.h>
-#include <ftdi.h>       // from FTDI
 #include "../src/wosi/board.h"
 
 // to disable DP(): #define TRACE 0
 // to enable DP(): #define TRACE 1
 // to dump more info: #define TRACE 2
-#define TRACE 1
+#define TRACE 0
 #include "../src/wosi/dptrace.h"
 #if (TRACE!=0)
-FILE *dptrace; // dptrace = fopen("dptrace.log","w");
+static FILE *dptrace; // dptrace = fopen("dptrace.log","w");
 #endif
 
 static wosi_param_t w_param;
@@ -233,8 +231,7 @@ wosi_suite (void)
   tcase_add_test (tc_core, test_wosi_connect);
   tcase_add_test (tc_core, test_tx_timeout);
   tcase_add_test (tc_core, test_wosi_recv);
-
-//  tcase_add_test (tc_core, test_wosi_prog_risc);
+  tcase_add_test (tc_core, test_wosi_prog_risc);
   tcase_add_test (tc_core, test_wosi_close);
   suite_add_tcase (s, tc_core);
 
@@ -244,13 +241,19 @@ wosi_suite (void)
 int
 main (void)
 {
-  int number_failed;
-  Suite *s = wosi_suite ();
-  SRunner *sr = srunner_create (s);
-  // set CK_NOFORK to share static variable, w_param, between tests
-  srunner_set_fork_status(sr, CK_NOFORK);
-  srunner_run_all (sr, CK_NORMAL);
-  number_failed = srunner_ntests_failed (sr);
-  srunner_free (sr);
-  return (number_failed == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
+    int number_failed;
+
+#if (TRACE!=0)
+    dptrace = fopen("check.log","w");
+    // dptrace = stderr;
+#endif
+
+    Suite *s = wosi_suite ();
+    SRunner *sr = srunner_create (s);
+    // set CK_NOFORK to share static variable, w_param, between tests
+    srunner_set_fork_status(sr, CK_NOFORK);
+    srunner_run_all (sr, CK_NORMAL);
+    number_failed = srunner_ntests_failed (sr);
+    srunner_free (sr);
+    return (number_failed == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
