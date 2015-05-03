@@ -29,19 +29,8 @@ struct bitfile_chunk;
 // #define MIN(a,b)        ((a) < (b) ? (a) : (b))
 // #define ABS(a)          (((a) < 0) ? (-(a)) : (a))
 
-#define TX_BURST_MIN    128
-#define TX_BURST_MAX    512
-//#define TX_CHUNK_SIZE   4096 // fail at MPCS
-//#define TX_CHUNK_SIZE   512  // 2014-02-14
-#define TX_CHUNK_SIZE   512  // 2014-02-14
-
-// to prevent from pending because of too large RX_CHUNK_SIZE: 
-//will_kill_mailbox: #define RX_CHUNK_SIZE   512
-//will_kill_mailbox: #define RX_BURST_MIN    256
-//kill_mailbox? #define RX_CHUNK_SIZE   2048
-
-// for SPI
-#define RX_CHUNK_SIZE   8
+// RX_CHUNK_SIZE has to sync with BURST_RD_SIZE of rd_afifo at hspi_if.v
+#define RX_CHUNK_SIZE   128
 
 //failed@1.2KV,16ms: #define BURST_LIMIT   32 // for debugging
 

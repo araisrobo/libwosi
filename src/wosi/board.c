@@ -159,7 +159,7 @@ static int prev_ss;     // second for board_status()
 // #define TX_TIMEOUT 19000000     // unit: nano-sec
 #define BUF_SIZE 80             // the buffer size for tx_str[] and rx_str[]
 
-// 
+//
 // this array describes all the boards we know how to program
 //
 
@@ -183,6 +183,18 @@ struct board board_table[] = {
     }
 };
 
+static void diff_time(struct timespec *start, struct timespec *end,
+                      struct timespec *diff)
+{
+    if ((end->tv_nsec - start->tv_nsec) < 0) {
+        diff->tv_sec = end->tv_sec - start->tv_sec - 1;
+        diff->tv_nsec = 1000000000 + end->tv_nsec - start->tv_nsec;
+    } else {
+        diff->tv_sec = end->tv_sec - start->tv_sec;
+        diff->tv_nsec = end->tv_nsec - start->tv_nsec;
+    }
+    return;
+}
 
 /**
  * the fpga was originally designed to be programmed serially... even
@@ -212,7 +224,7 @@ static uint8_t bit_reverse (uint8_t data)
     return swaptab[data];
 }
 
-struct bitfile *open_bitfile_or_die(const char *filename) 
+struct bitfile *open_bitfile_or_die(const char *filename)
 {
     struct bitfile *bf;
     int r;
@@ -693,20 +705,6 @@ int board_close (board_t* board)
     return 0;
 }   
 
-static struct timespec diff(struct timespec start, struct timespec end)
-{
-	struct timespec temp;
-	if ((end.tv_nsec-start.tv_nsec)<0) {
-		temp.tv_sec = end.tv_sec-start.tv_sec-1;
-		temp.tv_nsec = 1000000000+end.tv_nsec-start.tv_nsec;
-	} else {
-		temp.tv_sec = end.tv_sec-start.tv_sec;
-		temp.tv_nsec = end.tv_nsec-start.tv_nsec;
-	}
-	return temp;
-}
-
-
 static uint8_t wb_reg_update (board_t* b, const uint8_t *buf)
 {
     uint8_t*    wb_regp;   // wb_reg_map pointer
@@ -765,7 +763,6 @@ static int wosif_parse (board_t* b, const uint8_t *buf_head)
 
         if (wosi_frame_->use == 1)
         {
-//            assert(wosi_frame_->buf[4] == TYP_WOSIF);
             tidSb = wosi_frame_->buf[5]; /* buf[5]: TID of WOSIF[Sb] */
             tidR = buf_head[2];
             advance = tidR - tidSb;
@@ -780,7 +777,6 @@ static int wosif_parse (board_t* b, const uint8_t *buf_head)
                 *Sn = *Sb; // force to re-transmit from Sb
                 DP ("PLOAD_SIZE_TX(%d)\n", buf_head[0]);
                 assert (buf_head[0] == 2); // {WOSIF, TID} only
-//                clock_gettime(CLOCK_REALTIME, &time_send_success);
                 return (0);
             }
 
@@ -794,7 +790,6 @@ static int wosif_parse (board_t* b, const uint8_t *buf_head)
                 for (i=0; i<advance; i++) {
                     wosi_frame_ = &(b->wosi->wosifs[*Sb]);
                     if (wosi_frame_->use == 0) break;    // stop moving window for empty TX.WOSIF
-//                    assert(wosi_frame_->buf[4] == TYP_WOSIF);
                     wosi_frame_->use = 0;
 
                     *Sb = *Sb + 1;
@@ -832,19 +827,16 @@ static int wosif_parse (board_t* b, const uint8_t *buf_head)
                 buf_head += (WOSI_HDR_SIZE + wosi_dsize);
             }
         }
-//        else
-//        {   // wosif[Sb].use == 0
-//            // just flush this RX.WOSIF
-//        }
         return (0);
-        // (buf_head[1] == TYP_WOSIF)
     } else if (buf_head[1] == MAILBOX) {
-//        fprintf (stdout, "DEBUG: MAILBOX: ");
-//        for (i=0; i < (1 /* sizeof(PLOAD_SIZE_TX) */ + buf_head[0] + CRC_SIZE); i++) {
-//            fprintf (stdout, "<%.2X>", buf_head[i]);
-//        }
-//        fprintf (stdout, "\n");
-//        fprintf (stdout, "buf_head(%p)\n", buf_head);
+#if (TRACE!=0)
+        DP ("MAILBOX: ");
+        for (i=0; i < (1 /* sizeof(PLOAD_SIZE_TX) */ + buf_head[0] + CRC_SIZE); i++) {
+            DPS ("<%.2X>", buf_head[i]);
+        }
+        DP ("\n");
+        DP ("buf_head(%p)\n", buf_head);
+#endif
         assert (buf_head[0] >= 7);
         assert (buf_head[0] < 254);
         if (b->wosi->mbox_callback) {
@@ -890,24 +882,39 @@ void wosi_recv (board_t* b)
 
     DP ("rx_size(%d)\n", *rx_size);
     DP ("fd_rd(%d) RX_CHUNK_SIZE(%d)\n", b->io.spi.fd_rd, RX_CHUNK_SIZE);
-    while (gpio_get_value_fd(b->io.spi.fd_burst_rd_rdy) != 0)
+    recvd = 0;
+    i = 0;
+    while (recvd == 0)
     {
-        DP ("SPI burst read is READY\n");
-        recvd = read(b->io.spi.fd_rd, buf_rx + *rx_size, RX_CHUNK_SIZE);
-        if (recvd < RX_CHUNK_SIZE) {
-            ERRP("spi read error \n");
-        }
-        DP ("recvd(%d)\n", recvd);
-        // append data from USB to buf_rx[]
-        b->rd_dsize += recvd;
-        *rx_size += recvd;
-        if ((*rx_size + RX_CHUNK_SIZE) >
+        while (gpio_get_value_fd(b->io.spi.fd_burst_rd_rdy) != 0)
+        {
+            DP ("SPI burst read is READY\n");
+            recvd = read(b->io.spi.fd_rd, buf_rx + *rx_size, RX_CHUNK_SIZE);
+            if (recvd < RX_CHUNK_SIZE) {
+                ERRP("spi read error \n");
+            }
+            DP ("recvd(%d)\n", recvd);
+            // append data from USB to buf_rx[]
+            b->rd_dsize += recvd;
+            *rx_size += recvd;
+            if ((*rx_size + RX_CHUNK_SIZE) >
             NR_OF_WIN*(WOSIF_HDR_SIZE+1/*TID_SIZE*/+MAX_PSIZE+CRC_SIZE))
-        {   // approaching buf_rx limit
+            {   // approaching buf_rx limit
+                break;
+            }
+        }
+        if ((recvd != 0) || (b->ready == 0) || (i >= 5)) {
             break;
+        } else {
+            // retry 5 times to receive something after RISC_ON
+            usleep(50);
+            i ++;
         }
     }
     
+    if (i >= 5)
+        printf("retry(%d)\n", i);
+
     // parsing buf_rx[]:
     buf_head = buf_rx;
     do {
@@ -1011,6 +1018,7 @@ void wosi_recv (board_t* b)
                     consumed = WOSIF_HDR_SIZE + pload_size_tx + CRC_SIZE;
                     *rx_size -= (consumed);
                 }
+
                 if (*rx_size) {
                     memmove (buf_rx, (buf_rx + consumed), *rx_size);
                     immediate_state = 1;
@@ -1058,9 +1066,11 @@ void wosi_send (board_t* b)
     int ret;
 
     clock_gettime(CLOCK_REALTIME, &cur_time);
-    dt = diff(time_send_success, cur_time);
+    diff_time(&time_send_success, &cur_time, &dt);
+
     b->wosi->tx_timeout = 0;
     if (dt.tv_sec > 0 || dt.tv_nsec > TX_TIMEOUT) {
+        printf ("TX TIMEOUT for GO-BACK-N\n");
         DP ("TX TIMEOUT for GO-BACK-N\n");
         DP ("dt.sec(%lu), dt.nsec(%lu)\n", dt.tv_sec, dt.tv_nsec);
         DP ("Sm(0x%02X) Sn(0x%02X) Sb(0x%02X)\n", b->wosi->Sm, b->wosi->Sn, b->wosi->Sb);
@@ -1147,9 +1157,10 @@ void wosi_send (board_t* b)
     }
     else
     {
+        b->wr_dsize += *tx_size;
         clock_gettime(CLOCK_REALTIME, &time_send_success);
 #if (TRACE)
-        dt = diff(time_send_begin, time_send_success);
+        diff_time(&time_send_begin, &time_send_success, &dt);
         DP ("tx_size(%d), dt.nsec(%lu)\n", *tx_size, dt.tv_nsec);
         DP ("bitrate(%f Mbps)\n", 8.0*(*tx_size)/(1000000.0*dt.tv_sec+dt.tv_nsec/1000.0));
 
@@ -1480,26 +1491,26 @@ int rt_wosi_eof (board_t* b)
     wosi_frame_->buf[5] = 0xFF & (wosi_frame_->pload_size_rx);
 
     // calc CRC for {PLOAD_SIZE_TX, PLOAD_SIZE_RX, TID, WOSI_PACKETS}
-    crc16 = crcFast(wosi_frame_->buf + (WOSIF_HDR_SIZE - 1), 
-                    wosi_frame_->fsize - (WOSIF_HDR_SIZE - 1)); 
+    crc16 = crcFast(wosi_frame_->buf + (WOSIF_HDR_SIZE - 1),
+                    wosi_frame_->fsize - (WOSIF_HDR_SIZE - 1));
     memcpy (wosi_frame_->buf + wosi_frame_->fsize, &crc16, CRC_SIZE);
     wosi_frame_->fsize += CRC_SIZE;
 
     /* rt_wosif 只有一個 WOSI_FRAME, 不需要 check use bit */
-    // wosi_frame_->use = 1;    
+    // wosi_frame_->use = 1;
 
     // do {
         rt_wosi_send(b);
         wosi_recv(b);    // update GBN pointer if receiving Rn
     // } while (wosi_frame_->use);
-    
+
     // init the rt_wosif buffer
     rt_wosif_init (b);
 
     return 0;
 } // rt_wosi_eof()
 
-void wosi_append (board_t* b, const uint8_t func, const uint16_t wb_addr, 
+void wosi_append (board_t* b, const uint8_t func, const uint16_t wb_addr,
                  const uint16_t dsize, const uint8_t* buf)
 {
     int         cur_clock;
@@ -1511,8 +1522,8 @@ void wosi_append (board_t* b, const uint8_t func, const uint16_t wb_addr,
 
     // avoid exceeding WOSIF_PAYLOAD limit
     if (func == WB_WR_CMD) {
-        if ((wosi_frame_->fsize - WOSIF_HDR_SIZE + WOSI_HDR_SIZE + dsize) 
-            > MAX_PSIZE) 
+        if ((wosi_frame_->fsize - WOSIF_HDR_SIZE + WOSI_HDR_SIZE + dsize)
+            > MAX_PSIZE)
         {
             while(wosi_eof (b, TYP_WOSIF) == -1) {
                 printf("TODO: \n");
@@ -1520,8 +1531,8 @@ void wosi_append (board_t* b, const uint8_t func, const uint16_t wb_addr,
             }
         }
     } else if (func == WB_RD_CMD) {
-        if (((wosi_frame_->fsize - WOSIF_HDR_SIZE + WOSI_HDR_SIZE) > MAX_PSIZE) 
-            || 
+        if (((wosi_frame_->fsize - WOSIF_HDR_SIZE + WOSI_HDR_SIZE) > MAX_PSIZE)
+            ||
             ((wosi_frame_->pload_size_rx + WOSI_HDR_SIZE + dsize) > MAX_PSIZE))
         {
             while(wosi_eof (b, TYP_WOSIF) == -1) {
@@ -1535,10 +1546,10 @@ void wosi_append (board_t* b, const uint8_t func, const uint16_t wb_addr,
 
     cur_clock = (int) b->wosi->clock;
     wosi_frame_ = &(b->wosi->wosifs[cur_clock]);
-        
-    // DP ("func(0x%02X) dsize(0x%02X) wb_addr(0x%04X)\n", 
+
+    // DP ("func(0x%02X) dsize(0x%02X) wb_addr(0x%04X)\n",
     //      func, dsize, wb_addr);
-    
+
     // code took from vip/spi/generator.cpp:
     i = wosi_frame_->fsize;
     wosi_frame_->buf[i] = 0xFF & (func | (0x7F & dsize));
@@ -1555,20 +1566,6 @@ void wosi_append (board_t* b, const uint8_t func, const uint16_t wb_addr,
         wosi_frame_->fsize = i;
         wosi_frame_->pload_size_rx += (WOSI_HDR_SIZE + dsize);
     }
-    return;    
-}
-
-static void diff_time(struct timespec *start, struct timespec *end,
-		      struct timespec *diff)
-{
-    struct timespec temp;
-    if ((end->tv_nsec - start->tv_nsec) < 0) {
-	diff->tv_sec = end->tv_sec - start->tv_sec - 1;
-	diff->tv_nsec = 1000000000 + end->tv_nsec - start->tv_nsec;
-    } else {
-	diff->tv_sec = end->tv_sec - start->tv_sec;
-	diff->tv_nsec = end->tv_nsec - start->tv_nsec;
-    }
     return;
 }
 
@@ -1576,17 +1573,17 @@ static void dsize_to_str(char *buf, uint64_t dsize)
 {
     if ((dsize >> 10) > 0) {	// KB?
 	dsize >>= 10;
-	if ((dsize >> 10) > 0) {	// MB?
-	    dsize >>= 10;
-	    if ((dsize >> 10) > 0) {	// GB?
-		dsize >>= 10;
-		snprintf(buf, BUF_SIZE, "%llu GB", dsize);
-	    } else {
-		snprintf(buf, BUF_SIZE, "%llu MB", dsize);
-	    }
-	} else {
+//	if ((dsize >> 10) > 0) {	// MB?
+//	    dsize >>= 10;
+//	    if ((dsize >> 10) > 0) {	// GB?
+//		dsize >>= 10;
+//		snprintf(buf, BUF_SIZE, "%llu GB", dsize);
+//	    } else {
+//		snprintf(buf, BUF_SIZE, "%llu MB", dsize);
+//	    }
+//	} else {
 	    snprintf(buf, BUF_SIZE, "%llu KB", dsize);
-	}
+//	}
     } else {
 	snprintf(buf, BUF_SIZE, "%llu Bytes", dsize);
     }
@@ -1594,7 +1591,7 @@ static void dsize_to_str(char *buf, uint64_t dsize)
 }
 
 /**
- * TODO: update the results of FT_GetStatus into board data structure 
+ * TODO: update the results of FT_GetStatus into board data structure
  **/
 int board_status (struct board *board)
 {
@@ -1610,7 +1607,7 @@ int board_status (struct board *board)
     diff_time(&time_begin, &time2, &dt);
 
     ss = dt.tv_sec % 60;	// seconds
-    
+
     // update for every seconds only
     if ((ss > prev_ss) || ((ss == 0) && (prev_ss == 59))) {
 

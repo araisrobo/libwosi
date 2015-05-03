@@ -114,8 +114,9 @@ int wosi_flush (wosi_param_t *w_param)
     int ret;
 
     ret = wosi_eof (w_param->board, TYP_WOSIF); // typical WOSI_FRAME;
-    wosi_send(w_param->board);             // send
-    wosi_recv(w_param->board);             // receive
+    wosi_send(w_param->board); // send
+    wosi_recv(w_param->board); // flush ACK-ed frames to prepare space for wosi_eof()
+
     return ret;
 }
 
