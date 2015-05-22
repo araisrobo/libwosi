@@ -23,8 +23,8 @@
  *******************************************************************************
  * REG_NAME             ADDR_OFFSET   ACCESS  DESCRIPTION
  * OR32_CTRL            0x00          
- *    OR32_EN           0x00.0        W       (1)enable OR32 
- *                                            (0)keep resetting OR32
+ *    OR32_EN           0x00.0        W       (1)enable OR32 and JCMD_FIFO
+ *                                            (0)keep resetting OR32 and JCMD_FIFO
  * RESERVED             0x01          
  * RESERVED             0x02
  * RESERVED             0x03
@@ -122,7 +122,7 @@
 // #define RESERVED     0x0002  
 // #define RESERVED     0x0003  
 // #define RESERVED     0x0004  
-#define JCMD_CTRL       0x0005  // [1:0]: {SSIF_EN, /*obsolete: WDOG_EN*/}
+#define JCMD_CTRL       0x0005  // JCMD_CTRL.[bit_0]: {SSIF_EN}
 #define OR32_RT_CMD     0x0008  // 0x08 ~ 0x0B, 4 bytes of REALTIME CMD
 #define OR32_PROG       0x0018  // 0x18 ~ 0x1F, 4 bytes of ADDR and 4 bytes of DATA
                                 // Write to 0x1F to program OR32.SRAM when (OR32_EN == 0)

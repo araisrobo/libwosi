@@ -69,13 +69,13 @@ information, go to www.linuxcnc.org.
 #include <sys/stat.h>
 #include <linux/types.h>
 #include <linux/spi/spidev.h>
-
+#include <pigpio.h>
 
 #include "wb_regs.h"
 #include "bitfile.h"
 #include "wosi.h"
+#include "crc.h"
 #include "board.h"
-#include "gpio.h"
 
 // to disable DP():     #define TRACE 0
 // to enable  DP():     #define TRACE 1
@@ -162,24 +162,20 @@ static int prev_ss;     // second for board_status()
 //
 // this array describes all the boards we know how to program
 //
-
 struct board board_table[] = {
+    // initialize array of struct
     {
-        .board_type = "ar11-bbb\0",
+        .board_type = "ar11-rpi2\0",
         .chip_type = "xc6slx9tqg144\0",
         .io_type = IO_TYPE_SPI,
         .program_funct = NULL,
-        .io.spi.device_wr = "/dev/spidev1.0",
-        .io.spi.device_rd = "/dev/spidev1.1",
-        .io.spi.burst_rd_rdy_pin = 31,
+        .io.spi.device_wr = 0,          // SPI device id for pigpio
+        .io.spi.device_rd = 1,          // SPI device id for pigpio
+        .io.spi.burst_rd_rdy_pin = 6,   // GPIO_06, shared with CFG_INIT
         .io.spi.mode_wr   = 0x00,
-        .io.spi.mode_rd   = 0x01,
-        .io.spi.bits      = 8,
-        .io.spi.speed     = 25000000UL // CRC PASS:mode_rd(1) ERROR:mode_rd(0)
-//        .io.spi.speed     = 24000000UL // CRC PASS:mode_rd(1) ERROR:mode_rd(0)
-//        .io.spi.speed     = 20000000UL   // CRC PASS, for mode_rd(0)
-//        .io.spi.speed       = 12500000UL
-//        .io.spi.speed       = 2500000UL
+        .io.spi.mode_rd   = 0x00,       // set mode_rd as 0 for RPi2
+        .io.spi.bits      = 8,          // bits per word
+        .io.spi.speed     = 9000000UL   // 9Mbps for RPi2
     }
 };
 
@@ -255,7 +251,6 @@ int board_risc_prog(struct board* board, const char* binfile)
     uint8_t data[MAX_DSIZE];
     FILE  *fd;
     int c;
-    uint32_t image_size;
 
     // Counters keeping track of what we've printed
     uint32_t current_addr;
@@ -280,12 +275,7 @@ int board_risc_prog(struct board* board, const char* binfile)
         return -1;
     }
     fseek(fd, 0, SEEK_END);
-    image_size = ftell(fd);
     fseek(fd,0,SEEK_SET);
-
-    // Now we should have the size of the file in bytes.
-    // Let's ensure it's a word(4-bytes) multiple
-//    assert ((image_size%4) == 0);
 
     // Now write out the image size
     current_addr = 0;
@@ -511,123 +501,55 @@ int board_init (board_t* board, const char* device_type, const int device_id,
     return 0;
 }
 
-static int init_spi (int *fd, const char *device, unsigned int *mode,
-                     unsigned int *bits, unsigned long *speed)
-{
-    int ret;
-
-    *fd = open(device, O_RDWR);
-    if (*fd < 0) {
-        printf("can't open device: %s\n", device);
-        return -1 ;
-    }
-
-    ret = ioctl(*fd, SPI_IOC_WR_MODE, mode);
-    if (ret != 0) {
-        printf("can't set spi mode \n");
-        return ret;
-    }
-
-    ret = ioctl(*fd, SPI_IOC_RD_MODE, mode);
-    if (ret != 0) {
-        printf("can't get spi mode \n ");
-        return ret;
-    }
-
-    /*
-     * bits per word
-     */
-    ret = ioctl(*fd, SPI_IOC_WR_BITS_PER_WORD, bits);
-    if (ret != 0) {
-        printf("can't set bits per word \n");
-        return ret;
-    }
-
-    ret = ioctl(*fd, SPI_IOC_RD_BITS_PER_WORD, bits);
-    if (ret != 0) {
-        printf("can't get bits per word \n");
-        return ret;
-    }
-
-    /*
-     * max speed hz
-     */
-    ret = ioctl(*fd, SPI_IOC_WR_MAX_SPEED_HZ, speed);
-    if (ret != 0) {
-        printf("can't set max speed hz \n");
-        return ret;
-    }
-
-    ret = ioctl(*fd, SPI_IOC_RD_MAX_SPEED_HZ, speed);
-    if (ret != 0) {
-        printf("can't get max speed hz \n");
-        return ret;
-    }
-
-    return 0;
-}
-
-
 static int board_connect_spi (board_t* board)
 {
     int ret;
 
     DP ("board(%p)\n", board);
-    DP ("device_wr(%s)\n", board->io.spi.device_wr);
-    DP ("device_rd(%s)\n", board->io.spi.device_rd);
+    DP ("device_wr(%u)\n", board->io.spi.device_wr);
+    DP ("device_rd(%u)\n", board->io.spi.device_rd);
     DP ("mode_wr(0x%02X)\n", board->io.spi.mode_wr);
     DP ("mode_rd(0x%02X)\n", board->io.spi.mode_rd);
     DP ("bits(%d)\n", board->io.spi.bits);
     DP ("speed(%d)\n", board->io.spi.speed);
 
-    ret = init_spi(&(board->io.spi.fd_wr),
-                    board->io.spi.device_wr,
-                    &(board->io.spi.mode_wr),
-                    &(board->io.spi.bits),
-                    &(board->io.spi.speed));
+    ret = gpioInitialise();  
+    if (ret < 0)
+    {
+        printf("ERROR: pigpio initialisation failed\n");
+        return ret;
+    }
+
+    ret = gpioSetMode(board->io.spi.burst_rd_rdy_pin, PI_INPUT);
     if (ret != 0)
     {
-        printf("cannot open spi bus (%s)\n", board->io.spi.device_wr);
+        printf("ERROR: gpioSetMode(GPIO(%d),MODE(%d))\n", 
+                board->io.spi.burst_rd_rdy_pin, PI_INPUT);
+        return ret;
+    }
+
+    board->io.spi.fd_wr = spiOpen(board->io.spi.device_wr,
+                                  board->io.spi.speed,
+                                  board->io.spi.mode_wr);
+    if (board->io.spi.fd_wr < 0)
+    {
+        printf("cannot open spi device (%u)\n", board->io.spi.device_wr);
         return ret ;
     }
 
-    ret = init_spi(&(board->io.spi.fd_rd),
-                    board->io.spi.device_rd,
-                    &(board->io.spi.mode_rd),
-                    &(board->io.spi.bits),
-                    &(board->io.spi.speed));
-    if (ret != 0)
+    board->io.spi.fd_rd = spiOpen(board->io.spi.device_rd,
+                                  board->io.spi.speed,
+                                  board->io.spi.mode_rd);
+    if (board->io.spi.fd_rd < 0)
     {
-        printf("cannot open spi bus (%s)\n", board->io.spi.device_rd);
-        return ret;
+        printf("cannot open spi device (%u)\n", board->io.spi.device_rd);
+        return ret ;
     }
 
-    ret = gpio_export(board->io.spi.burst_rd_rdy_pin);
-    if (ret != 0)
-    {
-        printf("cannot export GPIO(%d)\n", board->io.spi.burst_rd_rdy_pin);
-        return ret;
-    }
+    DP ("spi.fd_wr(%d)\n", board->io.spi.fd_wr);
+    DP ("spi.fd_rd(%d)\n", board->io.spi.fd_rd);
 
-    ret = gpio_set_dir(board->io.spi.burst_rd_rdy_pin, GPIO_DIR_INPUT);
-    if (ret != 0)
-    {
-        printf("cannot set direction of GPIO(%d) as INPUT\n", board->io.spi.burst_rd_rdy_pin);
-        return ret;
-    }
-
-    board->io.spi.fd_burst_rd_rdy = gpio_fd_open(board->io.spi.burst_rd_rdy_pin);
-    if (board->io.spi.fd_burst_rd_rdy <= 0)
-    {
-        printf("cannot open GPIO(%d)\n", board->io.spi.fd_burst_rd_rdy);
-        return board->io.spi.fd_burst_rd_rdy;
-    }
-
-    DP ("fd_wr(%d)\n", board->io.spi.fd_wr);
-    DP ("fd_rd(%d)\n", board->io.spi.fd_rd);
-    DP ("fd_burst_rd_rdy(%d)\n", board->io.spi.fd_burst_rd_rdy);
-
-    DP ("TODO: board_prog() for BBB-SPI\n");
+    DP ("TODO: board_prog() for RPi2-SPI\n");
 //    if (board->fpga_bit_file) {
 //        board_prog(board);  // program FPGA if bitfile is provided
 //    }
@@ -651,8 +573,6 @@ int board_connect (board_t* board)
 
 int board_reset (board_t* board)
 {
-    int ret;
-
     // for updating board_status:
     clock_gettime(CLOCK_REALTIME, &time_begin);
     prev_ss = 0;        // reset second for board_status()
@@ -671,8 +591,8 @@ int board_reset (board_t* board)
     gbn_init (board);   // reset TID to 0 after WOSIF(SYS_RST)
     DP ("next WOSIF tid(%d)\n", board->wosi->tid);
     DP ("tx_size(%d)\n", board->wosi->tx_size);
-
-    return (ret);
+    
+    return (0);
 }
 
 int board_close (board_t* board)
@@ -681,24 +601,22 @@ int board_close (board_t* board)
 
     if (board->io_type == IO_TYPE_SPI)
     {
-        ret = gpio_fd_close(board->io.spi.fd_burst_rd_rdy);
+        ret = spiClose(board->io.spi.fd_rd);
         if (ret)
         {
-            ERRP("ERROR(%d): unable to close GPIO(%d)\n", ret, board->io.spi.burst_rd_rdy_pin);
+            ERRP("ERROR(%d): unable to close SPI(%u)\n", ret, board->io.spi.device_rd);
             return ret;
         }
-        ret = close(board->io.spi.fd_rd);
+        ret = spiClose(board->io.spi.fd_wr);
         if (ret)
         {
-            ERRP("ERROR(%d): unable to close SPI(%s)\n", ret, board->io.spi.device_rd);
+            ERRP("ERROR(%d): unable to close SPI(%u)\n", ret, board->io.spi.device_wr);
             return ret;
         }
-        ret = close(board->io.spi.fd_wr);
-        if (ret)
-        {
-            ERRP("ERROR(%d): unable to close SPI(%s)\n", ret, board->io.spi.device_wr);
-            return ret;
-        }
+
+        gpioTerminate();
+
+
     }
 
     free(board->wosi);
@@ -739,7 +657,6 @@ static uint8_t wb_reg_update (board_t* b, const uint8_t *buf)
 
 static int wosif_parse (board_t* b, const uint8_t *buf_head)
 {
-    uint16_t tmp;
     uint8_t *Sm;
     uint8_t *Sb;
     uint8_t *Sn;
@@ -857,6 +774,7 @@ static int wosif_parse (board_t* b, const uint8_t *buf_head)
         }
         return (0);
     }
+    return (0);
 } // wosif_parse()
 
 // receive data from USB and update corresponding WB registers
@@ -872,9 +790,7 @@ void wosi_recv (board_t* b)
     uint8_t     *buf_rx;
     enum rx_state_type *rx_state;
     static uint8_t sync_words[3] = {WOSIF_PREAMBLE, WOSIF_PREAMBLE, WOSIF_SOFD};
-
     int recvd;
-    struct timeval    poll_timeout = {0,0};
 
     rx_size = &(b->wosi->rx_size);
     buf_rx = b->wosi->buf_rx;
@@ -886,10 +802,10 @@ void wosi_recv (board_t* b)
     i = 0;
     while (recvd == 0)
     {
-        while (gpio_get_value_fd(b->io.spi.fd_burst_rd_rdy) != 0)
+        while (gpioRead(b->io.spi.burst_rd_rdy_pin) != 0)
         {
             DP ("SPI burst read is READY\n");
-            recvd = read(b->io.spi.fd_rd, buf_rx + *rx_size, RX_CHUNK_SIZE);
+            recvd = spiRead(b->io.spi.fd_rd, (char *)buf_rx + *rx_size, RX_CHUNK_SIZE);
             if (recvd < RX_CHUNK_SIZE) {
                 ERRP("spi read error \n");
             }
@@ -907,13 +823,13 @@ void wosi_recv (board_t* b)
             break;
         } else {
             // retry 5 times to receive something after RISC_ON
-            usleep(50);
+            usleep(1);
             i ++;
         }
     }
     
-    if (i >= 5)
-        printf("retry(%d)\n", i);
+    //debug: if (i >= 5)
+    //debug:     printf("retry(%d) recvd(%d)\n", i, recvd);
 
     // parsing buf_rx[]:
     buf_head = buf_rx;
@@ -1059,11 +975,8 @@ void wosi_send (board_t* b)
     uint8_t *buf_src;
     uint8_t *Sm;
     uint8_t *Sn;
-    int     i,j;
-
-    int         *tx_size;
-    unsigned short status;
-    int ret;
+    int     i;
+    int     *tx_size;
 
     clock_gettime(CLOCK_REALTIME, &cur_time);
     diff_time(&time_send_success, &cur_time, &dt);
@@ -1151,7 +1064,7 @@ void wosi_send (board_t* b)
 
     // issue spi write ...
     clock_gettime(CLOCK_REALTIME, &time_send_begin);
-    if(write(b->io.spi.fd_wr, buf_tx, *tx_size) < *tx_size)
+    if(spiWrite(b->io.spi.fd_wr, (char *)buf_tx, *tx_size) < *tx_size)
     {
         ERRP("spi write error \n");
     }
@@ -1179,6 +1092,8 @@ void wosi_send (board_t* b)
 
 static void rt_wosi_send (board_t* b)
 {
+
+#if 0 // TODO: port to WOSI
     struct timespec         time2, dt;
     uint8_t *buf_tx;
     uint8_t *buf_src;
@@ -1190,7 +1105,6 @@ static void rt_wosi_send (board_t* b)
     int         *tx_size;
     unsigned short status;
 
-#if 0 // TODO: port to WOSI
     struct ftdi_context     *ftdic;
 
     ftdic = &(b->io.usb.ftdic);
@@ -1295,7 +1209,6 @@ int wosi_eof (board_t* b, uint8_t wosif_cmd)
     uint16_t    crc16;
     int         next_5_clock;
     wosif_t     *next_5_wosif_;
-    uint32_t    idle_cnt;
 
     cur_clock = (int) b->wosi->clock;
     wosi_frame_ = &(b->wosi->wosifs[cur_clock]);
@@ -1346,38 +1259,6 @@ int wosi_eof (board_t* b, uint8_t wosif_cmd)
     if (b->wosi->rt_cmd_callback) {
         b->wosi->rt_cmd_callback();
     }
-
-//    idle_cnt = 0;
-//    do {
-//
-//        wosi_send(b);
-//        wosi_recv(b);    // update GBN pointer if receiving Rn
-//
-//        if (next_5_wosif_->use)
-//        {
-//            struct timespec treq, trem;
-//            // request for 1ms to sleep
-//            treq.tv_sec = 0;
-//            treq.tv_nsec = 1000000;   // 1ms
-//            if (nanosleep(&treq, &trem))
-//            {
-//                ERRP ("nanosleep got interrupted\n");
-//            }
-//        }
-//
-//        if (idle_cnt > 200)
-//        {
-//            ERRP ("WOSI BUSY: %d\n", idle_cnt);
-//            ERRP ("Sm(0x%02X) Sn(0x%02X) Sb(0x%02X) Sn.use(%d) clock(0x%02X)\n",
-//                   b->wosi->Sm, b->wosi->Sn, b->wosi->Sb, b->wosi->wosifs[b->wosi->Sn].use, b->wosi->clock);
-//            // tidSb is the request of Rn from Receiver(FPGA)
-//            ERRP ("Sm.use(%d) Sb.use(%d) clock(0x%02X)\n",
-//                   b->wosi->wosifs[b->wosi->Sm].use,
-//                   b->wosi->wosifs[b->wosi->Sb].use,
-//                   b->wosi->clock);
-//        }
-//        idle_cnt ++;
-//    } while (next_5_wosif_->use);
 
     // init the wosif buffer and tid
     assert(wosi_frame_->use == 0);   // wosi protocol assume cur-wosif_ must be empty to write to

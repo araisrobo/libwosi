@@ -21,6 +21,10 @@
 # Written by Marcel Telka <marcel@telka.sk>, 2002.
 #
 
+# LDFLAG for pigpio
+CFLAGS= -fPIC -Wall
+LDFLAGS= -lpigpio -lrt -lpthread
+
 noinst_LTLIBRARIES = libwosi.la
 
 libwosi_la_SOURCES = \
@@ -29,8 +33,6 @@ libwosi_la_SOURCES = \
 	board.h \
 	board.c \
 	crc.h \
-	crc.c \
-	gpio.h \
-	gpio.c
+	crc.c
 
 INCLUDES = -I../

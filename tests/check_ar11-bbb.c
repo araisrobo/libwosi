@@ -29,8 +29,8 @@ static wosi_param_t w_param;
 
 START_TEST (test_wosi_init)
 {
-    wosi_init(&w_param, "ar11-bbb", 0, "ar11_top.bit");
-    ck_assert_str_eq (w_param.board->board_type, "ar11-bbb");
+    wosi_init(&w_param, "ar11-rpi2", 0, "ar11_top.bit");
+    ck_assert_str_eq (w_param.board->board_type, "ar11-rpi2");
     ck_assert_str_eq (w_param.board->fpga_bit_file, "ar11_top.bit");
 }
 END_TEST
@@ -42,14 +42,14 @@ START_TEST (test_wosi_connect)
     // wosi_connect(): open io-device, and programe fpga with given "<fpga>.bit"
     ret = wosi_connect(&w_param);
     ck_assert_int_eq (ret, 0);
-    ck_assert_str_eq (w_param.board->io.spi.device_wr, "/dev/spidev1.0");
-    ck_assert_str_eq (w_param.board->io.spi.device_rd, "/dev/spidev1.1");
+    ck_assert_int_eq (w_param.board->io.spi.device_wr, 0);
+    ck_assert_int_eq (w_param.board->io.spi.device_rd, 1);
     ck_assert_int_eq (w_param.board->io.spi.mode_wr, 0);
     ck_assert_int_eq (w_param.board->io.spi.mode_rd, 1);        // mode is 1 for 25MHz SPI-READ
     ck_assert_int_eq (w_param.board->io.spi.bits, 8);
     ck_assert_int_eq (w_param.board->io.spi.speed, 25000000UL);
-    ck_assert_int_ne (w_param.board->io.spi.fd_wr, 0);
-    ck_assert_int_ne (w_param.board->io.spi.fd_rd, 0);
+    _ck_assert_int   (w_param.board->io.spi.fd_wr, >=, 0);
+    _ck_assert_int   (w_param.board->io.spi.fd_rd, >=, 0);
     ck_assert_int_ne (w_param.board->io.spi.fd_burst_rd_rdy, 0);
     ck_assert_int_eq (w_param.board->wosi->Sm, (NR_OF_WIN - 1));
     ck_assert_int_eq (w_param.board->ready, 0); // board->ready is 0 before programming RISC
@@ -214,7 +214,7 @@ START_TEST (test_wosi_prog_risc)
 END_TEST
 
 
-static num_joints=6;
+static num_joints=0;
 static mail_cnt=0;
 static void fetchmail(const uint8_t *buf_head)
 {
@@ -240,6 +240,7 @@ static void fetchmail(const uint8_t *buf_head)
     // BP_TICK
     p = (uint32_t *) (buf_head + 4);
     bp_tick = *p;
+    DP("bp_tick(%u) mail_tag(%u)\n", bp_tick, mail_tag);
 
     /* There might be mails with different TAG for the same bp_tick */
     // if ((bp_tick & 0xFF) == 0) {
@@ -259,6 +260,7 @@ static void fetchmail(const uint8_t *buf_head)
             cmd_fbs = (int32_t)*p;
             p += 1;
             enc_vel_p  = (int32_t)*p; // encoder velocity in pulses per servo-period
+            DP ("j(%d): enc_pos(0x%08X) cmd_fbs(0x%08X)\n", i, enc_pos, cmd_fbs);
         }
 
         // digital input
@@ -312,7 +314,7 @@ static void fetchmail(const uint8_t *buf_head)
         p += 1;
         bp_tick = *p;
         p += 1;
-//        printf ("MT_ERROR_CODE: code(%d) bp_tick(%d) \n", *p, bp_tick);
+        ERRP ("MT_ERROR_CODE: code(%d) bp_tick(%d) \n", *p, bp_tick);
         break;
 
     case MT_DEBUG:
@@ -320,6 +322,7 @@ static void fetchmail(const uint8_t *buf_head)
         bp_tick = *p;
         for (i=0; i<8; i++) {
             p += 1;
+            DP ("debug[%d]: 0x%08X\n", i, *p);
             // *machine_control->debug[i] = *p;
         }
         break;
@@ -354,12 +357,73 @@ static void write_machine_param (uint32_t addr, int32_t data)
     return;
 }
 
+static void write_mot_param (uint32_t joint, uint32_t addr, int32_t data)
+{
+    uint16_t    sync_cmd;
+    uint8_t     buf[MAX_DSIZE];
+    int         j;
+
+    DP ("data(0x%08X)\n", data);
+    for(j=0; j<sizeof(int32_t); j++) {
+        sync_cmd = SYNC_DATA | ((uint8_t *)&data)[j];
+        memcpy(buf, &sync_cmd, sizeof(uint16_t));
+        wosi_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD),
+                sizeof(uint16_t), buf);
+        DP ("sync_cmd[%d]: 0x%04X buf[0](0x%02X) buf[1](0x%02X) htons(0x%04X)\n", j, sync_cmd, buf[0], buf[1], htons(sync_cmd));
+    }
+
+    sync_cmd = SYNC_MOT_PARAM | PACK_MOT_PARAM_ID(joint) | PACK_MOT_PARAM_ADDR(addr);
+    memcpy(buf, &sync_cmd, sizeof(uint16_t));
+    wosi_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD),
+            sizeof(uint16_t), buf);
+    DP ("sync_cmd[%d]: 0x%04X buf[0](0x%02X) buf[1](0x%02X)\n", j, sync_cmd, buf[0], buf[1]);
+    while(wosi_flush(&w_param) == -1);
+
+    return;
+}
+
 #define MAX_DSIZE       127     // Maximum WOSI data size
+#define MAX_CHAN        8
 #define JOINT_NUM       6
+const char *pulse_type[MAX_CHAN] =      { "A", "A", "A", "A", "A", "A", " ", " "};
+const char *enc_type[MAX_CHAN] =        { "A", "A", "A", "A", "A", "A", " ", " "};
+const char *enc_pol[MAX_CHAN] =         { "P", "P", "P", "P", "P", "P", " ", " "};
+// lsp_id: gpio pin id for limit-switch-positive(lsp)
+const char *lsp_id[MAX_CHAN] = { "255", "255", "255", "255", "255", "255", " ", " " };
+// lsn_id: gpio pin id for limit-switch-negative(lsn)
+const char *lsn_id[MAX_CHAN] = { "255", "255", "255", "255", "255", "255", " ", " " };
+// jsn_id: gpio pin id for jog-switch-negative(jsn)
+const char *jsn_id[MAX_CHAN] = { "255", "255", "255", "255", "255", "255", " ", " " };
+// jsp_id: gpio pin id for jog-switch-positive(jsp)
+const char *jsp_id[MAX_CHAN] = { "255", "255", "255", "255", "255", "255", " ", " " };
+// alr_id: gpio pin id for ALARM siganl
+const char *alr_id[MAX_CHAN] = { "255", "255", "255", "255", "255", "255", " ", " " };
+const int  alarm_en = 1;        // "hardware alarm dection mod
+const char *alr_output_0= "0";  // "DOUT[31:0]  while E-Stop is pressed";
+const char *alr_output_1= "0";  // "DOUT[63:32] while E-Stop is pressed";
+
+const char **pid_str[MAX_CHAN];
+// P    I    D    FF0  FF1      FF2  DB   BI   M_ER M_EI M_ED MCD  MCDD MO
+const char *j0_pid_str[NUM_PID_PARAMS] =
+{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+const char *j1_pid_str[NUM_PID_PARAMS] =
+{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+const char *j2_pid_str[NUM_PID_PARAMS] =
+{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+const char *j3_pid_str[NUM_PID_PARAMS] =
+{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+const char *j4_pid_str[NUM_PID_PARAMS] =
+{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+const char *j5_pid_str[NUM_PID_PARAMS] =
+{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+const char *j6_pid_str[NUM_PID_PARAMS] =
+{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+const char *j7_pid_str[NUM_PID_PARAMS] =
+{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
 
 START_TEST (test_clock_buf_full)
 {   /* the clock buffer should not full */
-    int         ret, i, j, k;
+    int         ret, i, j, k, n;
     uint8_t     data_8;
     uint32_t    data_32;
     uint8_t     cur_tid;
@@ -372,7 +436,6 @@ START_TEST (test_clock_buf_full)
     uint16_t    sync_cmd[JOINT_NUM];
 
     DP("begin\n");
-    wosi_set_mbox_cb (&w_param, fetchmail);
 
     //  JCMD_CTRL            0x05
     //     WDOG_EN           0x05.0        W       WatchDOG timer (1)enable (0)disable
@@ -410,29 +473,203 @@ START_TEST (test_clock_buf_full)
     write_machine_param(MACHINE_CTRL, data_32);
     while(wosi_flush(&w_param) == -1);
 
-//    // prepare 10 SYNC_JNT WOSIFs for TX_FIFO
-//    for (i=0; i<10; i++)
-//    {
-//        for (j = 0; j < JOINT_NUM; j++) {
-//            k = 0;      // force incremental pulse cmd, k, to 0
-//            // SYNC_JNT: opcode for SYNC_JNT command
-//            // DIR_P: Direction, (positive(1), negative(0))
-//            // POS_MASK: relative position mask
-//            // integer part
-//            sync_cmd[j] = SYNC_JNT | DIR_P | (POS_MASK & k);
-//            memcpy (data+(2*j)*sizeof(uint16_t), &(sync_cmd[j]), sizeof(uint16_t));
-//            // fraction part
-//            sync_cmd[j] = 0;    // force faction part to 0
-//            memcpy (data+(2*j+1)*sizeof(uint16_t), &(sync_cmd[j]), sizeof(uint16_t));
-//        }
-//        wosi_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD),
-//                (j*2)*sizeof(uint16_t), data); // j axes
-//        sync_cmd[0] = SYNC_EOF;
-//        memcpy(data, &(sync_cmd[0]), sizeof(uint16_t));
-//        ret = wosi_eof (w_param.board, TYP_WOSIF);      // pack a typical WOSI_FRAME;
-//    }
+    // "pulse type (AB-PHASE(a) or STEP-DIR(s) or PWM-DIR(p)) for up to 8 channels")
+    data[0] = 0;        // SSIF_PULSE_TYPE j3 ~ j0
+    data[1] = 0;        // SSIF_PULSE_TYPE J5 ~ j4
+    data_32 = 0;        // reset SSIF_MODE of all joints to POSITION-MODE(0)
 
-    data_8 = (uint8_t) GPIO_ALARM_EN;
+    num_joints = 0;
+    for (n = 0; n < MAX_CHAN && (pulse_type[n][0] != ' ') ; n++) {
+        if (toupper(pulse_type[n][0]) == 'A') {
+            // PULSE_TYPE(0): ab-phase
+        } else if (toupper(pulse_type[n][0]) == 'S') {
+            // PULSE_TYPE(1): step-dir
+            if (n < 4) {
+                data[0] |= (1 << (n * 2));              // j3 ~ j0
+            } else {
+                data[1] |= (1 << ((n - 4) * 2));        // j5 ~ j4
+            }
+        } else if (toupper(pulse_type[n][0]) == 'P') {
+            // PULSE_TYPE(1): pwm-dir
+            data_32 |= (1 << n); // joint[n]: set SSIF_MODE as PWM-MODE
+            if (n < 4) {
+                data[0] |= (3 << (n * 2));              // j3 ~ j0
+            } else {
+                data[1] |= (3 << ((n - 4) * 2));        // j5 ~ j4
+            }
+        } else {
+            ERRP("ERROR: bad pulse_type '%s' for joint %i (must be 'A' or 'S' or 'P')\n",
+                  pulse_type[n], n);
+            return;
+        }
+        num_joints++;
+    }
+    if(n > 0) {
+        wosi_cmd (&w_param, WB_WR_CMD,
+                (uint16_t) (SSIF_BASE | SSIF_PULSE_TYPE),
+                (uint8_t) 2, data);
+        write_machine_param(SSIF_MODE, data_32);
+        DP("SSIF_MODE: 0x%08X\n", data_32);
+        DP("PULSE_TYPE[J3:J0]: 0x%02X\n", data[0]);
+        DP("PULSE_TYPE[J7:J4]: 0x%02X\n", data[1]);
+    } else {
+        ERRP("ERROR: no pulse_type defined\n");
+        return;
+    }
+
+    // "encoder type: (REAL(r) or LOOP-BACK(l)) for up to 8 channels"
+    data[0] = 0;
+    for (n = 0; n < MAX_CHAN && (enc_type[n][0] != ' ') ; n++) {
+        if (toupper(enc_type[n][0]) == 'L') {
+            // ENC_TYPE(00): fake ENCODER counts (loop PULSE_CMD to ENCODER)
+        } else if (toupper(enc_type[n][0]) == 'A') {
+            // ENC_TYPE(10): real ENCODER counts, AB-Phase
+            if (n < 4) {
+                data[0] |= (2 << (n * 2));
+            } else {
+                data[1] |= (2 << ((n - 4) * 2));
+            }
+        } else if (toupper(enc_type[n][0]) == 'S') {
+            // ENC_TYPE(11): real ENCODER counts, STEP-DIR
+            if (n < 4) {
+                data[0] |= (3 << (n * 2));
+            } else {
+                data[1] |= (3 << ((n - 4) * 2));
+            }
+        } else {
+            ERRP("ERROR: bad enc_type '%s' for joint %i (must be 'A', 'S', or 'L')\n",
+                  enc_type[n], n);
+            return;
+        }
+    }
+    if(n > 0) {
+        wosi_cmd (&w_param, WB_WR_CMD,
+                (uint16_t) (SSIF_BASE | SSIF_ENC_TYPE),
+                (uint8_t) 2, data);
+        DP("ENC_TYPE[J3:J0]: 0x%02X\n", data[0]);
+        DP("ENC_TYPE[J7:J4]: 0x%02X\n", data[1]);
+    } else {
+        ERRP("ERROR: no enc_type defined\n");
+        return;
+    }
+
+    // "encoder polarity (POSITIVE(p) or NEGATIVE(n)) for up to 8 channels"
+    data[0] = 0;
+    for (n = 0; n < MAX_CHAN && (enc_pol[n][0] != ' '); n++) {
+        if (toupper(enc_pol[n][0]) == 'P') {
+            // ENC_POL(0): POSITIVE ENCODER POLARITY (default)
+        } else if (toupper(enc_pol[n][0]) == 'N') {
+            // ENC_POL(1): NEGATIVE ENCODER POLARITY
+            data[0] |= (1 << n);
+        } else {
+            ERRP("ERROR: bad enc_pol '%s' for joint %i (must be 'p' or 'n')\n",
+                  enc_pol[n], n);
+            return;
+        }
+    }
+    if(n > 0) {
+        wosi_cmd (&w_param, WB_WR_CMD,
+                (uint16_t) (SSIF_BASE | SSIF_ENC_POL),
+                (uint8_t) 1, data);
+    } else {
+        ERRP ("ERROR: no enc_pol defined\n");
+        return;
+    }
+
+    // "set LSP_ID/LSN_ID for up to 8 channels"
+    for (n = 0; n < MAX_CHAN && (lsp_id[n][0] != ' ') ; n++) {
+        int lsp, lsn;
+        lsp = atoi(lsp_id[n]);
+        lsn = atoi(lsn_id[n]);
+        data_32 = (n << 16) | (lsp << 8) | (lsn);
+        write_machine_param(JOINT_LSP_LSN, data_32);
+        while(wosi_flush(&w_param) == -1);
+    }
+
+    // "set JOG JSP_ID/JSN_ID for up to 8 channels"
+    for (n = 0; n < MAX_CHAN && (jsp_id[n][0] != ' ') ; n++) {
+        int jsp, jsn;
+        jsp = atoi(jsp_id[n]);
+        jsn = atoi(jsn_id[n]);
+        data_32 = (n << 16) | (jsp << 8) | (jsn);
+        write_machine_param(JOINT_JSP_JSN, data_32);
+        while(wosi_flush(&w_param) == -1);
+    }
+
+    // "set ALR_ID for up to 8 channels"
+    data_32 = 0; // reset ALR_EN_BITS to 0
+    for (n = 0; n < MAX_CHAN && (alr_id[n][0] != ' ') ; n++) {
+        int alr;
+        alr = atoi(alr_id[n]);
+        if(alr != 255) {
+            data_32 |= (1 << alr);
+            assert (alr < 7);    // AR08: ALARM maps to GPIO[6:1]
+            assert (alr > 0);
+        }
+    }
+    write_machine_param(ALR_EN_BITS, data_32);
+    while(wosi_flush(&w_param) == -1);
+
+    if (alarm_en == 1) {
+        data[0] = GPIO_ALARM_EN;
+    } else if (alarm_en == 0) {
+        data[0] = 0;
+    } else {
+        ERRP("ERROR: unknown alarm_en value: %d\n", alarm_en);
+        return;
+    }
+    wosi_cmd (&w_param, WB_WR_CMD,
+              (uint16_t) (GPIO_BASE + GPIO_SYSTEM),
+              (uint8_t) 1, data);
+
+    // configure alarm output (for E-Stop)
+    write_machine_param(ALR_OUTPUT_0, (uint32_t) strtoul(alr_output_0, NULL, 16));
+    while(wosi_flush(&w_param) == -1);
+    fprintf(stderr, "ALR_OUTPUT_0(%08X)",(uint32_t) strtoul(alr_output_0, NULL, 16));
+
+    write_machine_param(ALR_OUTPUT_1, (uint32_t) strtoul(alr_output_1, NULL, 16));
+    while(wosi_flush(&w_param) == -1);
+    fprintf(stderr, "ALR_OUTPUT_1(%08X)",(uint32_t) strtoul(alr_output_1, NULL, 16));
+
+    // config PID parameter
+    pid_str[0] = j0_pid_str;
+    pid_str[1] = j1_pid_str;
+    pid_str[2] = j2_pid_str;
+    pid_str[3] = j3_pid_str;
+    pid_str[4] = j4_pid_str;
+    pid_str[5] = j5_pid_str;
+    pid_str[6] = j6_pid_str;
+    pid_str[7] = j7_pid_str;
+    for (n=0; n < MAX_CHAN; n++) {
+        if (pid_str[n][0] != NULL) {
+            DP("J%d_PID: ", n);
+            DP("#   0:P 1:I 2:D 3:FF0 4:FF1 5:FF2 6:DB 7:BI 8:M_ER 9:M_EI 10:M_ED 11:MCD 12:MCDD 13:MO\n");
+            // all gains (P, I, D, FF0, FF1, FF2) varie from 0(0%) to 65535(100%)
+            // all the others units are '1 pulse'
+            for (i=0; i < NUM_PID_PARAMS; i++) {
+                data_32 = atoi(pid_str[n][i]);
+                // P_GAIN: the mot_param index for P_GAIN value
+                write_mot_param (n, (P_GAIN + i), data_32);
+                while(wosi_flush(&w_param) == -1);
+                DP("pid[%d][%d] = %s (%d)\n", n, P_GAIN + i, pid_str[n][i], data_32);
+            }
+        }
+    }
+
+    /* ===== END Of Configuration =========================================== */
+
+    wosi_set_mbox_cb (&w_param, fetchmail);     // set fetchmail() after obtaining num_joints
+
+    /* SON: turn ON wosi.gpio.out.00 */
+    sync_cmd[0] = SYNC_DOUT | PACK_IO_ID(0) | PACK_DO_VAL(1);
+    memcpy(data, sync_cmd, sizeof(uint16_t));
+    wosi_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD),sizeof(uint16_t), data);
+
+    /* BRAKE: turn ON wosi.gpio.out.01 */
+    sync_cmd[0] = SYNC_DOUT | PACK_IO_ID(2) | PACK_DO_VAL(1);
+    memcpy(data, sync_cmd, sizeof(uint16_t));
+    wosi_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD),sizeof(uint16_t), data);
+
     for (i=0; i<10000000; i++) {
 //        printf("\ri(%d)", i);
 //        wosi_update (&w_param);
@@ -456,7 +693,6 @@ START_TEST (test_clock_buf_full)
         sync_cmd[0] = SYNC_EOF;
         memcpy(data, &(sync_cmd[0]), sizeof(uint16_t));
         wosi_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), sizeof(uint16_t), data);
-
 
         // calculated tid after wosi_eof()
         cur_tid = w_param.board->wosi->tid;

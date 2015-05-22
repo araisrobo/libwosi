@@ -105,21 +105,12 @@ typedef struct board {
     const char*     risc_bin_file;    // RISC binary image
     
     union {
-        // struct {
-        //     unsigned short  vendor_id;
-        //     unsigned short  device_id;
-        //     int             usb_devnum;
-        //     struct ftdi_context ftdic;
-        //     struct ftdi_transfer_control *rx_tc;
-        //     struct ftdi_transfer_control *tx_tc;
-        // } usb;
-        
         struct {
-            const char*         device_wr;
-            const char*         device_rd;
+            unsigned            device_wr;      // SPI device id for pigpio
+            unsigned            device_rd;      // SPI device id for pigpio
             unsigned int        burst_rd_rdy_pin;   // GPIO_31 (shared with CFG_INIT)
-            int                 fd_wr;
-            int                 fd_rd;
+            unsigned            fd_wr;
+            unsigned            fd_rd;
             int                 fd_burst_rd_rdy;
             unsigned int        mode_wr;
             unsigned int        mode_rd;
