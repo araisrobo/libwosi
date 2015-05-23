@@ -314,7 +314,10 @@ static void fetchmail(const uint8_t *buf_head)
         p += 1;
         bp_tick = *p;
         p += 1;
+#if(TRACE == 0)
+        // enable TRACE may cause extra delay, which may trigger BP_TICK error
         ERRP ("MT_ERROR_CODE: code(%d) bp_tick(%d) \n", *p, bp_tick);
+#endif
         break;
 
     case MT_DEBUG:
@@ -382,9 +385,11 @@ static void write_mot_param (uint32_t joint, uint32_t addr, int32_t data)
     return;
 }
 
-#define MAX_DSIZE       127     // Maximum WOSI data size
-#define MAX_CHAN        8
-#define JOINT_NUM       6
+#define FIXED_POINT_SCALE       65536.0             // (double (1 << FRACTION_BITS))
+#define MAX_DSIZE               127     // Maximum WOSI data size
+#define MAX_CHAN                8
+#define JOINT_NUM               6
+
 const char *pulse_type[MAX_CHAN] =      { "A", "A", "A", "A", "A", "A", " ", " "};
 const char *enc_type[MAX_CHAN] =        { "A", "A", "A", "A", "A", "A", " ", " "};
 const char *enc_pol[MAX_CHAN] =         { "P", "P", "P", "P", "P", "P", " ", " "};
@@ -401,6 +406,19 @@ const char *alr_id[MAX_CHAN] = { "255", "255", "255", "255", "255", "255", " ", 
 const int  alarm_en = 1;        // "hardware alarm dection mod
 const char *alr_output_0= "0";  // "DOUT[31:0]  while E-Stop is pressed";
 const char *alr_output_1= "0";  // "DOUT[63:32] while E-Stop is pressed";
+
+const char *max_vel_str[MAX_CHAN] =
+{ "30.0", "30.0", "30.0", "30.0", "30.0", "30.0", "0.0", "0.0" };
+const char *max_accel_str[MAX_CHAN] =
+{ "120.0", "120.0", "120.0", "120.0", "120.0", "120.0", "0.0", "0.0" };
+const char *max_jerk_str[MAX_CHAN] =
+{ "590.0", "590.0", "590.0", "590.0", "590.0", "590.0", "0.0", "0.0" };
+const char *pos_scale_str[MAX_CHAN] =
+{ "186181.81818", "186181.81818", "186181.81818", "186181.81818", "186181.81818", "186181.81818", "1.0", "1.0" };
+const char *enc_scale_str[MAX_CHAN] =
+{ "1.0", "1.0", "1.0", "1.0", "1.0", "1.0", "1.0", "1.0" };
+const char *ferror_str[MAX_CHAN] =
+{ "0", "0", "0", "0", "0", "0", "0", "0" };
 
 const char **pid_str[MAX_CHAN];
 // P    I    D    FF0  FF1      FF2  DB   BI   M_ER M_EI M_ED MCD  MCDD MO
@@ -631,6 +649,72 @@ START_TEST (test_clock_buf_full)
     while(wosi_flush(&w_param) == -1);
     fprintf(stderr, "ALR_OUTPUT_1(%08X)",(uint32_t) strtoul(alr_output_1, NULL, 16));
 
+    /* configure motion parameters */
+    for(n=0; n<num_joints; n++) {
+        double pos_scale, max_vel, max_accel, max_jerk, enc_scale, max_ferror;
+        double dt = 0.00065536; // dt: servo period (sec)
+
+        /* compute fraction bits */
+        // compute proper fraction bit for command
+        // compute fraction bit for velocity
+        // accurate 0.0001 mm
+        pos_scale   = atof(pos_scale_str[n]);
+        max_vel     = atof(max_vel_str[n]);
+        max_accel   = atof(max_accel_str[n]);
+        max_jerk    = atof(max_jerk_str[n]);
+        assert (max_vel > 0);
+        assert (max_accel > 0);
+        assert (max_jerk > 0);
+
+        /* config encoder scale parameter */
+        enc_scale   = atof(enc_scale_str[n]);
+        assert (enc_scale > 0);
+        data_32 = (int32_t)(enc_scale * FIXED_POINT_SCALE);
+        write_mot_param (n, (ENC_SCALE), data_32);
+        while(wosi_flush(&w_param) == -1);
+
+        /* unit_pulse_scale per servo_period */
+        data_32 = (int32_t)(FIXED_POINT_SCALE * pos_scale * dt);
+        DP("j[%d] pos_scale(%f) scale(0x%08X)\n", n, pos_scale, data_32);
+        assert(data_32 != 0);
+        write_mot_param (n, (SCALE), data_32);
+        while(wosi_flush(&w_param) == -1);
+        pos_scale = fabs(pos_scale);    // absolute pos_scale for MAX_VEL/ACCEL calculation
+
+        /* config MAX velocity */
+        data_32 = (uint32_t)(max_vel * pos_scale * dt * FIXED_POINT_SCALE);
+        DP("j[%d] max_vel(%d) = %f*%f*%f*%f\n",
+                n, data_32, max_vel, pos_scale, dt, FIXED_POINT_SCALE);
+        assert(data_32 > 0);
+        write_mot_param (n, (MAX_VELOCITY), data_32);
+        while(wosi_flush(&w_param) == -1);
+
+        /* config acceleration */
+        data_32 = (uint32_t)(max_accel * pos_scale * dt * FIXED_POINT_SCALE * dt);
+        DP("j[%d] max_accel(%d) = %f*%f*(%f^2)*(%f)\n",
+                n, data_32, max_accel, pos_scale, dt, FIXED_POINT_SCALE);
+        assert(data_32 > 0);
+        write_mot_param (n, (MAX_ACCEL), data_32);
+        while(wosi_flush(&w_param) == -1);
+
+        /* config max jerk */
+        data_32 = (uint32_t)(max_jerk * pos_scale * FIXED_POINT_SCALE * dt * dt * dt);
+        DP("j[%d] max_jerk(%d) = (%f * %f * %f * %f^3)))\n",
+                n, data_32, FIXED_POINT_SCALE, max_jerk, pos_scale, dt);
+        assert(data_32 != 0);
+        write_mot_param (n, (MAX_JERK), data_32);
+        while(wosi_flush(&w_param) == -1);
+
+        /* config max following error */
+        // following error send with unit pulse
+        max_ferror = atof(ferror_str[n]);
+        data_32 = (uint32_t)(ceil(max_ferror * pos_scale));
+        DP("max ferror(%d)\n", data_32);
+        write_mot_param (n, (MAXFOLLWING_ERR), data_32);
+        while(wosi_flush(&w_param) == -1);
+    }
+
+
     // config PID parameter
     pid_str[0] = j0_pid_str;
     pid_str[1] = j1_pid_str;
@@ -675,7 +759,7 @@ START_TEST (test_clock_buf_full)
 //        wosi_update (&w_param);
         // prepare servo command for 6 axes
         for (j = 0; j < JOINT_NUM; j++) {
-            k = 0;      // force incremental pulse cmd, k, to 0
+            k = 10;      // force incremental pulse cmd, k, to 10
             // SYNC_JNT: opcode for SYNC_JNT command
             // DIR_P: Direction, (positive(1), negative(0))
             // POS_MASK: relative position mask
