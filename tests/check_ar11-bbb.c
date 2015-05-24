@@ -216,17 +216,18 @@ END_TEST
 
 static num_joints=0;
 static mail_cnt=0;
+static uint32_t din[3];
+static uint32_t dout0;
 static void fetchmail(const uint8_t *buf_head)
 {
     // char        *buf_head;
     int         i;
     uint16_t    mail_tag;
-    uint32_t    *p, din[3]; //, dout[1];
+    uint32_t    *p;
     uint8_t     *buf;
     uint32_t    bp_tick;    // served as previous-bp-tick
     uint32_t    machine_status;
     uint32_t    joints_vel;
-    uint32_t    dout0;
     uint32_t    mpg_count;
     uint32_t    max_tick_time;
     uint32_t    rcmd_state;
@@ -643,11 +644,11 @@ START_TEST (test_clock_buf_full)
     // configure alarm output (for E-Stop)
     write_machine_param(ALR_OUTPUT_0, (uint32_t) strtoul(alr_output_0, NULL, 16));
     while(wosi_flush(&w_param) == -1);
-    fprintf(stderr, "ALR_OUTPUT_0(%08X)",(uint32_t) strtoul(alr_output_0, NULL, 16));
+    printf("ALR_OUTPUT_0(%08X)\n",(uint32_t) strtoul(alr_output_0, NULL, 16));
 
     write_machine_param(ALR_OUTPUT_1, (uint32_t) strtoul(alr_output_1, NULL, 16));
     while(wosi_flush(&w_param) == -1);
-    fprintf(stderr, "ALR_OUTPUT_1(%08X)",(uint32_t) strtoul(alr_output_1, NULL, 16));
+    printf("ALR_OUTPUT_1(%08X)\n",(uint32_t) strtoul(alr_output_1, NULL, 16));
 
     /* configure motion parameters */
     for(n=0; n<num_joints; n++) {
@@ -714,7 +715,6 @@ START_TEST (test_clock_buf_full)
         while(wosi_flush(&w_param) == -1);
     }
 
-
     // config PID parameter
     pid_str[0] = j0_pid_str;
     pid_str[1] = j1_pid_str;
@@ -742,21 +742,20 @@ START_TEST (test_clock_buf_full)
 
     /* ===== END Of Configuration =========================================== */
 
-    wosi_set_mbox_cb (&w_param, fetchmail);     // set fetchmail() after obtaining num_joints
-
+    /* set fetchmail() after obtaining num_joints */
+    wosi_set_mbox_cb (&w_param, fetchmail);         
+    
     /* SON: turn ON wosi.gpio.out.00 */
     sync_cmd[0] = SYNC_DOUT | PACK_IO_ID(0) | PACK_DO_VAL(1);
     memcpy(data, sync_cmd, sizeof(uint16_t));
     wosi_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD),sizeof(uint16_t), data);
 
     /* BRAKE: turn ON wosi.gpio.out.01 */
-    sync_cmd[0] = SYNC_DOUT | PACK_IO_ID(2) | PACK_DO_VAL(1);
+    sync_cmd[0] = SYNC_DOUT | PACK_IO_ID(1) | PACK_DO_VAL(1);
     memcpy(data, sync_cmd, sizeof(uint16_t));
     wosi_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD),sizeof(uint16_t), data);
 
     for (i=0; i<10000000; i++) {
-//        printf("\ri(%d)", i);
-//        wosi_update (&w_param);
         // prepare servo command for 6 axes
         for (j = 0; j < JOINT_NUM; j++) {
             k = 10;      // force incremental pulse cmd, k, to 10
@@ -778,13 +777,14 @@ START_TEST (test_clock_buf_full)
         memcpy(data, &(sync_cmd[0]), sizeof(uint16_t));
         wosi_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), sizeof(uint16_t), data);
 
+
+
+        wosi_send(w_param.board);                       // send
+        wosi_recv(w_param.board);                       // receive
+        
         // calculated tid after wosi_eof()
         cur_tid = w_param.board->wosi->tid;
-
-//        ret = wosi_flush (&w_param);      // pack a typical WOSI_FRAME;
-        wosi_recv(w_param.board);                       // receive
         ret = wosi_eof (w_param.board, TYP_WOSIF);      // pack a typical WOSI_FRAME;
-        wosi_send(w_param.board);                       // send
         if (ret == 0) {
             // check TID always increase by 1 after successful wosi_eof()
             cur_tid += 1;
@@ -792,12 +792,12 @@ START_TEST (test_clock_buf_full)
         ck_assert_int_eq (ret, 0);
         ck_assert_int_eq (w_param.board->wosi->tid, cur_tid);
 
-        // after wosi_flush() the cur-clock buf should be empty
+        // after wosi_eof() the cur-clock buf should be empty
         cur_clock = (int) w_param.board->wosi->clock;
         wosi_frame_ = &(w_param.board->wosi->wosifs[cur_clock]);
         ck_assert_int_eq (wosi_frame_->use, 0);
 
-        // after wosi_flush(), the next-4-clock buf should be empty
+        // after wosi_eof(), the next-4-clock buf should be empty
         next_4_clock = (int) (w_param.board->wosi->clock + 4);
         if (next_4_clock >= NR_OF_CLK) {
             next_4_clock -= NR_OF_CLK;
@@ -806,6 +806,10 @@ START_TEST (test_clock_buf_full)
         ck_assert_int_eq (next_4_wosif_->use, 0);
 
         wosi_status (&w_param);  // print out tx/rx data rate
+        /* update GPIO value */
+        if ((i & 0x1FFF) == 0) {
+            printf("i(%d) dout0(0x%08X) gpio.in.00(%d)\n", i, dout0, din[0] & 0x01);
+        }
 
 //	usleep(250);    // sleep for 0.65ms
     }
