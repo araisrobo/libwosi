@@ -175,8 +175,9 @@ struct board board_table[] = {
         .io.spi.mode_wr   = 0x00,
         .io.spi.mode_rd   = 0x00,       // set mode_rd as 0 for RPi2
         .io.spi.bits      = 8,          // bits per word
-        // .io.spi.speed     = 9000000UL   // 9Mbps for RPi2
-        .io.spi.speed     = 7000000UL   // 9Mbps for RPi2
+        // .io.spi.speed     = 16000000UL   // 16Mbps for RPi2
+           .io.spi.speed     = 9000000UL   // 9Mbps for RPi2
+        // .io.spi.speed     = 7000000UL   // 7Mbps for RPi2
     }
 };
 
@@ -1514,8 +1515,8 @@ int board_status (struct board *board)
 
         // IN(0x%04X), switch_in
         printf
-            ("[%02d:%02d:%02d] tx(%s) rx(%s) (%.2f, %.2f Kbps)\n",
-             hh, mm, ss, tx_str, rx_str, cur_rate, data_rate);
+            ("[%02d:%02d:%02d] tx(%s) rx(%s) (%.2f, %.2f Kbps) CRC.ERROR(%d)\n",
+             hh, mm, ss, tx_str, rx_str, cur_rate, data_rate, board->wosi->crc_error_counter);
     }
 
     // okay: printf ("debug: board(%p)\n", board);
