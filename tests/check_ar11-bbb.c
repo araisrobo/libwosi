@@ -340,6 +340,27 @@ static void fetchmail(const uint8_t *buf_head)
     }
 }
 
+static void pack_sync_cmd (uint16_t sync_cmd, uint32_t *data, uint32_t size)
+{
+    uint16_t    buf;
+    int         i, j;
+
+    // TODO: pack whole data into a single WB_WR_CMD
+    for (i=0; i<size; i++)
+    {
+        for(j=0; j<sizeof(int32_t); j++) {
+            buf = SYNC_DATA | ((uint8_t *)data)[j];
+            wosi_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), sizeof(uint16_t), (const uint8_t *)&buf);
+        }
+        data++;
+    }
+
+    wosi_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), sizeof(uint16_t), (const uint8_t *)&sync_cmd);
+    // while(wosi_flush(&w_param) == -1);   // wait until all those WB_WR_CMDs are accepted by WOU
+
+    return;
+}
+
 static void write_machine_param (uint32_t addr, int32_t data)
 {
     uint16_t    sync_cmd;
@@ -739,6 +760,13 @@ START_TEST (test_clock_buf_full)
             }
         }
     }
+    
+    for (i = 0; i < 4; i++) {
+        uint32_t dac_ctrl_reg;
+        sync_cmd[0] = SYNC_DAC | (i << 8) | (0x55);    /* DAC, ID:i, ADDR: 0x55(Control Register) */
+        dac_ctrl_reg = 0x1001;  // OUTEN[12]==1, R[2:0]==1 (0 ~ 10V)
+        pack_sync_cmd (sync_cmd[0], &dac_ctrl_reg, 1);
+    }
 
     /* ===== END Of Configuration =========================================== */
 
@@ -755,7 +783,34 @@ START_TEST (test_clock_buf_full)
     memcpy(data, sync_cmd, sizeof(uint16_t));
     wosi_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD),sizeof(uint16_t), data);
 
+    /* spi_1.dout_0: turn ON wosi.gpio.out.08 */
+    sync_cmd[0] = SYNC_DOUT | PACK_IO_ID(8) | PACK_DO_VAL(1);
+    memcpy(data, sync_cmd, sizeof(uint16_t));
+    wosi_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD),sizeof(uint16_t), data);
+
+    /* spi_2.dout_0: turn ON wosi.gpio.out.16 */
+    sync_cmd[0] = SYNC_DOUT | PACK_IO_ID(16) | PACK_DO_VAL(1);
+    memcpy(data, sync_cmd, sizeof(uint16_t));
+    wosi_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD),sizeof(uint16_t), data);
+
+    /* spi_3.dout_0: turn ON wosi.gpio.out.24 */
+    sync_cmd[0] = SYNC_DOUT | PACK_IO_ID(24) | PACK_DO_VAL(1);
+    memcpy(data, sync_cmd, sizeof(uint16_t));
+    wosi_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD),sizeof(uint16_t), data);
+    
     for (i=0; i<10000000; i++) {
+
+        if (i == 4096) {
+            /* DAC: fixed as 4 dac channels */
+            for (j = 0; j < 4; j++) {
+                uint32_t dac_value;
+                sync_cmd[0] = SYNC_DAC | (j << 8) | (0x01);    /* DAC, ID:j, ADDR: 0x01 */
+                // dac_value = (j+1) << 14;
+                dac_value = 0x4000;
+                pack_sync_cmd (sync_cmd[0], &dac_value, 1);
+            }
+        }
+        
         // prepare servo command for 6 axes
         for (j = 0; j < JOINT_NUM; j++) {
             k = 10;      // force incremental pulse cmd, k, to 10
@@ -809,6 +864,9 @@ START_TEST (test_clock_buf_full)
         /* update GPIO value */
         if ((i & 0x1FFF) == 0) {
             printf("i(%d) dout0(0x%08X) gpio.in.00(%d)\n", i, dout0, din[0] & 0x01);
+            printf("                    gpio.in.32(%d)\n",           din[1] & 0x01);
+            printf("                    gpio.in.48(%d)\n",   (din[1] >> 16) & 0x01);
+            printf("                    gpio.in.64(%d)\n",           din[2] & 0x01);
         }
 
 //	usleep(250);    // sleep for 0.65ms
