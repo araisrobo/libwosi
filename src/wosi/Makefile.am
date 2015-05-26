@@ -22,8 +22,8 @@
 #
 
 # LDFLAG for pigpio
-CFLAGS= -fPIC -Wall
-LDFLAGS= -lpigpio -lrt -lpthread
+AM_CFLAGS= -fPIC -Wall
+AM_LDFLAGS= -lpigpio -lrt -lpthread
 
 noinst_LTLIBRARIES = libwosi.la
 

@@ -17,6 +17,9 @@ AC_PROG_CXX
 AC_PROG_MAKE_SET
 AC_PROG_LIBTOOL
 
+# AM_PROG_CC_C_O: for tests/check_ar11-bbb.c
+AM_PROG_CC_C_O
+
 # copied from configure.ac of UrJTAG ,http://urjtag.org,urjtag)
 AC_CHECK_FUNC(clock_gettime, [], [ AC_CHECK_LIB(rt, clock_gettime) ])
 

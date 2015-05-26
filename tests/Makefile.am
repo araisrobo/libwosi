@@ -21,6 +21,9 @@ common_ldflags = \
 	@CHECK_LIBS@ \
 	-lm
 
+# for profile and valgrind
+PROFILE_CFLAGS = -p -Wall
+
 # for debugging, static linking of test programs:
 AM_LDFLAGS = -static
 
@@ -29,7 +32,7 @@ AM_LDFLAGS = -static
 #TODO: wosi_unit_test_spi_LDADD = $(common_ldflags)
 
 check_ar11_bbb_SOURCES = check_ar11-bbb.c
-check_ar11_bbb_CFLAGS = @CHECK_CFLAGS@
+check_ar11_bbb_CFLAGS = @CHECK_CFLAGS@ $(PROFILE_CFLAGS)
 check_ar11_bbb_LDADD = $(common_ldflags)
 
 #TODO: wosi_unit_test_jcmd_SOURCES = wosi-unit-test-jcmd.c
