@@ -18,7 +18,8 @@ noinst_PROGRAMS = \
 
 common_ldflags = \
 	$(top_builddir)/src/libwosi.la \
-	@CHECK_LIBS@
+	@CHECK_LIBS@ \
+	-lm
 
 # for debugging, static linking of test programs:
 AM_LDFLAGS = -static
