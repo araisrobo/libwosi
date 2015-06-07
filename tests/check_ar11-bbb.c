@@ -45,9 +45,9 @@ START_TEST (test_wosi_connect)
     ck_assert_int_eq (w_param.board->io.spi.device_wr, 0);
     ck_assert_int_eq (w_param.board->io.spi.device_rd, 1);
     ck_assert_int_eq (w_param.board->io.spi.mode_wr, 0);
-    ck_assert_int_eq (w_param.board->io.spi.mode_rd, 1);        // mode is 1 for 25MHz SPI-READ
+    ck_assert_int_eq (w_param.board->io.spi.mode_rd, 0);
     ck_assert_int_eq (w_param.board->io.spi.bits, 8);
-    ck_assert_int_eq (w_param.board->io.spi.speed, 25000000UL);
+    ck_assert_int_eq (w_param.board->io.spi.speed, 7000000UL);
     _ck_assert_int   (w_param.board->io.spi.fd_wr, >=, 0);
     _ck_assert_int   (w_param.board->io.spi.fd_rd, >=, 0);
     ck_assert_int_ne (w_param.board->io.spi.fd_burst_rd_rdy, 0);
@@ -788,17 +788,25 @@ START_TEST (test_clock_buf_full)
     memcpy(data, sync_cmd, sizeof(uint16_t));
     wosi_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD),sizeof(uint16_t), data);
 
+    // NOT TURNING those for MEINAN's hydralic cylinders
     /* spi_2.dout_0: turn ON wosi.gpio.out.16 */
     sync_cmd[0] = SYNC_DOUT | PACK_IO_ID(16) | PACK_DO_VAL(1);
     memcpy(data, sync_cmd, sizeof(uint16_t));
     wosi_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD),sizeof(uint16_t), data);
 
-    /* spi_3.dout_0: turn ON wosi.gpio.out.24 */
-    sync_cmd[0] = SYNC_DOUT | PACK_IO_ID(24) | PACK_DO_VAL(1);
-    memcpy(data, sync_cmd, sizeof(uint16_t));
-    wosi_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD),sizeof(uint16_t), data);
+    // /* spi_3.dout_0: turn ON wosi.gpio.out.24 */
+    // sync_cmd[0] = SYNC_DOUT | PACK_IO_ID(24) | PACK_DO_VAL(1);
+    // memcpy(data, sync_cmd, sizeof(uint16_t));
+    // wosi_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD),sizeof(uint16_t), data);
+    // 
+    // for (i=16; i<32; i++) {  
+    //     sync_cmd[0] = SYNC_DOUT | PACK_IO_ID(i) | PACK_DO_VAL(1);
+    //     memcpy(data, sync_cmd, sizeof(uint16_t));
+    //     wosi_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD),sizeof(uint16_t), data);
+    // }
     
-    for (i=0; i<10000000; i++) {
+    // loop forever
+    for (i=0; i<250000000; i++) {
 
         if (i == 4096) {
             /* DAC: fixed as 4 dac channels */

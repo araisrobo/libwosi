@@ -171,13 +171,13 @@ struct board board_table[] = {
         .program_funct = NULL,
         .io.spi.device_wr = 0,          // SPI device id for pigpio
         .io.spi.device_rd = 1,          // SPI device id for pigpio
-        .io.spi.burst_rd_rdy_pin = 6,   // GPIO_06, shared with CFG_INIT
+        .io.spi.burst_rd_rdy_pin = 12,  // GPIO_12, H_TXRDY
         .io.spi.mode_wr   = 0x00,
         .io.spi.mode_rd   = 0x00,       // set mode_rd as 0 for RPi2
         .io.spi.bits      = 8,          // bits per word
         // .io.spi.speed     = 16000000UL   // 16Mbps for RPi2
-           .io.spi.speed     = 9000000UL   // 9Mbps for RPi2
-        // .io.spi.speed     = 7000000UL   // 7Mbps for RPi2
+        // .io.spi.speed     = 9000000UL   // 9Mbps for RPi2
+           .io.spi.speed     = 7000000UL   // 7Mbps for RPi2
     }
 };
 

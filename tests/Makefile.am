@@ -22,7 +22,8 @@ common_ldflags = \
 	-lm
 
 # for profile and valgrind
-PROFILE_CFLAGS = -p -Wall
+# PROFILE_CFLAGS = -p -Wall
+PROFILE_CFLAGS =
 
 # for debugging, static linking of test programs:
 AM_LDFLAGS = -static

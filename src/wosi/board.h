@@ -106,9 +106,9 @@ typedef struct board {
     
     union {
         struct {
-            unsigned            device_wr;      // SPI device id for pigpio
-            unsigned            device_rd;      // SPI device id for pigpio
-            unsigned int        burst_rd_rdy_pin;   // GPIO_31 (shared with CFG_INIT)
+            unsigned            device_wr;          // SPI device id for pigpio
+            unsigned            device_rd;          // SPI device id for pigpio
+            unsigned int        burst_rd_rdy_pin;   // GPIO_12 (H_TXRDY)
             unsigned            fd_wr;
             unsigned            fd_rd;
             int                 fd_burst_rd_rdy;
