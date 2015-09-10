@@ -181,8 +181,6 @@ enum machine_parameter_addr {
     AHC_JNT,
     AHC_POLARITY,
     GANTRY_POLARITY,
-    TEST_PATTERN_TYPE,
-    TEST_PATTERN,
     ANALOG_REF_LEVEL,       // wait analog signal: M110
     AHC_MAX_OFFSET,
     AHC_ANALOG_CH,
@@ -195,7 +193,8 @@ enum machine_parameter_addr {
     JOINT_JSP_JSN,          // format jog: {JOINT[31:16], LSP_ID[15:8], LSN_ID[7:0]}
     ALR_OUTPUT_0,           // DOUT_0 value, dout[31:0], when ESTOP is pressed
     ALR_OUTPUT_1,           // DOUT_1 value, dout[63:32], when ESTOP is pressed
-    ALR_EN_BITS,            // the enable bitmap of ALARM input bits (
+    ALR_EN_BITS,            // the bitmap of ALARM bits for all joints (DIN[6:1])
+                            //             as well as ALARM_EN/ESTOP bit (DIN[0])
 
     SSIF_MODE,              // [7:0]    bitwise mapping of mode for SSIF_PULSE_TYPE
                             //          0: POSITION MODE (STEP-DIR or AB-PHASE)
@@ -221,12 +220,6 @@ enum accel_state_type {
   MACH_ACCEL_S4 = (4 << 4),     // 4
   MACH_ACCEL_S5 = (5 << 4),     // 5
   MACH_ACCEL_S6 = (6 << 4)      // 6
-};
-
-enum test_pattern_type_enum {
-    NO_TEST,
-    DIGITAL_IN,
-    ANALOG_IN,
 };
 
 enum ahc_state_enum {
@@ -260,6 +253,12 @@ enum motion_parameter_addr {
     SCALE             ,     // unit_pulses/servo_period : 16.16 format, 
     ENC_SCALE         ,     // encoder scale: 16.16 format
     SSYNC_SCALE       ,     // spindle sync compensation scale: 16.16 format
+    // PWM: begin
+    FULL_PWM_PULSE    ,
+    MAX_PWM_OUT       ,
+    PWM_PER_PULSE     ,
+    PULSE_PER_PWM     ,
+    // PWM: end
     MAX_PARAM_ITEM
 };
 #define NUM_PID_PARAMS 14   // pid params: from P_GAIN to MAXOUTPUT

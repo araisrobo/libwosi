@@ -871,10 +871,10 @@ START_TEST (test_clock_buf_full)
         wosi_status (&w_param);  // print out tx/rx data rate
         /* update GPIO value */
         if ((i & 0x1FFF) == 0) {
-            printf("i(%d) dout0(0x%08X) gpio.in.00(%d)\n", i, dout0, din[0] & 0x01);
-            printf("                    gpio.in.32(%d)\n",           din[1] & 0x01);
-            printf("                    gpio.in.48(%d)\n",   (din[1] >> 16) & 0x01);
-            printf("                    gpio.in.64(%d)\n",           din[2] & 0x01);
+            printf("i(%d) dout0(0x%08X)\n\tgpio.in.00(%d)\n", i, dout0, din[0] & 0x01);
+            printf("\tgpio.in.32(%d)\n",           din[1] & 0x01);
+            printf("\tgpio.in.48(%d)\n",   (din[1] >> 16) & 0x01);
+            printf("\tgpio.in.64(%d)\n",           din[2] & 0x01);
         }
 
 //	usleep(250);    // sleep for 0.65ms
