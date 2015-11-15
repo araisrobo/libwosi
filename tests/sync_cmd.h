@@ -7,9 +7,9 @@
  *    SYNC_JNT           2'b00    {DIR_W, POS_W}    DIR_W[13]:    Direction, (positive(1), negative(0))
  *                                                  POS_W[12:0]:  Relative Angle Distance (0 ~ 8191)
  *    NAME        OP_CODE[15:12]  OPERAND[11:0]     Description
- *    SYNC_DOUT          4'b0100  {ID, VAL}         ID[11:6]: Output PIN ID
+ *    SYNC_DOUT          4'b0100  {ID, VAL}         ID[11:4]: Output PIN ID
  *                                                  VAL[0]:   ON(1), OFF(0)
- *    SYNC_DIN           4'b0101  {ID, TYPE}        ID[11:6]: Input PIN ID
+ *    SYNC_DIN           4'b0101  {ID, TYPE}        ID[11:4]: Input PIN ID
  *                                                  TYPE[2:0]: LOW(000), HIGH(001), FALL(010), RISE(011)
  *                                                             TIMEOUT(100)
  *    RESERVED           4'b0110  
@@ -27,8 +27,9 @@
  *                                                  VAL[7:0]: one byte data
  *    SYNC_EOF           4'b1101                    End of frame                                            
  *    SYNC_DAC           4'b1110  {ID, ADDR}        write into DAC register with {ID[11:8], ADDR[7:0]}
- *                                                  ADDR: 0x01 ... Data register
- *                                                  ADDR: 0x55 ... Control register
+ *                                                  ADDR: 0x01 ... Data register for AD5422
+ *                                                  ADDR: 0x55 ... Control register for AD5422
+ *                                                  ADDR: 0x99 ... DAC_OFFSET for RISC
  *    Write 2nd byte of SYNC_CMD[] will push it into SFIFO.
  *    The WB_WRITE got stalled if SFIFO is full.
  */
@@ -66,9 +67,6 @@
 #define POS_MASK                        0x1FFF
 
 #define SYNC_OP_CODE_MASK               0xF000
-#define SYNC_DI_DO_PIN_MASK             0x0FC0
-#define SYNC_DOUT_VAL_MASK              0x0001
-#define SYNC_DIN_TYPE_MASK              0x0007
 #define SYNC_DATA_MASK                  0x00FF
 #define SYNC_MOT_PARAM_ID_MASK          0x0F00
 #define SYNC_MOT_PARAM_ADDR_MASK        0x00FF
@@ -86,11 +84,25 @@
 #define SYNC_DAC_ID_MASK                0x0F00
 #define SYNC_DAC_ADDR_MASK              0x00FF
 #define SYNC_DAC_VAL_MASK               0xFFFF
+#define SYNC_DAC_DATA                   0x01 // DAC_DATA at ADDR field
+#define SYNC_DAC_CTRL                   0x55 // DAC_CTRL at ADDR field
+#define SYNC_DAC_OFFSET                 0x99 // DAC_OFFSET at ADDR field
 
-//      SFIFO DATA MACROS
-#define GET_IO_ID(i)                    (((i) & SYNC_DI_DO_PIN_MASK) >> 6)
-#define GET_DO_VAL(v)                   (((v) & SYNC_DOUT_VAL_MASK))
-#define GET_DI_TYPE(t)                  (((t) & SYNC_DIN_TYPE_MASK))
+// SFIFO DATA MACROS
+// SYNC_DOUT          4'b0100  {ID, VAL}         ID[11:4]: Output PIN ID
+//                                               VAL[0]:   ON(1), OFF(0)
+// SYNC_DIN           4'b0101  {ID, TYPE}        ID[11:4]: Input PIN ID
+//                                               TYPE[2:0]: LOW(000), HIGH(001), FALL(010), RISE(011)
+//                                                          TIMEOUT(100)
+#define SYNC_DI_DO_PIN_MASK             0x0FF0
+#define SYNC_DOUT_VAL_MASK              0x0001
+#define SYNC_DIN_TYPE_MASK              0x0007
+#define DIO_PIN_OFFSET                  4
+#define GET_IO_ID(i)                    (((i) & SYNC_DI_DO_PIN_MASK) >> DIO_PIN_OFFSET)
+#define DO_VAL(v)                       (((v) & SYNC_DOUT_VAL_MASK))
+#define DI_TYPE(t)                      (((t) & SYNC_DIN_TYPE_MASK))
+#define PACK_IO_ID(i)                   (((i) << DIO_PIN_OFFSET) & SYNC_DI_DO_PIN_MASK)
+
 #define GET_DATA_VAL(t)                 (((t) & SYNC_DATA_MASK))
 #define GET_MOT_PARAM_ID(t)             (((t) & SYNC_MOT_PARAM_ID_MASK) >> 8)
 #define GET_MOT_PARAM_ADDR(t)           (((t) & SYNC_MOT_PARAM_ADDR_MASK))
@@ -101,9 +113,6 @@
 #define GET_DAC_VAL(v)                  ((v) & SYNC_DAC_VAL_MASK)
 
 #define PACK_SYNC_DATA(t)               ((t & 0xFF))
-#define PACK_IO_ID(i)                   (((i) & 0x3F) << 6)
-#define PACK_DO_VAL(v)                  (((v) & 0x01))
-#define PACK_DI_TYPE(t)                 (((t) & 0x07))
 #define PACK_MOT_PARAM_ID(t)            (((t) << 8) & SYNC_MOT_PARAM_ID_MASK)
 #define PACK_MOT_PARAM_ADDR(t)          ((t) & SYNC_MOT_PARAM_ADDR_MASK)
 #define PACK_MACH_PARAM_ADDR(t)         ((t) & SYNC_MACH_PARAM_ADDR_MASK)
@@ -196,10 +205,6 @@ enum machine_parameter_addr {
     ALR_EN_BITS,            // the bitmap of ALARM bits for all joints (DIN[6:1])
                             //             as well as ALARM_EN/ESTOP bit (DIN[0])
 
-    SSIF_MODE,              // [7:0]    bitwise mapping of mode for SSIF_PULSE_TYPE
-                            //          0: POSITION MODE (STEP-DIR or AB-PHASE)
-                            //          1: PWM MODE (velocity or torque)
-
     MACHINE_CTRL,           // [31:28]  JOG_VEL_SCALE
                             // [27:24]  SPINDLE_JOINT_ID
                             // [23:16]  NUM_JOINTS
@@ -253,14 +258,33 @@ enum motion_parameter_addr {
     SCALE             ,     // unit_pulses/servo_period : 16.16 format, 
     ENC_SCALE         ,     // encoder scale: 16.16 format
     SSYNC_SCALE       ,     // spindle sync compensation scale: 16.16 format
-    // PWM: begin
-    FULL_PWM_PULSE    ,
-    MAX_PWM_OUT       ,
-    PWM_PER_PULSE     ,
-    PULSE_PER_PWM     ,
-    // PWM: end
+    // OUTPUT: begin
+    OUT_DEV           ,     // output device：AB-PHASE/STEP-DIR/PWM/DAC
+                            // [31:28] TYPE: ANALOG/DIGITAL
+                            // [27:24] CHANNEL: DAC channel
+                            // [23: 0] RESERVED
+    OUT_RANGE         ,     // [31:16] MIN_OUT [15:0] MAX_OUT
+    OUT_MAX_IPULSE    ,     // Max input pulse for the output device, Q16.16
+    OUT_SCALE         ,     // output scale per pulse, Q16.16
+    OUT_OFFSET        ,     // output offset, Q16.16
+                            // output = ipulse * OUT_SCALE + OUT_OFFSET
+    OUT_SCALE_RECIP   ,     // reciprocol of OUT_SCALE, Q16.16
+    // OUTPUT: end
     MAX_PARAM_ITEM
 };
 #define NUM_PID_PARAMS 14   // pid params: from P_GAIN to MAXOUTPUT
+#define OUT_DEV_TYPE_MASK   0xF0000000  // [31:28] TYPE: ANALOG/PWM/PULSE
+#define OUT_DEV_CH_MASK     0x0F000000  // [27:24] CHANNEL: DAC channel
+#define OUT_RANGE_MAX_MASK  0x0000FFFF  // [15: 0] MAX_OUT
+#define OUT_RANGE_MIN_MASK  0xFFFF0000  // [31:16] MIN_OUT
+
+#define OUT_TYPE_AB_PHASE   (0)         // digital pulse type: AB-PHASE 
+#define OUT_TYPE_STEP_DIR   (1)         // digital pulse type: STEP-DIR
+#define OUT_TYPE_DAC        (2)         // DAC output type, +/-10V, 0~10V, 0~20mA ... etc.
+#define OUT_TYPE_PWM        (3)         // PWM-DIR type: 100% PWM + DIR signal
+
+#define ENC_TYPE_LOOPBACK   (0)
+#define ENC_TYPE_AB_PHASE   (2)
+#define ENC_TYPE_STEP_DIR   (3)
 
 #endif // __sync_cmd_h__

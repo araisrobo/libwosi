@@ -13,8 +13,8 @@ EXTRA_DIST = README
 
 # wosi-unit-test-spi: ysli 2015-02-08
 
-noinst_PROGRAMS = \
-	check_ar11-bbb
+# noinst_PROGRAMS = \
+# 	check_ar11-bbb
 
 common_ldflags = \
 	$(top_builddir)/src/libwosi.la \
@@ -32,9 +32,9 @@ AM_LDFLAGS = -static
 #TODO: wosi_unit_test_spi_CFLAGS = @CHECK_CFLAGS@
 #TODO: wosi_unit_test_spi_LDADD = $(common_ldflags)
 
-check_ar11_bbb_SOURCES = check_ar11-bbb.c
-check_ar11_bbb_CFLAGS = @CHECK_CFLAGS@ $(PROFILE_CFLAGS)
-check_ar11_bbb_LDADD = $(common_ldflags)
+# check_ar11_bbb_SOURCES = check_ar11-bbb.c
+# check_ar11_bbb_CFLAGS = @CHECK_CFLAGS@ $(PROFILE_CFLAGS)
+# check_ar11_bbb_LDADD = $(common_ldflags)
 
 #TODO: wosi_unit_test_jcmd_SOURCES = wosi-unit-test-jcmd.c
 #TODO: wosi_unit_test_jcmd_LDADD = $(common_ldflags)
