@@ -175,9 +175,9 @@ struct board board_table[] = {
         .io.spi.mode_wr   = 0x00,
         .io.spi.mode_rd   = 0x00,       // set mode_rd as 0 for RPi2
         .io.spi.bits      = 8,          // bits per word
-        // .io.spi.speed     = 16000000UL   // 16Mbps for RPi2
+        .io.spi.speed     = 16000000UL   // 16Mbps for RPi2
         // .io.spi.speed     = 9000000UL   // 9Mbps for RPi2
-           .io.spi.speed     = 7000000UL   // 7Mbps for RPi2
+        // .io.spi.speed     = 7000000UL   // 7Mbps for RPi2
     }
 };
 
