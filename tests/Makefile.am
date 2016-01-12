@@ -51,5 +51,6 @@ AM_LDFLAGS = -static
 #TODO: wosi_unit_test_ustep_SOURCES = wosi-unit-test-ustep.c
 #TODO: wosi_unit_test_ustep_LDADD = $(common_ldflags)
 
-INCLUDES = -I$(top_srcdir) -I$(top_srcdir)/src
+# INCLUDES = -I$(top_srcdir) -I$(top_srcdir)/src
+AM_CFLAGS = -I$(top_srcdir) -I$(top_srcdir)/src
 CLEANFILES = *~
