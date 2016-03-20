@@ -22,7 +22,7 @@
 #
 
 # LDFLAG for pigpio
-AM_CFLAGS= -fPIC -Wall
+AM_CFLAGS= -fPIC -Wall -I../
 AM_LDFLAGS= -lpigpio -lrt -lpthread
 
 noinst_LTLIBRARIES = libwosi.la
@@ -35,4 +35,4 @@ libwosi_la_SOURCES = \
 	crc.h \
 	crc.c
 
-INCLUDES = -I../
+# INCLUDES = -I../
