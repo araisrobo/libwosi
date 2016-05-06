@@ -821,11 +821,11 @@ void wosi_recv (board_t* b)
                 break;
             }
         }
-        if ((recvd != 0) || (b->ready == 0) || (i >= 5)) {
+        if ((recvd != 0) || (b->ready == 0) || (i > 4)) {
             break;
         } else {
             // retry 5 times to receive something after RISC_ON
-            usleep(1);
+            // usleep(1); => TODO: remove this usleep
             i ++;
         }
     }
