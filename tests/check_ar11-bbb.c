@@ -47,7 +47,7 @@ START_TEST (test_wosi_connect)
     ck_assert_int_eq (w_param.board->io.spi.mode_wr, 0);
     ck_assert_int_eq (w_param.board->io.spi.mode_rd, 0);
     ck_assert_int_eq (w_param.board->io.spi.bits, 8);
-    ck_assert_int_eq (w_param.board->io.spi.speed, 7000000UL);
+    ck_assert_int_eq (w_param.board->io.spi.speed, 16000000UL);
     _ck_assert_int   (w_param.board->io.spi.fd_wr, >=, 0);
     _ck_assert_int   (w_param.board->io.spi.fd_rd, >=, 0);
     ck_assert_int_ne (w_param.board->io.spi.fd_burst_rd_rdy, 0);
@@ -443,23 +443,23 @@ const char *ferror_str[MAX_CHAN] =
 { "0", "0", "0", "0", "0", "0", "0", "0" };
 
 const char **pid_str[MAX_CHAN];
-// P    I    D    FF0  FF1      FF2  DB   BI   M_ER M_EI M_ED MCD  MCDD MO
+// PPG    PIG   PFFG    PDB    PME    PMIE    PMO    VPG   VFFG
 const char *j0_pid_str[NUM_PID_PARAMS] =
-{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+{  "0",   "0", "65536", "0",   "0",    "0",   "0",   "0", "65536"};
 const char *j1_pid_str[NUM_PID_PARAMS] =
-{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+{  "0",   "0", "65536", "0",   "0",    "0",   "0",   "0", "65536"};
 const char *j2_pid_str[NUM_PID_PARAMS] =
-{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+{  "0",   "0", "65536", "0",   "0",    "0",   "0",   "0", "65536"};
 const char *j3_pid_str[NUM_PID_PARAMS] =
-{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+{  "0",   "0", "65536", "0",   "0",    "0",   "0",   "0", "65536"};
 const char *j4_pid_str[NUM_PID_PARAMS] =
-{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+{  "0",   "0", "65536", "0",   "0",    "0",   "0",   "0", "65536"};
 const char *j5_pid_str[NUM_PID_PARAMS] =
-{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+{  "0",   "0", "65536", "0",   "0",    "0",   "0",   "0", "65536"};
 const char *j6_pid_str[NUM_PID_PARAMS] =
-{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+{  "0",   "0", "65536", "0",   "0",    "0",   "0",   "0", "65536"};
 const char *j7_pid_str[NUM_PID_PARAMS] =
-{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+{  "0",   "0", "65536", "0",   "0",    "0",   "0",   "0", "65536"};
 
 START_TEST (test_clock_buf_full)
 {   /* the clock buffer should not full */
@@ -548,8 +548,6 @@ START_TEST (test_clock_buf_full)
         wosi_cmd (&w_param, WB_WR_CMD,
                 (uint16_t) (SSIF_BASE | SSIF_PULSE_TYPE),
                 (uint8_t) 2, data);
-        write_machine_param(SSIF_MODE, data_32);
-        DP("SSIF_MODE: 0x%08X\n", data_32);
         DP("PULSE_TYPE[J3:J0]: 0x%02X\n", data[0]);
         DP("PULSE_TYPE[J7:J4]: 0x%02X\n", data[1]);
     } else {
@@ -632,7 +630,7 @@ START_TEST (test_clock_buf_full)
         jsp = atoi(jsp_id[n]);
         jsn = atoi(jsn_id[n]);
         data_32 = (n << 16) | (jsp << 8) | (jsn);
-        write_machine_param(JOINT_JSP_JSN, data_32);
+        write_machine_param(JOINT_JOGP_JOGN, data_32);
         while(wosi_flush(&w_param) == -1);
     }
 
@@ -748,15 +746,13 @@ START_TEST (test_clock_buf_full)
     for (n=0; n < MAX_CHAN; n++) {
         if (pid_str[n][0] != NULL) {
             DP("J%d_PID: ", n);
-            DP("#   0:P 1:I 2:D 3:FF0 4:FF1 5:FF2 6:DB 7:BI 8:M_ER 9:M_EI 10:M_ED 11:MCD 12:MCDD 13:MO\n");
-            // all gains (P, I, D, FF0, FF1, FF2) varie from 0(0%) to 65535(100%)
-            // all the others units are '1 pulse'
+            DP("# PPG    PIG   PFFG    PDB    PME    PMIE    PMO    VPG   VFFG\n");
             for (i=0; i < NUM_PID_PARAMS; i++) {
                 data_32 = atoi(pid_str[n][i]);
                 // P_GAIN: the mot_param index for P_GAIN value
-                write_mot_param (n, (P_GAIN + i), data_32);
+                write_mot_param (n, (PPG + i), data_32);
                 while(wosi_flush(&w_param) == -1);
-                DP("pid[%d][%d] = %s (%d)\n", n, P_GAIN + i, pid_str[n][i], data_32);
+                DP("pid[%d][%d] = %s (%d)\n", n, PPG + i, pid_str[n][i], data_32);
             }
         }
     }
@@ -774,37 +770,26 @@ START_TEST (test_clock_buf_full)
     wosi_set_mbox_cb (&w_param, fetchmail);         
     
     /* SON: turn ON wosi.gpio.out.00 */
-    sync_cmd[0] = SYNC_DOUT | PACK_IO_ID(0) | PACK_DO_VAL(1);
+    sync_cmd[0] = SYNC_DOUT | PACK_IO_ID(0) | DO_VAL(1);
     memcpy(data, sync_cmd, sizeof(uint16_t));
     wosi_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD),sizeof(uint16_t), data);
 
     /* BRAKE: turn ON wosi.gpio.out.01 */
-    sync_cmd[0] = SYNC_DOUT | PACK_IO_ID(1) | PACK_DO_VAL(1);
+    sync_cmd[0] = SYNC_DOUT | PACK_IO_ID(1) | DO_VAL(1);
     memcpy(data, sync_cmd, sizeof(uint16_t));
     wosi_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD),sizeof(uint16_t), data);
 
     /* spi_1.dout_0: turn ON wosi.gpio.out.08 */
-    sync_cmd[0] = SYNC_DOUT | PACK_IO_ID(8) | PACK_DO_VAL(1);
+    sync_cmd[0] = SYNC_DOUT | PACK_IO_ID(8) | DO_VAL(1);
     memcpy(data, sync_cmd, sizeof(uint16_t));
     wosi_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD),sizeof(uint16_t), data);
 
     // NOT TURNING those for MEINAN's hydralic cylinders
     /* spi_2.dout_0: turn ON wosi.gpio.out.16 */
-    sync_cmd[0] = SYNC_DOUT | PACK_IO_ID(16) | PACK_DO_VAL(1);
+    sync_cmd[0] = SYNC_DOUT | PACK_IO_ID(16) | DO_VAL(1);
     memcpy(data, sync_cmd, sizeof(uint16_t));
     wosi_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD),sizeof(uint16_t), data);
 
-    // /* spi_3.dout_0: turn ON wosi.gpio.out.24 */
-    // sync_cmd[0] = SYNC_DOUT | PACK_IO_ID(24) | PACK_DO_VAL(1);
-    // memcpy(data, sync_cmd, sizeof(uint16_t));
-    // wosi_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD),sizeof(uint16_t), data);
-    // 
-    // for (i=16; i<32; i++) {  
-    //     sync_cmd[0] = SYNC_DOUT | PACK_IO_ID(i) | PACK_DO_VAL(1);
-    //     memcpy(data, sync_cmd, sizeof(uint16_t));
-    //     wosi_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD),sizeof(uint16_t), data);
-    // }
-    
     // loop forever
     for (i=0; i<250000000; i++) {
 
@@ -840,11 +825,18 @@ START_TEST (test_clock_buf_full)
         memcpy(data, &(sync_cmd[0]), sizeof(uint16_t));
         wosi_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD), sizeof(uint16_t), data);
 
-
+#if 0
+        if (wosi_flush(&w_param) == -1)
+        {
+            printf("ERROR: wosi_flush()\n");
+        }
+        
+#else
+        // with ASSERTIONS
 
         wosi_send(w_param.board);                       // send
         wosi_recv(w_param.board);                       // receive
-        
+
         // calculated tid after wosi_eof()
         cur_tid = w_param.board->wosi->tid;
         ret = wosi_eof (w_param.board, TYP_WOSIF);      // pack a typical WOSI_FRAME;
@@ -867,15 +859,16 @@ START_TEST (test_clock_buf_full)
         }
         next_4_wosif_ = &(w_param.board->wosi->wosifs[next_4_clock]);
         ck_assert_int_eq (next_4_wosif_->use, 0);
+#endif // for wosi_flush()
 
         wosi_status (&w_param);  // print out tx/rx data rate
         /* update GPIO value */
-        if ((i & 0x1FFF) == 0) {
-            printf("i(%d) dout0(0x%08X)\n\tgpio.in.00(%d)\n", i, dout0, din[0] & 0x01);
-            printf("\tgpio.in.32(%d)\n",           din[1] & 0x01);
-            printf("\tgpio.in.48(%d)\n",   (din[1] >> 16) & 0x01);
-            printf("\tgpio.in.64(%d)\n",           din[2] & 0x01);
-        }
+//        if ((i & 0x1FFF) == 0) {
+//            printf("i(%d) dout0(0x%08X)\n\tgpio.in.00(%d)\n", i, dout0, din[0] & 0x01);
+//            printf("\tgpio.in.32(%d)\n",           din[1] & 0x01);
+//            printf("\tgpio.in.48(%d)\n",   (din[1] >> 16) & 0x01);
+//            printf("\tgpio.in.64(%d)\n",           din[2] & 0x01);
+//        }
 
 //	usleep(250);    // sleep for 0.65ms
     }
