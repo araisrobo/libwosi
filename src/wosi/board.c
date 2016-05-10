@@ -724,10 +724,9 @@ void wosi_recv (board_t* b)
 
     DP ("rx_size(%d)\n", *rx_size);
     DP ("fd_rd(%d) RX_CHUNK_SIZE(%d)\n", b->io.spi.fd_rd, RX_CHUNK_SIZE);
-    i = 0;
     recvd = 0;
     while (gpioRead(b->io.spi.burst_rd_rdy_pin) != 0)
-    {
+    {   // will break the while-loop if burst-read is not ready (burst_rd_rdy)
         DP ("SPI burst read is READY\n");
         recvd = spiRead(b->io.spi.fd_rd, (char *)buf_rx + *rx_size, RX_CHUNK_SIZE);
         if (recvd < RX_CHUNK_SIZE) {
@@ -737,12 +736,9 @@ void wosi_recv (board_t* b)
         // append data from USB to buf_rx[]
         b->rd_dsize += recvd;
         *rx_size += recvd;
-        i++;
-        if (((*rx_size + RX_CHUNK_SIZE) >
-              NR_OF_WIN*(WOSIF_HDR_SIZE+1/*TID_SIZE*/+MAX_PSIZE+CRC_SIZE)) ||
-            (i > 9))
+        if ((*rx_size + RX_CHUNK_SIZE) >
+            NR_OF_WIN*(WOSIF_HDR_SIZE+1/*TID_SIZE*/+MAX_PSIZE+CRC_SIZE))
         {   // approaching buf_rx limit
-            // Or, already fetched 10x128(RX_CHUNK_SIZE) 
             break;
         } 
     }
