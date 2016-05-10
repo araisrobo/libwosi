@@ -109,6 +109,7 @@ typedef struct board {
             unsigned            device_wr;          // SPI device id for pigpio
             unsigned            device_rd;          // SPI device id for pigpio
             unsigned int        burst_rd_rdy_pin;   // GPIO_12 (H_TXRDY)
+            unsigned int        burst_wr_rdy_pin;   // GPIO_9  (H_RXRDY)
             unsigned            fd_wr;
             unsigned            fd_rd;
             int                 fd_burst_rd_rdy;

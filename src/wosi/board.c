@@ -155,9 +155,11 @@ static struct timespec time_send_success; // time of a success send transfer
 
 static int prev_ss;     // second for board_status()
 
-#define TX_TIMEOUT   50000000   // 50ms, unit: nano-sec
+// #define TX_TIMEOUT   50000000   // 50ms, unit: nano-sec
+#define TX_TIMEOUT   95000000   // 95ms, unit: nano-sec
 // #define TX_TIMEOUT 19000000     // unit: nano-sec
 #define BUF_SIZE 80             // the buffer size for tx_str[] and rx_str[]
+#define BURST_WR_SIZE   512
 
 //
 // this array describes all the boards we know how to program
@@ -171,7 +173,8 @@ struct board board_table[] = {
         .program_funct = NULL,
         .io.spi.device_wr = 0,          // SPI device id for pigpio
         .io.spi.device_rd = 1,          // SPI device id for pigpio
-        .io.spi.burst_rd_rdy_pin = 12,  // GPIO_12, H_TXRDY
+        .io.spi.burst_rd_rdy_pin = 12,  // GPIO_12, H_TXRDY of fifo.fpga_to_host
+        .io.spi.burst_wr_rdy_pin = 9,   // GPIO_9/MISO, H_RXRDY of fofo.host_to_fpga
         .io.spi.mode_wr   = 0x00,
         .io.spi.mode_rd   = 0x00,       // set mode_rd as 0 for RPi2
         .io.spi.bits      = 8,          // bits per word
@@ -388,6 +391,7 @@ int board_init (board_t* board, const char* device_type, const int device_id,
                 board->io.spi.bits              = board_table[i].io.spi.bits;
                 board->io.spi.speed             = board_table[i].io.spi.speed;
                 board->io.spi.burst_rd_rdy_pin  = board_table[i].io.spi.burst_rd_rdy_pin;
+                board->io.spi.burst_wr_rdy_pin  = board_table[i].io.spi.burst_wr_rdy_pin;
             }
             break;
         }
@@ -424,7 +428,7 @@ static int board_connect_spi (board_t* board)
     DP ("mode_wr(0x%02X)\n", board->io.spi.mode_wr);
     DP ("mode_rd(0x%02X)\n", board->io.spi.mode_rd);
     DP ("bits(%d)\n", board->io.spi.bits);
-    DP ("speed(%d)\n", board->io.spi.speed);
+    DP ("speed(%lu)\n", board->io.spi.speed);
 
     ret = gpioInitialise();  
     if (ret < 0)
@@ -438,6 +442,14 @@ static int board_connect_spi (board_t* board)
     {
         printf("ERROR: gpioSetMode(GPIO(%d),MODE(%d))\n", 
                 board->io.spi.burst_rd_rdy_pin, PI_INPUT);
+        return ret;
+    }
+    
+    ret = gpioSetMode(board->io.spi.burst_wr_rdy_pin, PI_INPUT);
+    if (ret != 0)
+    {
+        printf("ERROR: gpioSetMode(GPIO(%d),MODE(%d))\n", 
+                board->io.spi.burst_wr_rdy_pin, PI_INPUT);
         return ret;
     }
 
@@ -733,6 +745,7 @@ void wosi_recv (board_t* b)
             break;
         } else {
             i ++;
+            usleep(1); // sleep for 1us
         }
     }
 
@@ -759,6 +772,7 @@ void wosi_recv (board_t* b)
 #endif
 
             // locate {PREAMBLE_0, PREAMBLE_1, SOFD}
+            cmp = -1;
             for (i=0; i<=(*rx_size - (WOSIF_HDR_SIZE + 2/*{WOSIF_COMMAND, TID/MAIL_TAG}*/ + CRC_SIZE)); i++) {
                 cmp = memcmp (buf_rx + i, sync_words, 3);
                 // *(buf_rx+i+3);    // PLOAD_SIZE_TX must not be 0
@@ -776,20 +790,18 @@ void wosi_recv (board_t* b)
                 DP ("after memmove(): buf_rx(%p) buf_head(%p) rx_size(%d)\n", buf_rx, buf_head, *rx_size);
             }
 
-            if ((cmp == 0) && (*(buf_rx + WOSIF_HDR_SIZE - 1) > 0)) {
+            if ((cmp == 0) && 
+                ((WOSIF_HDR_SIZE + *(buf_rx + WOSIF_HDR_SIZE - 1) + CRC_SIZE) < *rx_size)) // (HEADER_SIZE + PLOAD_SIZE_TX + 2_bytes_of_CRC) < rx_size
+            {
                 // we got {PREAMBLE_0, PREAMBLE_1, SOFD} and non-zero PLOAD_SIZE_TX
+                // and, we got enough data to check CRC
                 // make buf_head point to PLOAD_SIZE_TX
                 buf_head = buf_rx + (WOSIF_HDR_SIZE - 1);
-                DP ("buf_head[0](%d) rx_size(%d)\n", buf_head[0], *rx_size);
-                if ((WOSIF_HDR_SIZE + buf_head[0] + CRC_SIZE) <= *rx_size)
-                {
-                    // we got enough data to check CRC
-                    *rx_state = PLOAD_CRC;
-                    immediate_state = 1;    // switch to PLOAD_CRC state ASAP
-                }
-                // else: not enough data for CRC checking, keep waiting
+                *rx_state = PLOAD_CRC;
+                immediate_state = 1;    // switch to PLOAD_CRC state ASAP
             } else {
                 // no {PREAMBLE_0, PREAMBLE_1, SOFD}
+                // Or, not enough data for CRC checking, keep fetching for enough buf_rx[]
 
                 // next rx_state wosild still be SYNC;
             }
@@ -883,9 +895,20 @@ void wosi_send (board_t* b)
     int     i;
     int     *tx_size;
 
+    
+    i = 0;
+    while (gpioRead(b->io.spi.burst_wr_rdy_pin) != 0) // wr-fifo almost full
+    {
+        i+=1;
+        usleep(1); // sleep for 1us
+        if (i > 4) {
+            return;
+        }
+    }
+
     clock_gettime(CLOCK_REALTIME, &cur_time);
     diff_time(&time_send_success, &cur_time, &dt);
-
+    
     b->wosi->tx_timeout = 0;
     if (dt.tv_sec > 0 || dt.tv_nsec > TX_TIMEOUT) {
         printf ("TX TIMEOUT for GO-BACK-N\n");
@@ -918,6 +941,7 @@ void wosi_send (board_t* b)
             for (i=*Sn; i<=*Sm; i++) {
                 assert (i < NR_OF_CLK);
                 if (b->wosi->wosifs[i].use == 0) break;
+                if ((*tx_size + b->wosi->wosifs[i].fsize) > BURST_WR_SIZE) break;
                 buf_src = b->wosi->wosifs[i].buf;
                 memcpy (buf_tx + *tx_size, buf_src, b->wosi->wosifs[i].fsize);
                 *tx_size += b->wosi->wosifs[i].fsize;
@@ -936,6 +960,7 @@ void wosi_send (board_t* b)
             for (i=*Sn; i<NR_OF_CLK; i++) {
                 assert (i < NR_OF_CLK);
                 if (b->wosi->wosifs[i].use == 0) break;
+                if ((*tx_size + b->wosi->wosifs[i].fsize) > BURST_WR_SIZE) break;
                 buf_src = b->wosi->wosifs[i].buf;
                 memcpy (buf_tx + *tx_size, buf_src, b->wosi->wosifs[i].fsize);
                 *tx_size += b->wosi->wosifs[i].fsize;
@@ -947,6 +972,7 @@ void wosi_send (board_t* b)
                 for (i=0; i<=*Sm; i++) {
                     assert (i < NR_OF_CLK);
                     if (b->wosi->wosifs[i].use == 0) break;
+                    if ((*tx_size + b->wosi->wosifs[i].fsize) > BURST_WR_SIZE) break;
                     buf_src = b->wosi->wosifs[i].buf;
                     memcpy (buf_tx + *tx_size, buf_src, b->wosi->wosifs[i].fsize);
                     *tx_size += b->wosi->wosifs[i].fsize;
@@ -1114,6 +1140,7 @@ int wosi_eof (board_t* b, uint8_t wosif_cmd)
     uint16_t    crc16;
     int         next_5_clock;
     wosif_t     *next_5_wosif_;
+    int         i;
 
     cur_clock = (int) b->wosi->clock;
     wosi_frame_ = &(b->wosi->wosifs[cur_clock]);
@@ -1124,8 +1151,18 @@ int wosi_eof (board_t* b, uint8_t wosif_cmd)
     }
     next_5_wosif_ = &(b->wosi->wosifs[next_5_clock]);
 
+    i = 0;
     while (next_5_wosif_->use == 1) {
         wosi_recv(b); // flush ACK-ed frames to prepare space for wosi_eof()
+        wosi_send(b); 
+        i++;
+        if ((i%1000) == 0) {
+            printf ("(%s:%d) idle-counts(%d)\n", __FILE__, __LINE__, i);
+            // printf("(%s:%d) burst_rd_rdy(%d)\n", __FILE__, __LINE__,
+            //                                      gpioRead(b->io.spi.burst_rd_rdy_pin));
+            // printf("(%s:%d) burst_wr_rdy(%d)\n", __FILE__, __LINE__,
+            //                                      gpioRead(b->io.spi.burst_wr_rdy_pin));
+        }
         DP ("(%s:%d) next_5_wosif_->use(%d)\n", __FILE__, __LINE__, next_5_wosif_->use);
     }
 
@@ -1166,9 +1203,9 @@ int wosi_eof (board_t* b, uint8_t wosif_cmd)
     }
     // flush pending [wosi] packets
 
-    if (b->wosi->rt_cmd_callback) {
-        b->wosi->rt_cmd_callback();
-    }
+    // if (b->wosi->rt_cmd_callback) {
+    //     b->wosi->rt_cmd_callback();
+    // }
 
     // init the wosif buffer and tid
     assert(wosi_frame_->use == 0);   // wosi protocol assume cur-wosif_ must be empty to write to

@@ -25,6 +25,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <fcntl.h>
+#include <time.h>
 
 #include "config.h"
 #include "wosi.h"
@@ -109,13 +110,42 @@ const void *wosi_reg_ptr (wosi_param_t *w_param, uint32_t wosi_addr)
   return (ptr);
 }
 
+static void diff_time(struct timespec *start, struct timespec *end,
+                      struct timespec *diff)
+{
+    if ((end->tv_nsec - start->tv_nsec) < 0) {
+        diff->tv_sec = end->tv_sec - start->tv_sec - 1;
+        diff->tv_nsec = 1000000000 + end->tv_nsec - start->tv_nsec;
+    } else {
+        diff->tv_sec = end->tv_sec - start->tv_sec;
+        diff->tv_nsec = end->tv_nsec - start->tv_nsec;
+    }
+    return;
+}
+
 int wosi_flush (wosi_param_t *w_param)
 {
     int ret;
+//timing:    struct timespec t0, t1, t2, t3, dt1, dt2, dt3, dt;
 
+//timing:    clock_gettime(CLOCK_REALTIME, &t0);
     ret = wosi_eof (w_param->board, TYP_WOSIF); // typical WOSI_FRAME;
+//timing:    clock_gettime(CLOCK_REALTIME, &t1);
     wosi_send(w_param->board); // send
+//timing:    clock_gettime(CLOCK_REALTIME, &t2);
     wosi_recv(w_param->board); // flush ACK-ed frames to prepare space for wosi_eof()
+//timing:    clock_gettime(CLOCK_REALTIME, &t3);
+    
+//timing:    diff_time(&t0, &t3, &dt);
+//timing:    if ((dt.tv_nsec) > 655360) 
+//timing:    {
+//timing:        diff_time(&t0, &t1, &dt1);
+//timing:        diff_time(&t1, &t2, &dt2);
+//timing:        diff_time(&t2, &t3, &dt3);
+//timing:        printf ("dt1.sec(%lu), dt1.nsec(%lu)\n", dt1.tv_sec, dt1.tv_nsec);
+//timing:        printf ("dt2.sec(%lu), dt2.nsec(%lu)\n", dt2.tv_sec, dt2.tv_nsec);
+//timing:        printf ("dt3.sec(%lu), dt3.nsec(%lu)\n", dt3.tv_sec, dt3.tv_nsec);
+//timing:    }
 
     return ret;
 }
