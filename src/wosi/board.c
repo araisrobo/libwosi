@@ -737,16 +737,14 @@ void wosi_recv (board_t* b)
         // append data from USB to buf_rx[]
         b->rd_dsize += recvd;
         *rx_size += recvd;
+        i++;
         if (((*rx_size + RX_CHUNK_SIZE) >
               NR_OF_WIN*(WOSIF_HDR_SIZE+1/*TID_SIZE*/+MAX_PSIZE+CRC_SIZE)) ||
-            (i > 4))
+            (i > 9))
         {   // approaching buf_rx limit
-            // Or, retry 5 times to receive something after RISC_ON
+            // Or, already fetched 10x128(RX_CHUNK_SIZE) 
             break;
-        } else {
-            i ++;
-            usleep(1); // sleep for 1us
-        }
+        } 
     }
 
     // parsing buf_rx[]:
@@ -895,7 +893,6 @@ void wosi_send (board_t* b)
     int     i;
     int     *tx_size;
 
-    
     i = 0;
     while (gpioRead(b->io.spi.burst_wr_rdy_pin) != 0) // wr-fifo almost full
     {
